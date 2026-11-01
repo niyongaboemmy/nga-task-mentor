@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { isPersonalAiUnavailableError, personalAiErrorBody, personalAiFrom } from "../services/myAiGateway";
+import { sendHandoff } from "../services/aiHandoff";
 import { QueryTypes } from "sequelize";
 import { sequelize } from "../config/database";
 import { DatabaseQueryLog, User } from "../models";
@@ -710,6 +711,7 @@ export const generateSqlWithAI = async (req: Request, res: Response) => {
       ai: ai ?? null,
     });
   } catch (error: any) {
+    if (sendHandoff(res, error)) return;
     if (isAiDisabledError(error)) return res.status(403).json(aiDisabledBody(error.reason));
     if (isPersonalAiUnavailableError(error)) return res.status(503).json(personalAiErrorBody(error));
     console.error("Generate SQL with AI error:", error);

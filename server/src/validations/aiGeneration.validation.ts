@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { aiHandoffSchema } from "./aiHandoff.validation";
 import { SUPPORTED_AI_QUESTION_TYPES } from "../services/ai/prompts/generateFromDocumentPrompt";
 
 /**
@@ -47,6 +48,8 @@ export const aiGenerateBatchSchema = z
     async: z.boolean().optional().default(false),
     /** My AI: a one-off choice from the AI panel ("school", "<credentialId>" or "<credentialId>:<model>"). */
     aiRoute: z.string().trim().max(200).nullish(),
+    /** "Open in Claude / ChatGPT" / "Paste the answer" (services/aiHandoff.ts). */
+    aiHandoff: aiHandoffSchema,
 
   })
   .superRefine((body, ctx) => {

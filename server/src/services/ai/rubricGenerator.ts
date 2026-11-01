@@ -3,6 +3,7 @@ import type { AiAnswer, PersonalAiCall } from "../myAiGateway";
 import { preferredOrder } from "../aiProviders/registry";
 import { htmlToText } from "./misCourseResources";
 import { isAiDisabledError } from "../aiPolicy";
+import { isHandoffSignal } from "../aiHandoff";
 
 /**
  * AI rubric builder for the assignment form. The teacher gives the maximum
@@ -215,7 +216,7 @@ export async function generateRubric(
       { providerOrder: preferredOrder(params.provider), personal: params.personal },
     ));
   } catch (err: any) {
-    if (isAiDisabledError(err)) throw err;
+    if (isAiDisabledError(err) || isHandoffSignal(err)) throw err;
     // Already a teacher-friendly message (quota, not configured, …).
     throw Object.assign(
       new Error(err?.message || "The AI service is unavailable."),

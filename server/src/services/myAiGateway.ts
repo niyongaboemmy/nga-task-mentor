@@ -2,6 +2,7 @@ import { AiDisabledError, getAiPolicy } from "./aiPolicy";
 import { clientBasicAuth } from "../access/misClient";
 import type { AiReason, AiTask } from "../vendor/nga-access";
 import type { JSONSchema } from "./aiProviders/types";
+import { handoffFrom, type HandoffContext } from "./aiHandoff";
 
 /**
  * "My AI" for Task Mentor (PERSONAL_AI_PROVIDERS_PLAN.md §3, §10; contract:
@@ -55,7 +56,8 @@ export interface MyAiRoutes {
 
 /** What answered a call, returned to the client as `ai`. */
 export interface AiAnswer {
-  route: "personal" | "school";
+  /** "handoff": the person pasted the answer from their own Claude/ChatGPT (services/aiHandoff.ts). */
+  route: "personal" | "school" | "handoff";
   reason: string;
   credentialId?: number;
   label?: string | null;
@@ -77,6 +79,8 @@ export interface PersonalAiCall {
   inAssessment?: boolean;
   /** One-off choice from the AI panel: "school", "<credentialId>" or "<credentialId>:<model>". */
   aiRoute?: string | null;
+  /** "Open in Claude / ChatGPT" / "Paste the answer" (aiHandoff in the body): no provider is called. */
+  handoff?: HandoffContext;
 }
 
 /** A personal key failed and the person did not allow the school AI to answer instead. */
@@ -375,6 +379,7 @@ export function personalAiFrom(
     feature,
     inAssessment: opts.inAssessment === true,
     aiRoute: aiRouteFrom(req),
+    handoff: handoffFrom(req as any),
   };
 }
 

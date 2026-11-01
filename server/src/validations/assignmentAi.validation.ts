@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { aiHandoffSchema } from "./aiHandoff.validation";
 import { RUBRIC_MAX_CRITERIA, RUBRIC_MIN_CRITERIA } from "../services/ai/rubricGenerator";
 
 export const RUBRIC_DESCRIPTION_MAX = 200_000;
@@ -31,6 +32,8 @@ export const generateRubricSchema = z.object({
     .transform((v) => v ?? null),
   /** My AI: a one-off choice from the AI panel ("school", "<credentialId>" or "<credentialId>:<model>"). */
   aiRoute: z.string().trim().max(200).nullish(),
+  /** "Open in Claude / ChatGPT" / "Paste the answer" (services/aiHandoff.ts). */
+  aiHandoff: aiHandoffSchema,
 });
 
 export const importEditorImageSchema = z.object({
@@ -44,4 +47,6 @@ export const draftFeedbackSchema = z.object({
   provider: z.string().max(40).nullable().optional(),
   /** My AI: a one-off choice from the AI panel ("school", "<credentialId>" or "<credentialId>:<model>"). */
   aiRoute: z.string().trim().max(200).nullish(),
+  /** "Open in Claude / ChatGPT" / "Paste the answer" (services/aiHandoff.ts). */
+  aiHandoff: aiHandoffSchema,
 });

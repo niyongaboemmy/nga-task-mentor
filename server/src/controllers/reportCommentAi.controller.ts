@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { draftComment } from "../services/ai/reportCommentDrafter";
 import { sendControllerError } from "../utils/controllerErrors";
+import { sendHandoff } from "../services/aiHandoff";
 import { personalAiFrom } from "../services/myAiGateway";
 
 /**
@@ -25,6 +26,7 @@ export const draftReportComment = async (req: Request, res: Response) => {
     });
     return res.json({ success: true, data: draft, ai: draft.ai ?? null });
   } catch (error: any) {
+    if (sendHandoff(res, error)) return;
     if ([400, 502, 503].includes(error?.statusCode)) {
       return res.status(error.statusCode).json({ success: false, message: error.message });
     }

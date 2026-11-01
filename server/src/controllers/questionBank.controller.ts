@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { isPersonalAiUnavailableError, personalAiErrorBody, personalAiFrom } from "../services/myAiGateway";
+import { sendHandoff } from "../services/aiHandoff";
 import { aiDisabledBody, isAiDisabledError } from "../services/aiPolicy";
 import { QuestionBank, QuizQuestion } from "../models";
 import { sequelize } from "../config/database";
@@ -849,6 +850,7 @@ export const generateQuestionsFromDocument = async (
       ai: ai ?? null,
     });
   } catch (error: any) {
+    if (sendHandoff(res, error)) return;
     if (isAiDisabledError(error)) return res.status(403).json(aiDisabledBody(error.reason));
     if (isPersonalAiUnavailableError(error)) return res.status(503).json(personalAiErrorBody(error));
     console.error("[AI Generate] Error:", error.message);

@@ -3,6 +3,7 @@ import type { AiAnswer, PersonalAiCall } from "../myAiGateway";
 import { preferredOrder } from "../aiProviders/registry";
 import { htmlToText } from "./misCourseResources";
 import { isAiDisabledError } from "../aiPolicy";
+import { isHandoffSignal } from "../aiHandoff";
 
 /**
  * AI marking assistant: drafts rubric scores and feedback for ONE submission.
@@ -194,10 +195,10 @@ export async function draftFeedback(input: FeedbackInput): Promise<FeedbackDraft
         }),
         maxOutputTokens: 2500,
       },
-      { providerOrder: preferredOrder(input.provider), personal: input.personal },
+      { providerOrder: preferredOrder(input.provider), personal: input.personal, pupilData: true },
     ));
   } catch (err: any) {
-    if (isAiDisabledError(err)) throw err;
+    if (isAiDisabledError(err) || isHandoffSignal(err)) throw err;
     throw Object.assign(new Error(err?.message || "The AI service is unavailable."), { statusCode: 503 });
   }
 
