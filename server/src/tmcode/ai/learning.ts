@@ -33,10 +33,64 @@ export interface LearningHelp {
   pseudo: boolean;
   syntax: boolean;
   allowance: { max: number; regain_minutes: number };
+  /**
+   * The request interpreter for students (prompt interpreter report, Q7): "auto" fades the intent
+   * card as their requests improve (full → hint → strip); the teacher may pin a stage or turn it off.
+   */
+  interpreter: InterpreterStage;
+  /** Teachers see the raw text of students' requests in the activity log (QD5; default: metadata only). */
+  show_prompts: boolean;
+  /** A Prompt Problem (Q11): the student writes a request whose generated code must pass the examples. */
+  prompt_problem: PromptProblem | null;
+}
+
+export const INTERPRETER_STAGES = ["auto", "full", "hint", "strip", "off"] as const;
+export type InterpreterStage = (typeof INTERPRETER_STAGES)[number];
+
+export interface PromptExample {
+  input: string;
+  output: string;
+}
+
+export interface PromptProblem {
+  language: "python" | "javascript";
+  /** The file the AI's code goes in (solution.py / solution.js). */
+  entry: string;
+  /** Shown to the student. */
+  examples: PromptExample[];
+  /** Never leave Task Mentor: the check runs them and reports only how many passed. */
+  hidden: PromptExample[];
+  instructions: string;
+  /** The intent card's quality hints are available while solving (else off: the student is on their own). */
+  hints: boolean;
 }
 
 /** Proposal D5/D6: pseudo-code on, tiny syntax off, 10 questions regaining 1 every 3 minutes. */
-export const LEARNING_DEFAULTS: LearningHelp = { strength: "tutor", pseudo: true, syntax: false, allowance: { max: 10, regain_minutes: 3 } };
+export const LEARNING_DEFAULTS: LearningHelp = { strength: "tutor", pseudo: true, syntax: false, allowance: { max: 10, regain_minutes: 3 }, interpreter: "auto", show_prompts: false, prompt_problem: null };
+
+const examplesOf = (v: unknown, max: number): PromptExample[] =>
+  (Array.isArray(v) ? v : [])
+    .map((e) => ({ input: String((e as PromptExample)?.input ?? "").slice(0, 400).trim(), output: String((e as PromptExample)?.output ?? "").slice(0, 400).trim() }))
+    .filter((e) => e.input)
+    .slice(0, max);
+
+/** A teacher's Prompt Problem, made safe (null when it has no example). */
+export function normalizePromptProblem(raw: unknown): PromptProblem | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const language = r.language === "javascript" ? "javascript" : "python";
+  const examples = examplesOf(r.examples, 8);
+  if (!examples.length) return null;
+  const entry = String(r.entry ?? "").trim();
+  return {
+    language,
+    entry: /^[\w.-]{1,60}$/.test(entry) ? entry : language === "python" ? "solution.py" : "solution.js",
+    examples,
+    hidden: examplesOf(r.hidden, 20),
+    instructions: String(r.instructions ?? "").slice(0, 1000).trim(),
+    hints: r.hints !== false,
+  };
+}
 
 const clampNum = (v: unknown, lo: number, hi: number, d: number) => {
   const n = Number(v);
@@ -58,7 +112,17 @@ export function normalizeHelp(raw: unknown): LearningHelp {
     pseudo: r.pseudo !== false,
     syntax: r.syntax === true,
     allowance: { max: Math.round(clampNum(a.max, 1, 100, LEARNING_DEFAULTS.allowance.max)), regain_minutes: clampNum(a.regain_minutes, 0.5, 120, LEARNING_DEFAULTS.allowance.regain_minutes) },
+    interpreter: (INTERPRETER_STAGES as readonly string[]).includes(r.interpreter) ? (r.interpreter as InterpreterStage) : "auto",
+    show_prompts: r.show_prompts === true,
+    prompt_problem: normalizePromptProblem(r.prompt_problem),
   };
+}
+
+/** What a student may see of a Prompt Problem: the hidden examples stay on Task Mentor. */
+export function publicPromptProblem(p: PromptProblem | null): Omit<PromptProblem, "hidden"> & { hidden_count: number } | null {
+  if (!p) return null;
+  const { hidden, ...rest } = p;
+  return { ...rest, hidden_count: hidden.length };
 }
 
 /**

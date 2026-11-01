@@ -86,7 +86,7 @@ describe("inline spans", () => {
 
 describe("the tutor profile and knobs", () => {
   it("defaults: tutor strength, pseudo-code on, syntax off, 10 questions / 3 min", () => {
-    expect(normalizeHelp(null)).toEqual({ strength: "tutor", pseudo: true, syntax: false, allowance: { max: 10, regain_minutes: 3 } });
+    expect(normalizeHelp(null)).toEqual({ strength: "tutor", pseudo: true, syntax: false, allowance: { max: 10, regain_minutes: 3 }, interpreter: "auto", show_prompts: false, prompt_problem: null });
     expect(normalizeHelp('{"strength":"hints","pseudo":false,"allowance":{"max":500}}')).toMatchObject({ strength: "hints", pseudo: false, allowance: { max: 100 } });
   });
 

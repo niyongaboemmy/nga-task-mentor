@@ -201,6 +201,10 @@ router.post("/ai/chat", read, aiLimiter, wrap(ai.aiChat));
 router.get("/ai/chat/:id/stream", read, wrap(ai.aiChatStream));
 router.post("/ai/complete", read, aiLimiter, wrap(ai.aiComplete));
 router.post("/ai/byok/verify", read, aiLimiter, wrap(ai.aiVerifyKey));
+// The request interpreter (intent card / Learning's prompt coach) and Prompt Problems.
+router.post("/ai/interpret", read, aiLimiter, wrap(ai.aiInterpret));
+router.get("/ai/interpret/metrics", read, wrap(ai.aiInterpretMetrics));
+router.post("/ai/prompt-problem/check", read, aiLimiter, wrap(ai.aiPromptProblemCheck));
 // AI-assisted grading: a draft for one student (saves nothing; GRADING_PREMIUM_CONTRACTS.md).
 router.post(
   "/grading/:type(assignment|quiz)/:id(\\d+)/students/:studentId(\\d+)/ai-draft",
