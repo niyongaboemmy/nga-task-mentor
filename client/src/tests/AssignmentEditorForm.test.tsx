@@ -233,7 +233,7 @@ describe("AI layers: Learning knobs and Industrial's own tools", () => {
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
     await waitFor(() => expect(submit).toHaveBeenCalled());
     const fd = submit.mock.calls[0][0] as FormData;
-    expect(JSON.parse(String(fd.get("ai_help")))).toEqual({ strength: "hints", pseudo: false, syntax: false, allowance: { max: 5, regain_minutes: 3 } });
+    expect(JSON.parse(String(fd.get("ai_help")))).toEqual({ strength: "hints", pseudo: false, syntax: false, allowance: { max: 5, regain_minutes: 3 }, interpreter: "auto", show_prompts: false, prompt_problem: null });
     expect(fd.get("ai_own_tools")).toBe("false");
 
     submit.mockClear();

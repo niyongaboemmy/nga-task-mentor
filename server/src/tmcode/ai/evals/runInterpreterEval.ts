@@ -31,8 +31,13 @@ import path from "node:path";
 import set from "./intent-cases.json";
 import { fold, normalizeCard, ruleCard, suspicious, type IntentCard } from "../intent";
 import { interpretCard } from "../interpreter";
+import { resetAiUsage } from "../service";
+import { setAiPolicyForTests } from "../../../services/aiPolicy";
+import { AI_POLICY_DEFAULT } from "../../../vendor/nga-access";
 
 export const RESULTS = path.join(__dirname, "interpreter-results.json");
+const PACE_MS = Number(process.env.EVAL_PACE_MS ?? 9000);
+const RATE_WAIT_MS = Number(process.env.EVAL_RATE_WAIT_MS ?? 65_000);
 
 type Case = (typeof set.cases)[number] & { adversarial?: boolean; review?: string };
 export interface Scored {
@@ -99,6 +104,8 @@ export function summarise(rows: Scored[]) {
 
 async function main() {
   const only = process.argv[2];
+  // Offline: the school's switch lives in the database; the eval runs as if TMCode AI were on.
+  setAiPolicyForTests({ ...AI_POLICY_DEFAULT, v: 1, enabled: true });
   const cases = set.cases as Case[];
   const rows: Scored[] = [];
   for (const c of cases) {
@@ -111,8 +118,16 @@ async function main() {
     for (const samples of [1, 2] as const) {
       for (const c of cases) {
         const t = Date.now();
+        // Free tiers limit tokens per minute: pace the calls, and wait out a rate limit once.
+        const once = () => interpretCard({ text: c.text, paths: set.paths, replyLanguage: c.language.startsWith("rw") ? "Kinyarwanda" : c.language.startsWith("fr") ? "French" : "English" }, { student: true, signal: AbortSignal.timeout(30_000), samples });
+        await new Promise((r) => setTimeout(r, PACE_MS));
         try {
-          const r = await interpretCard({ text: c.text, paths: set.paths, replyLanguage: c.language.startsWith("rw") ? "Kinyarwanda" : c.language.startsWith("fr") ? "French" : "English" }, { student: true, signal: AbortSignal.timeout(30_000), samples });
+          const r = await once().catch(async (e) => {
+            if ((e as { code?: string })?.code !== "INTERPRETER_UNAVAILABLE") throw e;
+            await new Promise((w) => setTimeout(w, RATE_WAIT_MS));
+            resetAiUsage();
+            return once();
+          });
           rows.push(scoreCard(c, r.card, r.notes, samples === 1 ? "model" : "model-x2", r.ms));
           console.log(`${samples === 1 ? "model   " : "model-x2"} ${c.id.padEnd(16)} ${r.provider}/${r.model} ${r.ms} ms${r.card.open_questions.length ? " asks" : ""}`);
         } catch (e) {

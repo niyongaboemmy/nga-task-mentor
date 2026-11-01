@@ -195,7 +195,7 @@ describe("saving the Learning knobs and the own-tools toggle", () => {
       .field("ai_own_tools", "true");
     expect(res.status).toBe(200);
     await a.reload();
-    expect(a.ai_help).toEqual({ strength: "hints", pseudo: true, syntax: false, allowance: { max: 100, regain_minutes: 3 } });
+    expect(a.ai_help).toEqual({ strength: "hints", pseudo: true, syntax: false, allowance: { max: 100, regain_minutes: 3 }, interpreter: "auto", show_prompts: false, prompt_problem: null });
     expect(a.ai_own_tools).toBe(true);
   });
 });
