@@ -215,10 +215,34 @@ describe("AI assistance for students", () => {
 
     submit.mockClear();
     render(<AssignmentEditorForm mode="edit" initial={initial({ ai_mode: "hints" })} courses={[]} submit={submit} />);
-    expect(screen.getByRole("radio", { name: /Hints only/i })).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(screen.getByRole("radio", { name: /Full assistant/i }));
+    expect(screen.getByRole("radio", { name: /^Learning$/i })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("radio", { name: /^Industrial$/i }));
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
     await waitFor(() => expect(submit).toHaveBeenCalled());
     expect((submit.mock.calls[0][0] as FormData).get("ai_mode")).toBe("full");
+  });
+});
+
+describe("AI layers: Learning knobs and Industrial's own tools", () => {
+  it("Learning sends the teacher's knobs; Industrial sends the own-tools toggle", async () => {
+    const submit = vi.fn().mockResolvedValue(undefined);
+    render(<AssignmentEditorForm mode="edit" initial={initial({ ai_mode: "hints" })} courses={[]} submit={submit} />);
+    fireEvent.click(screen.getByTestId("assignment-ai-strength-hints"));
+    fireEvent.click(screen.getByTestId("assignment-ai-pseudo"));
+    fireEvent.change(screen.getByTestId("assignment-ai-allowance-max"), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    await waitFor(() => expect(submit).toHaveBeenCalled());
+    const fd = submit.mock.calls[0][0] as FormData;
+    expect(JSON.parse(String(fd.get("ai_help")))).toEqual({ strength: "hints", pseudo: false, syntax: false, allowance: { max: 5, regain_minutes: 3 } });
+    expect(fd.get("ai_own_tools")).toBe("false");
+
+    submit.mockClear();
+    fireEvent.click(screen.getByRole("radio", { name: /^Industrial$/i }));
+    fireEvent.click(screen.getByTestId("assignment-ai-own-tools"));
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    await waitFor(() => expect(submit).toHaveBeenCalled());
+    const fd2 = submit.mock.calls[0][0] as FormData;
+    expect(fd2.get("ai_own_tools")).toBe("true");
+    expect(fd2.get("ai_help")).toBeNull();
   });
 });

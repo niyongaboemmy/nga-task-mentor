@@ -125,6 +125,7 @@ describe("the sticky signed layer (A9)", () => {
   });
 
   it("no key, no token", () => {
+    delete process.env.TMCODE_LAYER_SIGNING_KEY;
     resetSigningKey();
     expect(signLayer(5, "hints", false, null)).toBeNull();
   });
@@ -139,5 +140,32 @@ describe("the sticky signed layer (A9)", () => {
     expect(claims).toMatchObject({ v: 1, project_id: 5, ai_mode: "hints", own_tools: true, exp: "2026-11-24T00:00:00.000Z", kid: "k1" });
     expect(edVerify(null, Buffer.from(t.claims, "ascii"), publicKey, Buffer.from(t.sig, "base64url"))).toBe(true);
     expect(edVerify(null, Buffer.from(t.claims.replace(/^./, "x"), "ascii"), publicKey, Buffer.from(t.sig, "base64url"))).toBe(false);
+  });
+});
+
+describe("tutor eval scoring and model admission (I7)", () => {
+  it("scores raw leaks and what survives the filter", () => {
+    const { score } = require("../evals/runTutorEval");
+    expect(score(["What do you think `biggest` holds?", "```python\nbiggest = n\n```", ""])).toEqual({ raw_leak_rate: 0.5, filtered_leak_rate: 0, answered: 2 });
+  });
+
+  it("admits unmeasured models, refuses ones above the threshold", () => {
+    const { admittedToLearning, resetEvalResults } = require("../privacy");
+    resetEvalResults([{ provider: "groq", model: "leaky", raw_leak_rate: 0.9, filtered_leak_rate: 0, answered: 5, at: "" }]);
+    expect(admittedToLearning("groq", "leaky")).toBe(false);
+    expect(admittedToLearning("groq", "other")).toBe(true);
+    resetEvalResults(null);
+  });
+
+  it("student routing: all by default; 'permitted' keeps only no-training, teen-allowed providers", () => {
+    const { permittedForStudents, privacyOf } = require("../privacy");
+    expect(permittedForStudents("groq")).toBe(true);
+    process.env.TMCODE_AI_STUDENT_ROUTING = "permitted";
+    expect(permittedForStudents("groq")).toBe(false);
+    expect(permittedForStudents("openrouter")).toBe(false);
+    expect(permittedForStudents("anthropic", "byok")).toBe(true);
+    expect(permittedForStudents("gemini", "premium")).toBe(false);
+    delete process.env.TMCODE_AI_STUDENT_ROUTING;
+    expect(privacyOf("gemini", "free")?.label).toMatch(/may train/);
   });
 });

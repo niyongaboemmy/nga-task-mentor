@@ -33,8 +33,8 @@ import { parseLocalDateTimeToUTC } from "../../../utils/dateUtils";
 import Select from "../../ui/Select";
 import TmcodePracticalSection from "./TmcodePracticalSection";
 import { EMPTY_TMCODE, sameTmcode, type TmcodeSettings } from "../../../services/tmcodeAssignmentsApi";
-import { AiModeControl } from "../../ai/AiControls";
-import type { AiMode } from "../../../services/aiApi";
+import { AiLayerOptions, AiModeControl } from "../../ai/AiControls";
+import { aiHelpOf, type AiHelp, type AiMode } from "../../../services/aiApi";
 
 /** What the server accepts as an assignment attachment (middleware/assignmentUpload.ts). */
 export const ATTACHMENT_EXTENSIONS =
@@ -62,6 +62,9 @@ export interface AssignmentFormValues {
   status: string;
   /** AI assistance for students working on it; off when absent. */
   ai_mode?: AiMode;
+  /** The Learning layer's knobs, and Industrial's "students' own AI tools". */
+  ai_help?: AiHelp | null;
+  ai_own_tools?: boolean;
 }
 
 interface Props {
@@ -360,6 +363,8 @@ const AssignmentEditorForm: React.FC<Props> = ({
     fd.append("allowed_file_types", JSON.stringify(NO_FILE_TYPES.includes(values.submission_type) ? [] : values.allowed_file_types));
     fd.append("rubric", JSON.stringify(values.rubric));
     fd.append("ai_mode", values.ai_mode ?? "off");
+    if (values.ai_mode === "hints" && values.ai_help) fd.append("ai_help", JSON.stringify(values.ai_help));
+    fd.append("ai_own_tools", values.ai_mode === "full" && values.ai_own_tools ? "true" : "false");
     if (mode === "create") {
       fd.append("course_id", values.course_id);
     } else {
@@ -541,6 +546,16 @@ const AssignmentEditorForm: React.FC<Props> = ({
               value={values.ai_mode ?? "off"}
               onChange={(m) => set("ai_mode", m)}
             />
+            <div className="mt-3">
+              <AiLayerOptions
+                idPrefix="assignment"
+                mode={values.ai_mode ?? "off"}
+                help={aiHelpOf(values.ai_help)}
+                onHelp={(h) => set("ai_help", h)}
+                ownTools={!!values.ai_own_tools}
+                onOwnTools={(v) => set("ai_own_tools", v)}
+              />
+            </div>
           </div>
         </Section>
 

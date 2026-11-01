@@ -9,11 +9,44 @@ import axios, { isAxiosError } from "../utils/axiosConfig";
 
 export type AiMode = "off" | "hints" | "full";
 
+/**
+ * The three AI layers (nga-tmcode reports/TMCode vibe coding proposal 2026.md §8.1): the wire
+ * value stays off | hints | full; teachers see the layer names.
+ */
 export const AI_MODE_OPTIONS: { value: AiMode; label: string; short: string; help: string }[] = [
-  { value: "off", label: "Off", short: "Off", help: "Students can't use AI while working on it." },
-  { value: "hints", label: "Hints only", short: "Hints", help: "Students can ask for hints that guide them without giving the answer." },
-  { value: "full", label: "Full assistant", short: "Full", help: "Students can use the AI assistant (chat and code suggestions)." },
+  { value: "off", label: "No AI", short: "No AI", help: "No AI. Students code on their own." },
+  { value: "hints", label: "Learning", short: "Learning", help: "AI helps students think; they write every line. The tutor answers in words and never with code (Task Mentor removes any code)." },
+  { value: "full", label: "Industrial", short: "Industrial", help: "Full AI writes code with students, through the school's AI, with scaffolds and everything logged." },
 ];
+
+/** The Learning layer's knobs (stored as ai_help; null: the school's defaults). */
+export interface AiHelp {
+  strength: "hints" | "tutor";
+  pseudo: boolean;
+  syntax: boolean;
+  allowance: { max: number; regain_minutes: number };
+}
+
+export const AI_HELP_DEFAULTS: AiHelp = { strength: "tutor", pseudo: true, syntax: false, allowance: { max: 10, regain_minutes: 3 } };
+
+/** A stored ai_help (object, JSON text or null) with every field filled. */
+export function aiHelpOf(v: unknown): AiHelp {
+  let r: any = v;
+  if (typeof v === "string") {
+    try {
+      r = JSON.parse(v);
+    } catch {
+      r = null;
+    }
+  }
+  if (!r || typeof r !== "object") return { ...AI_HELP_DEFAULTS, allowance: { ...AI_HELP_DEFAULTS.allowance } };
+  return {
+    strength: r.strength === "hints" ? "hints" : "tutor",
+    pseudo: r.pseudo !== false,
+    syntax: r.syntax === true,
+    allowance: { max: Number(r.allowance?.max) || AI_HELP_DEFAULTS.allowance.max, regain_minutes: Number(r.allowance?.regain_minutes) || AI_HELP_DEFAULTS.allowance.regain_minutes },
+  };
+}
 
 export type AiReason =
   | "GLOBAL_OFF"

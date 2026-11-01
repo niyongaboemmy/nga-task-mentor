@@ -30,10 +30,12 @@ import {
   type ToolDef,
   verifyOwnKey,
   isPaidProvider,
+  parseMode,
 } from "../tmcode/ai/service";
 import { accessFor, byokAllowed, isStaff, premiumEntitlement } from "../services/aiEntitlements";
 import { GRADING_AGENT_RULES, GRADING_SYSTEM, gradingContextText } from "../tmcode/ai/grading";
 import { decideLayer, layerToken, referenceSolutions, type LayerDecision } from "../tmcode/ai/layers";
+import { privacyOf, permittedForStudents, studentRouting } from "../tmcode/ai/privacy";
 import { allowanceOf, identifiersOf, LEARNING_TOOLS, LearningFilter, referenceLines, takeQuestion, tutorSystem, type LearningHelp } from "../tmcode/ai/learning";
 
 /** Plan mode only ever gets these (the server enforces it, whatever the app sends). */
@@ -184,6 +186,8 @@ export async function aiStatus(req: Request, res: Response) {
     byok_providers: byokProviders(),
     // AI layers (additive; older TMCode builds ignore them).
     layer: layered.layer,
+    student_routing: studentRouting(),
+    hidden_paths: hiddenPaths(layered),
     max_layer: null,
     own_tools: !!layered.item && layered.ownTools,
     learning: learning ? learningInfo(id, layered) : null,
@@ -194,6 +198,19 @@ export async function aiStatus(req: Request, res: Response) {
 /** The Learning knobs and the allowance left, as /status and `done` report them. */
 function learningInfo(user: number, d: LayerDecision) {
   return { strength: d.help.strength, pseudo: d.help.pseudo, syntax: d.help.syntax, allowance: allowanceOf(user, allowanceScope(d), d.help) };
+}
+
+/**
+ * Files hidden from AI in every layer (teacher-hidden; proposal F6): the school's list
+ * (TMCODE_AI_HIDDEN_PATHS, comma-separated globs) for every assignment and quiz project.
+ */
+function hiddenPaths(d: LayerDecision): string[] {
+  if (!d.item) return [];
+  return (process.env.TMCODE_AI_HIDDEN_PATHS ?? "tests/hidden/**,.hidden/**,solution/**,reference/**,*.solution.*,marking/**")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 50);
 }
 
 /** One allowance per item (a student's questions in Web Project 2 don't use up Quiz 3's). */
@@ -357,7 +374,7 @@ export function buildMessages(input: z.infer<typeof ChatSchema>, staff = false, 
 }
 
 /** Asked chats waiting for their stream. A BYOK key stays here (memory only) until its stream starts. */
-const jobs = new Map<string, { user: number; mode: string; messages: ChatMessage[]; at: number; project: number | null; agent?: { tools: ToolDef[]; step: number }; access?: PaidAccess; learning?: { identifiers: Set<string>; reference: Set<string>; syntax: boolean; allowance: ReturnType<typeof allowanceOf> } }>();
+const jobs = new Map<string, { user: number; mode: string; messages: ChatMessage[]; at: number; project: number | null; agent?: { tools: ToolDef[]; step: number }; access?: PaidAccess; route?: { learning: boolean; student: boolean }; learning?: { identifiers: Set<string>; reference: Set<string>; syntax: boolean; allowance: ReturnType<typeof allowanceOf> } }>();
 
 /** Paid-mode refusals (PREMIUM_REQUIRED, BYOK_DISABLED, BYOK_KEY_REQUIRED, MODEL_UNKNOWN), as JSON. */
 async function paidAccessOr(req: Request, res: Response, mode: string, byok: { provider: string; key: string } | undefined): Promise<{ access?: PaidAccess } | null> {
@@ -393,6 +410,12 @@ export async function aiChat(req: Request, res: Response) {
   }
   const paid = await paidAccessOr(req, res, parsed.data.mode, parsed.data.byok);
   if (!paid) return;
+  // J4: a student's Learning/Guided request only reaches providers the school's routing permits.
+  const student = !isStaff(req) && !!layered.item;
+  const paidMode = parseMode(parsed.data.mode);
+  if (student && paidMode.tier !== "free" && !permittedForStudents(paidMode.provider, paidMode.tier)) {
+    return tmcodeError(res, 403, "PROVIDER_NOT_PERMITTED", `Your school doesn't let student work reach ${paidMode.provider} (its terms or data use). Pick another AI.`, { code: "PROVIDER_NOT_PERMITTED" });
+  }
   for (const [k, j] of jobs) if (Date.now() - j.at > 120_000) jobs.delete(k);
   const job = randomUUID();
   const c = parsed.data.context;
@@ -405,6 +428,7 @@ export async function aiChat(req: Request, res: Response) {
     project,
     ...(a && tools ? { agent: { tools, step: a.step } } : {}),
     ...(paid.access ? { access: paid.access } : {}),
+    route: { learning, student },
     ...(learning
       ? { learning: { identifiers: identifiersOf(`${c?.fileText ?? ""}\n${c?.selection ?? ""}`), reference: referenceLines(await referenceSolutions(layered.item)), syntax: layered.help.syntax, allowance: allowance! } }
       : {}),
@@ -444,7 +468,9 @@ export async function aiChatStream(req: Request, res: Response) {
     if (out) send("delta", { text: out });
   };
   try {
-    const r = await streamChat(job.user, job.mode, job.messages, (m) => send("meta", m), delta, abort.signal, job.agent, { access });
+    // Each answer says where it came from and what that provider's terms are (J4 badge).
+    const meta = (m: { provider: string; model: string; tier: "free" | "premium" | "byok" }) => send("meta", { ...m, privacy: privacyOf(m.provider, m.tier)?.label ?? null });
+    const r = await streamChat(job.user, job.mode, job.messages, meta, delta, abort.signal, job.agent, { access, ...(job.route ? { route: job.route } : {}) });
     if (filter) {
       const rest = filter.end();
       if (rest) send("delta", { text: rest });

@@ -21,7 +21,8 @@ import {
 import type { CreateQuizRequest, QuizStatus } from "../../types/quiz.types";
 import { Timer, X } from "lucide-react";
 import Select from "../ui/Select";
-import { AiModeControl } from "../ai/AiControls";
+import { AiLayerOptions, AiModeControl } from "../ai/AiControls";
+import { aiHelpOf } from "../../services/aiApi";
 
 export interface QuizFormProps {
   mode: "create" | "edit";
@@ -634,6 +635,17 @@ export const QuizForm: React.FC<QuizFormProps> = ({
             value={values.ai_mode}
             onChange={(m) => setField("ai_mode", m)}
           />
+          <div className="mt-3">
+            <AiLayerOptions
+              idPrefix="quiz"
+              quiz
+              mode={values.ai_mode}
+              help={aiHelpOf(values.ai_help)}
+              onHelp={(h) => setField("ai_help", h)}
+              ownTools={values.ai_own_tools}
+              onOwnTools={(v) => setField("ai_own_tools", v)}
+            />
+          </div>
         </div>
 
         {/* Visibility */}

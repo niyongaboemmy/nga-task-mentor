@@ -5,7 +5,7 @@ import type {
   QuizType,
 } from "../types/quiz.types";
 import { formatUTCToLocalDateTime, parseLocalDateTimeToUTC } from "./dateUtils";
-import type { AiMode } from "../services/aiApi";
+import { aiHelpOf, type AiHelp, type AiMode } from "../services/aiApi";
 
 /**
  * Client-side mirror of server/src/validations/quiz.validation.ts so the user
@@ -61,6 +61,9 @@ export interface QuizFormValues {
   is_public: boolean;
   /** AI assistance for students inside the quiz (off by default). */
   ai_mode: AiMode;
+  /** The Learning layer's knobs (null: the school's defaults) and Industrial's own-tools toggle. */
+  ai_help: AiHelp | null;
+  ai_own_tools: boolean;
   /** `datetime-local` value ("YYYY-MM-DDTHH:mm") in the browser's zone. */
   start_date: string;
   end_date: string;
@@ -89,6 +92,8 @@ export const EMPTY_QUIZ_FORM: QuizFormValues = {
   require_manual_grading: false,
   is_public: false,
   ai_mode: "off",
+  ai_help: null,
+  ai_own_tools: false,
   start_date: "",
   end_date: "",
 };
@@ -129,6 +134,8 @@ export function quizToFormValues(quiz: Quiz): QuizFormValues {
     require_manual_grading: quiz.require_manual_grading ?? false,
     is_public: quiz.is_public ?? false,
     ai_mode: quiz.ai_mode === "hints" || quiz.ai_mode === "full" ? quiz.ai_mode : "off",
+    ai_help: (quiz as { ai_help?: unknown }).ai_help ? aiHelpOf((quiz as { ai_help?: unknown }).ai_help) : null,
+    ai_own_tools: !!(quiz as { ai_own_tools?: boolean }).ai_own_tools,
     start_date: toLocalInput(quiz.start_date),
     end_date: toLocalInput(quiz.end_date),
   };
@@ -286,6 +293,8 @@ export function toQuizPayload(
     require_manual_grading: values.require_manual_grading,
     is_public: values.is_public,
     ai_mode: values.ai_mode,
+    ...(values.ai_mode === "hints" && values.ai_help ? { ai_help: values.ai_help } : {}),
+    ai_own_tools: values.ai_mode === "full" && values.ai_own_tools,
     start_date: isBlank(values.start_date)
       ? null
       : parseLocalDateTimeToUTC(values.start_date).toISOString(),

@@ -137,6 +137,8 @@ const PROSE_WORDS = /\b(the|this|that|your|you|is|are|it|of|to|and|what|why|how|
 export function looksLikeCode(raw: string, ids: Set<string> = new Set()): boolean {
   const line = raw.replace(/^\s*(?:[-*+]|\d+[.)]|>)\s+/, "").trim();
   if (!line || line.length < 3) return false;
+  // The terminal's JSON answer format ({"commands":[{"command":"…"}]}): a command to run is code.
+  if (/"commands?"\s*:/.test(line)) return true;
   const words = (line.match(/[A-Za-z]+/g) ?? []).length;
   const prose = (line.match(PROSE_WORDS) ?? []).length;
   // Mostly English words: prose, even when it mentions `for` or `if`.

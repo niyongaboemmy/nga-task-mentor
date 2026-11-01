@@ -39,39 +39,39 @@ beforeEach(() => {
 });
 
 describe("AiModeControl", () => {
-  it("lets the teacher pick Off / Hints only / Full assistant, with help text", async () => {
+  it("lets the teacher pick No AI / Learning / Industrial, with help text", async () => {
     fetchAiPolicy.mockResolvedValue(policy());
     const onChange = vi.fn();
     render(<AiModeControl idPrefix="quiz" value="off" onChange={onChange} itemLabel="this quiz" />);
     expect(screen.getByText("AI assistance for students")).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: /^Off$/ })).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(screen.getByRole("radio", { name: /Full assistant/i }));
+    expect(screen.getByRole("radio", { name: /^No AI$/ })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("radio", { name: /^Industrial$/i }));
     expect(onChange).toHaveBeenCalledWith("full");
-    expect(screen.getByText(/can't use AI while working on it/i)).toBeInTheDocument();
+    expect(screen.getByText(/Students code on their own/i)).toBeInTheDocument();
     await waitFor(() => expect(fetchAiPolicy).toHaveBeenCalled());
-    expect(screen.getByRole("radio", { name: /Hints only/i })).not.toBeDisabled();
+    expect(screen.getByRole("radio", { name: /^Learning$/i })).not.toBeDisabled();
   });
 
   it("is shown but disabled when the school has AI off or assessments locked", async () => {
     fetchAiPolicy.mockResolvedValue(policy({ enabled: false, itemModes: false }));
     render(<AiModeControl idPrefix="assignment" value="hints" onChange={vi.fn()} />);
     expect(await screen.findByText(/Disabled by the school administrator/i)).toBeInTheDocument();
-    for (const name of [/^Off$/, /Hints only/i, /Full assistant/i]) {
+    for (const name of [/^No AI$/, /^Learning$/i, /^Industrial$/i]) {
       expect(screen.getByRole("radio", { name })).toBeDisabled();
     }
     // the teacher's choice is still shown (kept for later)
-    expect(screen.getByRole("radio", { name: /Hints only/i })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: /^Learning$/i })).toHaveAttribute("aria-checked", "true");
   });
 });
 
 describe("AiModeBadge", () => {
-  it("shows AI: Off / Hints / Full (Off when unknown)", () => {
+  it("shows AI: No AI / Learning / Industrial (No AI when unknown)", () => {
     const { rerender } = render(<AiModeBadge mode="full" />);
-    expect(screen.getByTestId("ai-mode-badge")).toHaveTextContent("AI: Full");
+    expect(screen.getByTestId("ai-mode-badge")).toHaveTextContent("AI: Industrial");
     rerender(<AiModeBadge mode="hints" />);
-    expect(screen.getByTestId("ai-mode-badge")).toHaveTextContent("AI: Hints");
+    expect(screen.getByTestId("ai-mode-badge")).toHaveTextContent("AI: Learning");
     rerender(<AiModeBadge mode={undefined} />);
-    expect(screen.getByTestId("ai-mode-badge")).toHaveTextContent("AI: Off");
+    expect(screen.getByTestId("ai-mode-badge")).toHaveTextContent("AI: No AI");
   });
 });
 

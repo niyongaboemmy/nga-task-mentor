@@ -358,6 +358,8 @@ export interface Quiz {
   is_public?: boolean;
   /** AI for students inside the quiz, as the teacher set it. */
   ai_mode?: "off" | "hints" | "full";
+  ai_help?: unknown;
+  ai_own_tools?: boolean;
   /** Student view only (GET /quizzes/:id without edit rights). */
   student_state?: StudentQuizState;
   question_count?: number;
@@ -526,6 +528,9 @@ export interface CreateQuizRequest {
   is_public?: boolean;
   /** AI for students inside the quiz: off (default), hints only, or the full assistant. */
   ai_mode?: "off" | "hints" | "full";
+  /** AI layers: Learning's knobs and Industrial's "students' own AI tools". */
+  ai_help?: import("../services/aiApi").AiHelp | null;
+  ai_own_tools?: boolean;
 }
 
 export interface UpdateQuizRequest extends Partial<CreateQuizRequest> {
