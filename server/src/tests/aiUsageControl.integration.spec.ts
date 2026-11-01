@@ -171,7 +171,9 @@ describe("POST /api/quizzes/questions/:id/ai-hint (student)", () => {
     request(app).post(`/api/quizzes/questions/${questionId}/ai-hint`).set("Authorization", tok(student)).send({ code: "print(1)", language: "python" });
 
   it("quiz off → 403 TEACHER_OFF; hints → 200; full → 200", async () => {
-    const spy = jest.spyOn(aiService, "getSocraticHint").mockResolvedValue("Think about the input." as any);
+    const spy = jest
+      .spyOn(aiService, "getSocraticHintWithAi")
+      .mockResolvedValue({ hint: "Think about the input.", ai: { route: "school", reason: "PERSONAL_OFF" } } as any);
     const off = await makeQuiz("off");
     const res = await hint(off.question.id);
     expect(res.status).toBe(403);
@@ -183,6 +185,9 @@ describe("POST /api/quizzes/questions/:id/ai-hint (student)", () => {
     const ok = await hint(hints.question.id);
     expect(ok.status).toBe(200);
     expect(ok.body.data.hint).toBe("Think about the input.");
+    expect(ok.body.ai).toEqual({ route: "school", reason: "PERSONAL_OFF" });
+    // My AI: a hint is asked inside a quiz (inAssessment, task "hint").
+    expect(spy.mock.calls[0][5]).toMatchObject({ task: "hint", inAssessment: true });
     expect((await hint((await makeQuiz("full")).question.id)).status).toBe(200);
   });
 

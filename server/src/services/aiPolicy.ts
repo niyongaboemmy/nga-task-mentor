@@ -158,8 +158,11 @@ export async function aiGradingAllowed(): Promise<boolean> {
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
-/** Pin the policy (a policy, or null = unavailable); `undefined` goes back to MIS. */
-export function setAiPolicyForTests(policy: AiPolicy | null | undefined) {
+/**
+ * Pin the policy (a policy, or null = unavailable); `undefined` goes back to MIS.
+ * Normalised like MIS's answer, so blocks a test leaves out (e.g. `personal`) get defaults.
+ */
+export function setAiPolicyForTests(policy: (Omit<AiPolicy, "personal"> & { personal?: unknown }) | null | undefined) {
   override = policy === undefined || policy === null ? policy : normalizeAiPolicy(policy);
 }
 
