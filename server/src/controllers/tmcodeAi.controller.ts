@@ -306,6 +306,8 @@ export const ChatSchema = z.object({
        */
       purpose: z.string().max(40).optional(),
       grading: GradingSchema.optional(),
+      /** Answer in this language (TMCode's "Answer in My Language"; proposal H3). */
+      reply_language: z.enum(["English", "French", "Kinyarwanda"]).optional(),
     })
     .optional(),
 });
@@ -363,6 +365,7 @@ export function buildMessages(input: z.infer<typeof ChatSchema>, staff = false, 
   if (c?.selection) parts.push(`Selected code:\n\`\`\`${c.language ?? ""}\n${c.selection}\n\`\`\``);
   else if (c?.fileText) parts.push(`The file:\n\`\`\`${c.language ?? ""}\n${c.fileText}\n\`\`\``);
   if (c?.problems?.length) parts.push(`Problems the editor reports:\n${c.problems.map((p) => `- ${p}`).join("\n")}`);
+  if (c?.reply_language) parts.push(`Reply in ${c.reply_language}. Keep English programming keywords and explain each one briefly the first time.`);
   const agent = learning
     ? input.agent
       ? `\n\n${LEARNING_AGENT}`

@@ -50,3 +50,11 @@ describe("Test key (own API keys)", () => {
     expect(PAID_PROVIDERS.anthropic.suggested).toEqual(["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"]);
   });
 });
+
+describe("answer in my language (H3)", () => {
+  it("asks the model to reply in the chosen language", () => {
+    const input = ChatSchema.parse({ messages: [{ role: "user", content: "hi" }], context: { reply_language: "Kinyarwanda" } });
+    expect(buildMessages(input)[0].content).toContain("Reply in Kinyarwanda. Keep English programming keywords");
+    expect(ChatSchema.safeParse({ messages: [{ role: "user", content: "hi" }], context: { reply_language: "Klingon" } }).success).toBe(false);
+  });
+});
