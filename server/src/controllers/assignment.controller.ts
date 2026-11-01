@@ -1,4 +1,5 @@
 import { filterActiveMisRows } from "../utils/activeUsers";
+import { aiHelpInput, boolInput } from "../tmcode/ai/learning";
 import { syncProjectsForSubmission } from "../tmcode/projects/status";
 import { Request, Response } from "express";
 import { Assignment, Submission, User } from "../models";
@@ -88,6 +89,8 @@ export const getCourseAssignments = async (req: Request, res: Response) => {
         "status",
         "created_by",
         "ai_mode",
+        "ai_help",
+        "ai_own_tools",
       ],
       order: [["due_date", "ASC"]],
     });
@@ -302,6 +305,8 @@ export const getGroupedAssignments = async (req: Request, res: Response) => {
           "course_id",
           "created_by",
           "ai_mode",
+          "ai_help",
+          "ai_own_tools",
         ],
         order: [["due_date", "ASC"]],
       });
@@ -317,6 +322,8 @@ export const getGroupedAssignments = async (req: Request, res: Response) => {
           submission_type: a.submission_type,
           status: a.status,
           ai_mode: a.ai_mode,
+          ai_help: a.ai_help ?? null,
+          ai_own_tools: !!a.ai_own_tools,
           course_id: a.course_id,
           creator: (a as any).creator ?? null,
           created_by: a.created_by,
@@ -429,6 +436,8 @@ export const createAssignment = async (req: Request, res: Response) => {
       rubric,
       allowed_file_types,
       ai_mode,
+      ai_help,
+      ai_own_tools,
     } = req.body;
 
     console.log("Create Assignment Payload debug:", {
@@ -609,6 +618,8 @@ export const createAssignment = async (req: Request, res: Response) => {
       academic_term_id: academicTermId ?? null,
       submission_type,
       ai_mode: isAiModeValue(ai_mode) ? ai_mode : "off",
+      ai_help: aiHelpInput(ai_help) ?? null,
+      ai_own_tools: boolInput(ai_own_tools) ?? false,
       created_by: req.user.id,
       attachments,
       rubric: parsedRubric,
@@ -684,6 +695,8 @@ export const updateAssignment = async (req: Request, res: Response) => {
       rubric,
       status,
       ai_mode,
+      ai_help,
+      ai_own_tools,
       existing_attachments, // JSON string of existing attachments to keep
     } = req.body;
 
@@ -890,6 +903,10 @@ export const updateAssignment = async (req: Request, res: Response) => {
       }
       assignment.ai_mode = ai_mode;
     }
+    const help = aiHelpInput(ai_help);
+    if (help !== undefined) assignment.ai_help = help;
+    const ownTools = boolInput(ai_own_tools);
+    if (ownTools !== undefined) assignment.ai_own_tools = ownTools;
 
     if (status !== undefined) {
       const validStatuses = ["draft", "published", "completed", "removed"];

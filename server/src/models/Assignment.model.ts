@@ -1,3 +1,4 @@
+import type { AiHelpSetting } from "../tmcode/ai/learning";
 import {
   Table,
   Column,
@@ -36,6 +37,8 @@ export interface IAssignmentAttributes {
   status: "draft" | "published" | "completed" | "removed";
   /** AI for students working on it (AI_USAGE_CONTROL_PLAN.md §5.6). */
   ai_mode?: "off" | "hints" | "full";
+  ai_help?: AiHelpSetting | null;
+  ai_own_tools?: boolean;
   created_at?: Date;
   updated_at?: Date;
 }
@@ -273,6 +276,14 @@ export class Assignment extends Model<
     field: "ai_mode",
   })
   public ai_mode!: "off" | "hints" | "full";
+
+  // The Learning layer's knobs (help strength, pseudo-code, allowance); null: the school's defaults.
+  @Column({ type: DataType.JSON, allowNull: true, defaultValue: null, field: "ai_help" })
+  public ai_help!: AiHelpSetting | null;
+
+  // Industrial: students may use their own AI tools (Industrial · Open) for this item.
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: false, field: "ai_own_tools" })
+  public ai_own_tools!: boolean;
 
   @BelongsTo(() => User, "created_by")
   public creator!: User;

@@ -1,3 +1,4 @@
+import type { AiHelpSetting } from "../tmcode/ai/learning";
 import {
   Table,
   Column,
@@ -39,6 +40,8 @@ export interface IQuizAttributes {
   end_date?: Date;
   is_public?: boolean;
   ai_mode?: AiMode;
+  ai_help?: AiHelpSetting | null;
+  ai_own_tools?: boolean;
   attachments?: Array<{
     name: string;
     url: string;
@@ -224,6 +227,14 @@ export class Quiz extends Model<IQuizAttributes, QuizCreationAttributes> {
     field: "ai_mode",
   })
   ai_mode!: AiMode;
+
+  // The Learning layer's knobs (help strength, pseudo-code, allowance); null: the school's defaults.
+  @Column({ type: DataType.JSON, allowNull: true, defaultValue: null, field: "ai_help" })
+  ai_help!: AiHelpSetting | null;
+
+  // Industrial: students may use their own AI tools (Industrial · Open) for this item.
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: false, field: "ai_own_tools" })
+  ai_own_tools!: boolean;
 
   @Column({
     type: DataType.DATE,

@@ -33,6 +33,8 @@ import {
 } from "../tmcode/ai/service";
 import { accessFor, byokAllowed, isStaff, premiumEntitlement } from "../services/aiEntitlements";
 import { GRADING_AGENT_RULES, GRADING_SYSTEM, gradingContextText } from "../tmcode/ai/grading";
+import { decideLayer, layerToken, referenceSolutions, type LayerDecision } from "../tmcode/ai/layers";
+import { allowanceOf, identifiersOf, LEARNING_TOOLS, LearningFilter, referenceLines, takeQuestion, tutorSystem, type LearningHelp } from "../tmcode/ai/learning";
 
 /** Plan mode only ever gets these (the server enforces it, whatever the app sends). */
 const READ_ONLY = new Set(["list_files", "read_file", "search", "get_problems"]);
@@ -61,6 +63,13 @@ const READ_ONLY = new Set(["list_files", "read_file", "search", "get_problems"])
  * (403 PREMIUM_REQUIRED otherwise), "byok:<provider>/<model>" with the body's byok {provider, key}
  * (the key is used for that request only: never stored, logged or echoed; a provider's refusal
  * is BYOK_REJECTED). decideAi applies to every mode.
+ *
+ * AI layers (nga-tmcode reports/TMCode vibe coding proposal 2026.md §8, tmcode/ai/layers.ts): a
+ * learner in an item set to "hints" is in Learning -- chat answers come from the tutor with
+ * read-only tools and pass the output filter (code removed, counted in `done.filtered`), each
+ * question spends the item's allowance (429 LEARNING_ALLOWANCE), and suggestions are refused
+ * (403 LAYER_LEARNING). /status says `layer`, the Learning knobs, `own_tools` and a signed
+ * `layer_token` for the project (TMCode keeps the layer while signed out).
  */
 
 const userId = (req: Request) => (req.user as { id: number }).id;
@@ -126,10 +135,10 @@ export async function aiStatus(req: Request, res: Response) {
   const id = userId(req);
   const projectId = projectIdOf(req.query.project_id);
   const item = await itemFor(req, projectId);
-  const [assist, completeV] = await Promise.all([
-    decideAiFor(req, "assist", item, "tmcode"),
-    decideAiFor(req, "complete", item, "tmcode"),
-  ]);
+  const [layered, completeL] = await Promise.all([decideLayer(req, "assist", item), decideLayer(req, "complete", item)]);
+  const assist = layered.verdict;
+  const completeV = completeL.verdict;
+  const learning = layered.layer === "learning";
   const pools: Record<string, { label: string; used: number; limit: number; remaining: number }> = {};
   for (const p of Object.keys(PROVIDERS) as ProviderId[]) {
     if (!configured(p)) continue;
@@ -140,7 +149,9 @@ export async function aiStatus(req: Request, res: Response) {
   const [entitlement, ownKeys] = await Promise.all([premiumEntitlement(req), byokAllowed()]);
   const premium = premiumModels();
   const premiumOn = entitlement.entitled && premium.length > 0;
-  const thirdParty = staff ? assist.policy?.thirdPartyExtensionsStaff : assist.policy?.thirdPartyExtensions;
+  // Staff follow the staff switch; a student in an Industrial item the teacher opened to their own
+  // AI tools may use them there (Industrial · Open); Learning never (they can't be filtered).
+  const thirdParty = learning ? false : staff ? assist.policy?.thirdPartyExtensionsStaff : (layered.item && layered.ownTools && layered.layer === "industrial") || assist.policy?.thirdPartyExtensions;
   res.json({
     // false also when the AI policy refuses: older TMCode builds only read this flag.
     enabled: Object.keys(pools).length > 0 && (assist.allowed || completeV.allowed),
@@ -171,8 +182,22 @@ export async function aiStatus(req: Request, res: Response) {
     premium_models: entitlement.entitled ? premium : [],
     premium_you: entitlement.entitled ? { used: premiumUsed(id), limit: entitlement.limit } : null,
     byok_providers: byokProviders(),
+    // AI layers (additive; older TMCode builds ignore them).
+    layer: layered.layer,
+    max_layer: null,
+    own_tools: !!layered.item && layered.ownTools,
+    learning: learning ? learningInfo(id, layered) : null,
+    layer_token: layerToken(projectId, layered),
   });
 }
+
+/** The Learning knobs and the allowance left, as /status and `done` report them. */
+function learningInfo(user: number, d: LayerDecision) {
+  return { strength: d.help.strength, pseudo: d.help.pseudo, syntax: d.help.syntax, allowance: allowanceOf(user, allowanceScope(d), d.help) };
+}
+
+/** One allowance per item (a student's questions in Web Project 2 don't use up Quiz 3's). */
+const allowanceScope = (d: LayerDecision) => (d.item ? `${d.item.kind}:${d.item.id}` : "none");
 
 /** A BYOK request's key: used for this request only, never stored, logged or echoed. */
 export const ByokSchema = z.object({
@@ -306,24 +331,33 @@ const AGENT_RULES = `You are working inside the student's project folder in TMCo
 - After changing code, check get_problems (and run tests or the program when that helps).
 - When you are done, reply with a short summary of what you changed and why (file names), without repeating the code.`;
 
-export function buildMessages(input: z.infer<typeof ChatSchema>, staff = false): ChatMessage[] {
+/** Learning's agent: it may look at the student's files to help, never change them. */
+const LEARNING_AGENT = `You can look at the student's project with read-only tools (list_files, read_file, search, get_problems) to understand their code and their errors. You cannot and must not change anything. Read what you need, then answer as the tutor: in words, no code.`;
+
+export function buildMessages(input: z.infer<typeof ChatSchema>, staff = false, learning: LearningHelp | null = null): ChatMessage[] {
   const c = input.context;
   const parts: string[] = [];
-  const grading = staff && c?.purpose === "grading";
+  const grading = !learning && staff && c?.purpose === "grading";
   if (grading && c?.grading) parts.push(gradingContextText(c.grading));
   if (c?.task) parts.push(grading ? `More about the task:\n${c.task}` : `The task the student is working on:\n${c.task}`);
   if (c?.file) parts.push(`Open file: ${c.file}${c.language ? ` (${c.language})` : ""}`);
   if (c?.selection) parts.push(`Selected code:\n\`\`\`${c.language ?? ""}\n${c.selection}\n\`\`\``);
   else if (c?.fileText) parts.push(`The file:\n\`\`\`${c.language ?? ""}\n${c.fileText}\n\`\`\``);
   if (c?.problems?.length) parts.push(`Problems the editor reports:\n${c.problems.map((p) => `- ${p}`).join("\n")}`);
-  const agent = input.agent ? `\n\n${grading ? GRADING_AGENT_RULES : AGENT_RULES}\n${grading && input.agent.mode !== "plan" ? "" : AGENT[input.agent.mode]}`.trimEnd() : "";
-  const base = grading ? GRADING_SYSTEM : c?.purpose === "terminal" && !input.agent ? TERMINAL_SYSTEM : SYSTEM;
+  const agent = learning
+    ? input.agent
+      ? `\n\n${LEARNING_AGENT}`
+      : ""
+    : input.agent
+      ? `\n\n${grading ? GRADING_AGENT_RULES : AGENT_RULES}\n${grading && input.agent.mode !== "plan" ? "" : AGENT[input.agent.mode]}`.trimEnd()
+      : "";
+  const base = learning ? tutorSystem(learning) : grading ? GRADING_SYSTEM : c?.purpose === "terminal" && !input.agent ? TERMINAL_SYSTEM : SYSTEM;
   const system = (parts.length ? `${base}\n\n${parts.join("\n\n")}` : base) + agent;
   return [{ role: "system", content: system }, ...(input.messages as ChatMessage[])];
 }
 
 /** Asked chats waiting for their stream. A BYOK key stays here (memory only) until its stream starts. */
-const jobs = new Map<string, { user: number; mode: string; messages: ChatMessage[]; at: number; project: number | null; agent?: { tools: ToolDef[]; step: number }; access?: PaidAccess }>();
+const jobs = new Map<string, { user: number; mode: string; messages: ChatMessage[]; at: number; project: number | null; agent?: { tools: ToolDef[]; step: number }; access?: PaidAccess; learning?: { identifiers: Set<string>; reference: Set<string>; syntax: boolean; allowance: ReturnType<typeof allowanceOf> } }>();
 
 /** Paid-mode refusals (PREMIUM_REQUIRED, BYOK_DISABLED, BYOK_KEY_REQUIRED, MODEL_UNKNOWN), as JSON. */
 async function paidAccessOr(req: Request, res: Response, mode: string, byok: { provider: string; key: string } | undefined): Promise<{ access?: PaidAccess } | null> {
@@ -340,21 +374,40 @@ export async function aiChat(req: Request, res: Response) {
   if (!parsed.success) return tmcodeError(res, 400, "VALIDATION", "That request isn't valid.");
   const id = userId(req);
   const project = parsed.data.project_id ?? null;
-  const v = await verdictFor(req, "assist", project);
+  const layered = await decideLayer(req, "assist", await itemFor(req, project));
+  const v = layered.verdict;
   if (!v.allowed) return refuse(req, res, "assist", v);
+  const learning = layered.layer === "learning";
+  const a = parsed.data.agent;
+  // Learning: each question (not an agent's later steps) spends the item's allowance.
+  let allowance: ReturnType<typeof allowanceOf> | null = null;
+  if (learning) {
+    if (!a || a.step === 0) {
+      const t = takeQuestion(id, allowanceScope(layered), layered.help);
+      if (!t.ok) {
+        const wait = t.allowance.next_in_s ?? 60;
+        return tmcodeError(res, 429, "LEARNING_ALLOWANCE", `You've used your questions for now. One comes back in ${wait < 90 ? `${wait} seconds` : `${Math.ceil(wait / 60)} minutes`}: try the next step yourself meanwhile.`, { code: "LEARNING_ALLOWANCE", allowance: t.allowance });
+      }
+      allowance = t.allowance;
+    } else allowance = allowanceOf(id, allowanceScope(layered), layered.help);
+  }
   const paid = await paidAccessOr(req, res, parsed.data.mode, parsed.data.byok);
   if (!paid) return;
   for (const [k, j] of jobs) if (Date.now() - j.at > 120_000) jobs.delete(k);
   const job = randomUUID();
-  const a = parsed.data.agent;
+  const c = parsed.data.context;
+  const tools = a ? ((learning ? a.tools.filter((t) => LEARNING_TOOLS.has(t.function.name)) : a.mode === "plan" ? a.tools.filter((t) => READ_ONLY.has(t.function.name)) : a.tools) as ToolDef[]) : null;
   jobs.set(job, {
     user: id,
     mode: parsed.data.mode,
-    messages: buildMessages(parsed.data, isStaff(req)),
+    messages: buildMessages(parsed.data, isStaff(req), learning ? layered.help : null),
     at: Date.now(),
     project,
-    ...(a ? { agent: { tools: (a.mode === "plan" ? a.tools.filter((t) => READ_ONLY.has(t.function.name)) : a.tools) as ToolDef[], step: a.step } } : {}),
+    ...(a && tools ? { agent: { tools, step: a.step } } : {}),
     ...(paid.access ? { access: paid.access } : {}),
+    ...(learning
+      ? { learning: { identifiers: identifiersOf(`${c?.fileText ?? ""}\n${c?.selection ?? ""}`), reference: referenceLines(await referenceSolutions(layered.item)), syntax: layered.help.syntax, allowance: allowance! } }
+      : {}),
   });
   // Unclaimed jobs (and any key in them) don't outlive two minutes.
   setTimeout(() => jobs.delete(job), 120_000).unref?.();
@@ -365,9 +418,12 @@ export async function aiChatStream(req: Request, res: Response) {
   const job = jobs.get(String(req.params.id));
   if (!job || job.user !== userId(req)) return tmcodeError(res, 404, "NOT_FOUND", "That answer isn't available any more. Ask again.");
   jobs.delete(String(req.params.id));
-  // Checked again: the policy (or the exam) may have changed since the chat was asked.
-  const v = await verdictFor(req, "assist", job.project);
+  // Checked again: the policy (or the exam, or the item's layer) may have changed since the chat was asked.
+  const layered = await decideLayer(req, "assist", await itemFor(req, job.project));
+  const v = layered.verdict;
   if (!v.allowed) return refuse(req, res, "assist", v);
+  // Became Learning meanwhile: this answer was asked for Industrial, so it isn't given.
+  if (layered.layer === "learning" && !job.learning) return tmcodeError(res, 409, "LAYER_CHANGED", "Your teacher changed this to Learning. Ask again.", { code: "LAYER_CHANGED" });
   res.status(200);
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -381,10 +437,24 @@ export async function aiChatStream(req: Request, res: Response) {
   // The key (BYOK) now lives only in this request's scope, until the stream ends.
   delete job.access;
   const key = access?.tier === "byok" ? access.key : null;
+  // Learning: everything the model says passes the filter before the student sees it.
+  const filter = job.learning ? new LearningFilter({ identifiers: job.learning.identifiers, reference: job.learning.reference, syntax: job.learning.syntax }) : null;
+  const delta = (text: string) => {
+    const out = filter ? filter.push(text) : text;
+    if (out) send("delta", { text: out });
+  };
   try {
-    const r = await streamChat(job.user, job.mode, job.messages, (m) => send("meta", m), (text) => send("delta", { text }), abort.signal, job.agent, { access });
+    const r = await streamChat(job.user, job.mode, job.messages, (m) => send("meta", m), delta, abort.signal, job.agent, { access });
+    if (filter) {
+      const rest = filter.end();
+      if (rest) send("delta", { text: rest });
+      // A tool the tutor may not have never reaches the app, whatever the model asked for.
+      if (r.tool_calls) r.tool_calls = r.tool_calls.filter((t) => LEARNING_TOOLS.has(t.function.name));
+      if (r.tool_calls && !r.tool_calls.length) delete r.tool_calls;
+    }
     send("done", {
       ...r,
+      ...(filter && job.learning ? { layer: "learning", filtered: { removed: filter.removed }, allowance: job.learning.allowance } : {}),
       you: { used: userUsed(job.user, "chat"), limit: userLimit("chat") },
       steps: { used: userUsed(job.user, "agent"), limit: userLimit("agent") },
       ...(access?.tier === "premium" ? { premium_you: { used: premiumUsed(job.user), limit: access.limit } } : {}),
@@ -417,7 +487,10 @@ export async function aiComplete(req: Request, res: Response) {
   const parsed = CompleteSchema.safeParse(req.body);
   if (!parsed.success) return tmcodeError(res, 400, "VALIDATION", "That request isn't valid.");
   const id = userId(req);
-  const v = await verdictFor(req, "complete", parsed.data.project_id ?? null);
+  const layered = await decideLayer(req, "complete", await itemFor(req, parsed.data.project_id ?? null));
+  // Learning: suggestions are generated code. Not AI_DISABLED: the tutor stays on.
+  if (layered.layer === "learning") return tmcodeError(res, 403, "LAYER_LEARNING", layered.verdict.message, { code: "LAYER_LEARNING" });
+  const v = layered.verdict;
   if (!v.allowed) return refuse(req, res, "complete", v);
   const paid = await paidAccessOr(req, res, parsed.data.mode, parsed.data.byok);
   if (!paid) return;
