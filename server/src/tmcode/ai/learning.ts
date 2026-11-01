@@ -78,7 +78,7 @@ export function boolInput(v: unknown): boolean | undefined {
 }
 
 /** The tools the tutor may have (it looks at the student's code; it never changes it). */
-export const LEARNING_TOOLS = new Set(["list_files", "read_file", "search", "get_problems"]);
+export const LEARNING_TOOLS = new Set(["list_files", "read_file", "search", "get_problems", "repo_map", "find_symbol", "explore", "ask_user"]);
 
 // ── the tutor profile ──
 

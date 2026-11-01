@@ -39,7 +39,7 @@ import { privacyOf, permittedForStudents, studentRouting } from "../tmcode/ai/pr
 import { allowanceOf, identifiersOf, LEARNING_TOOLS, LearningFilter, referenceLines, takeQuestion, tutorSystem, type LearningHelp } from "../tmcode/ai/learning";
 
 /** Plan mode only ever gets these (the server enforces it, whatever the app sends). */
-const READ_ONLY = new Set(["list_files", "read_file", "search", "get_problems"]);
+const READ_ONLY = new Set(["list_files", "read_file", "search", "get_problems", "repo_map", "find_symbol", "explore", "ask_user"]);
 
 /**
  * /api/tmcode/ai — TMCode AI (free AI only; nga-tmcode docs/AI_AND_ACTIVITY_PLAN.md B).
@@ -342,14 +342,16 @@ const AGENT: Record<"manual" | "edit" | "plan" | "auto", string> = {
 };
 
 const AGENT_RULES = `You are working inside the student's project folder in TMCode.
-- Look before you change: read a file before editing it, search to find where things are.
+- Look before you change: in an unfamiliar project start with repo_map; use find_symbol to see where something is defined and used; read a file before editing it.
+- For a wide question across many files, hand it to explore (a read-only helper) to keep your context small.
+- If the request is ambiguous, call ask_user with one short question and 2-4 choices instead of guessing.
 - Prefer edit_file with a small, exact old_text (copied from the file) over rewriting whole files.
 - Keep changes minimal and focused on what was asked. Keep the project's style.
 - After changing code, check get_problems (and run tests or the program when that helps).
 - When you are done, reply with a short summary of what you changed and why (file names), without repeating the code.`;
 
 /** Learning's agent: it may look at the student's files to help, never change them. */
-const LEARNING_AGENT = `You can look at the student's project with read-only tools (list_files, read_file, search, get_problems) to understand their code and their errors. You cannot and must not change anything. Read what you need, then answer as the tutor: in words, no code.`;
+const LEARNING_AGENT = `You can look at the student's project with read-only tools (list_files, read_file, search, get_problems, repo_map, find_symbol, explore) to understand their code and their errors. You cannot and must not change anything. Your best move is often ask_user: ask the student what they think should happen, with 2-4 choices. Read what you need, then answer as the tutor: in words, no code.`;
 
 export function buildMessages(input: z.infer<typeof ChatSchema>, staff = false, learning: LearningHelp | null = null): ChatMessage[] {
   const c = input.context;
