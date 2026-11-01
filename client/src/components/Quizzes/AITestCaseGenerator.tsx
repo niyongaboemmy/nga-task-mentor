@@ -3,6 +3,7 @@ import { useAiAuthoring } from "../../hooks/useAiAccess";
 import { Sparkles, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { QuizApiService } from "../../services/quizApi";
 import { AiAnsweredBy, AiSourceControl } from "../ai/AiSourceControl";
+import HandoffControl from "../ai/HandoffControl";
 import type { AiAnswer } from "../../services/myAiApi";
 
 interface TestCase {
@@ -116,6 +117,18 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
               )}
             </button>
             <AiSourceControl idPrefix="testcases-ai-source" value={aiRoute} onChange={setAiRoute} disabled={isGenerating} className="mt-3" />
+            <HandoffControl
+              idPrefix="testcases-handoff"
+              className="mt-2"
+              disabled={isGenerating || !problemDescription.trim()}
+              request={(aiHandoff) => QuizApiService.generateTestCases({ problemDescription, language, starterCode, aiHandoff })}
+              onImported={(body) => {
+                setError("");
+                setAnsweredBy(body.ai ?? null);
+                setGeneratedCases(body.data ?? []);
+                setShowPreview(true);
+              }}
+            />
             {showPreview && <AiAnsweredBy ai={answeredBy} className="mt-2" />}
             {!aiAuthoring.allowed && aiAuthoring.reason && (
               <p className="mt-2 text-xs text-purple-700/80 dark:text-purple-300/80" data-testid="ai-testcases-locked">

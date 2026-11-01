@@ -1,6 +1,6 @@
 {
   "app": "tm",
-  "version": "2026.10.25",
+  "version": "2026.11.01",
   "features": [
     { "key": "tm.landing", "label": "Start page", "module": "Public", "patterns": ["/"], "public": true },
     { "key": "tm.login", "label": "Sign-in page", "module": "Public", "patterns": ["/login"], "public": true },
@@ -49,6 +49,7 @@
     { "key": "tm.quiz.proctoring_analytics", "label": "Proctoring analytics", "module": "Proctoring", "patterns": ["/quizzes/:quizId/proctoring/analytics"] },
 
     { "key": "tm.question_bank", "label": "Question bank", "module": "Question bank", "patterns": ["/question-bank"] },
+    { "key": "tm.ai_drafts", "label": "AI drafts", "module": "AI", "patterns": ["/ai-drafts", "/ai-drafts/:draftId"] },
 
     { "key": "tm.grades", "label": "Grades", "module": "Grades", "patterns": ["/grades"] },
     { "key": "tm.grades.subject", "label": "Subject grades", "module": "Grades", "patterns": ["/grades/subjects/:courseId"] },

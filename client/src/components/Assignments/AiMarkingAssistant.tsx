@@ -3,6 +3,8 @@ import { useAiAuthoring } from "../../hooks/useAiAccess";
 import { AlertTriangle, Check, Sparkles } from "lucide-react";
 import SubmissionsApiService, { type AiMarkingDraft } from "../../services/submissionsApi";
 import { AiAnsweredBy, AiSourceControl } from "../ai/AiSourceControl";
+import HandoffControl from "../ai/HandoffControl";
+import { listAiDrafts, setAiDraftStatus, type AiDraft } from "../../services/aiDraftsApi";
 
 type Tone = "encouraging" | "neutral" | "direct";
 const TONES: Array<{ id: Tone; label: string }> = [
@@ -37,14 +39,30 @@ const AiMarkingAssistant: React.FC<Props> = ({ submissionId, onApplyMarks, onUse
   const [draft, setDraft] = React.useState<AiMarkingDraft | null>(null);
   const [applied, setApplied] = React.useState<{ marks: boolean; feedback: boolean }>({ marks: false, feedback: false });
 
+  // Feedback the person's own AI drafted through the NGA connector (never released).
+  const [connectorDrafts, setConnectorDrafts] = React.useState<AiDraft[]>([]);
+  React.useEffect(() => {
+    let live = true;
+    listAiDrafts({ kind: "feedback", submission_id: submissionId })
+      .then((rows) => live && setConnectorDrafts(rows))
+      .catch(() => live && setConnectorDrafts([]));
+    return () => {
+      live = false;
+    };
+  }, [submissionId]);
+
+  const showDraft = (res: { data: AiMarkingDraft }) => {
+    setDraft(res.data);
+    setApplied({ marks: false, feedback: false });
+    onCriterionNotes?.(Object.fromEntries(res.data.criteria.filter((c) => c.comment).map((c) => [c.index, c.comment])));
+  };
+
   const run = async () => {
     setBusy(true);
     setError(null);
     try {
       const res = await SubmissionsApiService.draftFeedback(submissionId, { tone, ...(aiRoute ? { aiRoute } : {}) });
-      setDraft(res.data);
-      setApplied({ marks: false, feedback: false });
-      onCriterionNotes?.(Object.fromEntries(res.data.criteria.filter((c) => c.comment).map((c) => [c.index, c.comment])));
+      showDraft(res);
     } catch (e: any) {
       setError(e?.response?.data?.message || "The AI couldn't draft this one. Try again, or mark it yourself.");
     } finally {
@@ -99,6 +117,52 @@ const AiMarkingAssistant: React.FC<Props> = ({ submissionId, onApplyMarks, onUse
         </div>
       </div>
       <AiSourceControl idPrefix="ai-marking-source" value={aiRoute} onChange={setAiRoute} disabled={busy} className="mt-2" />
+      <HandoffControl
+        idPrefix="ai-marking-handoff"
+        pupilData
+        className="mt-2"
+        disabled={busy || !aiAuthoring.allowed}
+        request={(aiHandoff) => SubmissionsApiService.draftFeedback(submissionId, { tone, aiHandoff })}
+        onImported={(body) => {
+          setError(null);
+          showDraft(body);
+        }}
+      />
+      {connectorDrafts.length > 0 && (
+        <div className="mt-3 space-y-2" data-testid="ai-marking-connector-drafts">
+          {connectorDrafts.map((d) => (
+            <div key={d.id} className="rounded-xl bg-white/70 p-3 text-sm dark:bg-slate-900/30">
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                  Draft from your own AI{d.payload?.suggested_score != null ? ` · suggests ${d.payload.suggested_score}/${d.payload.max_score}` : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUseFeedback(String(d.payload?.feedback ?? ""));
+                    void setAiDraftStatus(d.id, "applied").catch(() => undefined);
+                    setConnectorDrafts((rows) => rows.filter((r) => r.id !== d.id));
+                  }}
+                  className="ml-auto rounded-full border border-violet-300 bg-white px-3 py-1 text-xs font-semibold text-violet-800 hover:bg-violet-50 dark:border-violet-500/40 dark:bg-slate-900/40 dark:text-violet-100"
+                >
+                  Use this feedback
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void setAiDraftStatus(d.id, "discarded").catch(() => undefined);
+                    setConnectorDrafts((rows) => rows.filter((r) => r.id !== d.id));
+                  }}
+                  className="rounded-full px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Discard
+                </button>
+              </div>
+              <p className="whitespace-pre-wrap text-slate-800 dark:text-slate-100">{String(d.payload?.feedback ?? "")}</p>
+            </div>
+          ))}
+        </div>
+      )}
       <p className="mt-1 text-xs text-violet-900/80 dark:text-violet-100/80">
         The AI reads the work and your rubric and suggests marks and feedback. You decide: nothing is saved, and the student sees nothing until you save the grade.
       </p>

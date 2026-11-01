@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAiAuthoring } from "../../../hooks/useAiAccess";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -22,6 +22,10 @@ import type { RubricCriterion } from "../AssignmentCard";
 import { evenRubric, rubricTotal, scaleRubric } from "../../../utils/rubricMarks";
 import { generateRubric, type GeneratedRubric } from "./assignmentAiApi";
 import { AiAnsweredBy, AiSourceControl } from "../../ai/AiSourceControl";
+import HandoffControl from "../../ai/HandoffControl";
+import { listAiDrafts, setAiDraftStatus, type AiDraft } from "../../../services/aiDraftsApi";
+import api from "../../../utils/axiosConfig";
+import type { AiHandoffRequest } from "../../../services/aiHandoffApi";
 import Select from "../../ui/Select";
 
 interface RubricBuilderProps {
@@ -67,6 +71,37 @@ const RubricBuilder: React.FC<RubricBuilderProps> = ({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   const [preview, setPreview] = useState<GeneratedRubric | null>(null);
+  /** Rubrics the teacher's own AI drafted through the NGA connector (/ai-drafts). */
+  const [rubricDrafts, setRubricDrafts] = useState<AiDraft[]>([]);
+  const [usedDraftId, setUsedDraftId] = useState<number | null>(null);
+  useEffect(() => {
+    if (!aiOpen) return;
+    let live = true;
+    listAiDrafts({ kind: "rubric" })
+      .then((rows) => live && setRubricDrafts(rows))
+      .catch(() => live && setRubricDrafts([]));
+    return () => {
+      live = false;
+    };
+  }, [aiOpen]);
+
+  const loadDraft = (id: string) => {
+    const d = rubricDrafts.find((r) => String(r.id) === id);
+    const criteria = Array.isArray(d?.payload?.criteria) ? d!.payload.criteria : [];
+    if (!d || !criteria.length) return;
+    const total = criteria.reduce((a: number, c: any) => a + (Number(c.max_score) || 0), 0);
+    setAiError("");
+    setUsedDraftId(d.id);
+    setPreview({
+      criteria,
+      source: "generated",
+      total,
+      note: "Drafted by your own AI through the NGA connector.",
+      provider_used: "connector",
+      ai: null,
+    });
+    if (Number(d.payload?.max_score) > 0) setAiMarks(Number(d.payload.max_score));
+  };
 
   const total = rubricTotal(rubric);
   const words = useMemo(() => wordCount(description), [description]);
@@ -105,10 +140,33 @@ const RubricBuilder: React.FC<RubricBuilderProps> = ({
     }
   };
 
+  /** "Open in my AI ▾" / "Paste the answer": the same body as runAi, plus aiHandoff. */
+  const handoffRequest = async (aiHandoff: AiHandoffRequest) => {
+    if (!(aiMarks > 0)) throw new Error("Enter how many marks the assignment is out of.");
+    const res = await api.post(
+      "/assignments/ai/rubric",
+      {
+        title,
+        description,
+        max_score: aiMarks,
+        criteria_count: aiCount === "auto" ? null : Number(aiCount),
+        instructions: aiGuidance.trim() || undefined,
+        aiHandoff,
+      },
+      { timeout: 120_000 },
+    );
+    return res.data;
+  };
+
   const applyPreview = () => {
     if (!preview) return;
     if (aiMarks !== maxScore) onMaxScoreChange(aiMarks);
     onChange(preview.criteria);
+    if (usedDraftId) {
+      void setAiDraftStatus(usedDraftId, "applied").catch(() => undefined);
+      setRubricDrafts((rows) => rows.filter((r) => r.id !== usedDraftId));
+      setUsedDraftId(null);
+    }
     setPreview(null);
     setAiOpen(false);
   };
@@ -252,6 +310,33 @@ const RubricBuilder: React.FC<RubricBuilderProps> = ({
                 </div>
 
                 <AiSourceControl idPrefix="rubric-ai-source" value={aiRoute} onChange={setAiRoute} disabled={aiLoading} />
+                {rubricDrafts.length > 0 && (
+                  <Select
+                    size="sm"
+                    variant="outline"
+                    className="min-w-[12rem]"
+                    value=""
+                    aria-label="Load AI draft"
+                    onValueChange={(v) => v && loadDraft(v)}
+                    disabled={aiLoading}
+                  >
+                    <option value="">Load AI draft ({rubricDrafts.length})</option>
+                    {rubricDrafts.map((d) => (
+                      <option key={d.id} value={String(d.id)}>
+                        {d.title}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+                <HandoffControl
+                  idPrefix="rubric-handoff"
+                  request={handoffRequest}
+                  onImported={(body) => {
+                    setAiError("");
+                    setPreview({ ...body.data, ai: body.ai ?? body.data?.ai ?? null });
+                  }}
+                  disabled={aiLoading}
+                />
 
                 {aiError && (
                   <p role="alert" className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">

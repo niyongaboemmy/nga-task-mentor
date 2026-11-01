@@ -33,6 +33,7 @@ import { lazyPage } from "./lazyPage";
 const Dashboard = lazyPage(() => import("../components/Dashboard/Dashboard"));
 const Courses = lazyPage(() => import("../components/Courses/Courses"));
 const AssignmentsPage = lazyPage(() => import("../pages/AssignmentsPage"));
+const AiDraftsPage = lazyPage(() => import("../pages/AiDraftsPage"));
 const SubmissionsPage = lazyPage(() => import("../pages/SubmissionsPage"));
 const CourseDetails = lazyPage(() => import("../components/Courses/CourseDetails"));
 const AssignmentDetails = lazyPage(() => import("../components/Assignments/AssignmentDetails"));
@@ -389,6 +390,13 @@ export const appRoutes: AppRoute[] = [
     element: <QuizResultsPage />,
     permissions: ["QUIZZES_VIEW_RESULTS_OWN"],
   },
+  {
+    // Drafts from the teacher's own Claude / ChatGPT (NGA connector): confirmed here.
+    path: "/ai-drafts",
+    element: <AiDraftsPage />,
+    permissions: ["AI_USE"],
+  },
+  { path: "/ai-drafts/:draftId", element: <AiDraftsPage />, permissions: ["AI_USE"] },
   {
     // Teacher-only hub: every assigned subject's bank in one place
     // (cross-subject dashboard + per-subject question list).

@@ -33,6 +33,8 @@ import PlanBuilder from "./ai/PlanBuilder";
 import PromptComposer from "./ai/PromptComposer";
 import ProviderPicker from "./ai/ProviderPicker";
 import { AiAnsweredBy, AiSourceControl } from "../ai/AiSourceControl";
+import HandoffControl from "../ai/HandoffControl";
+import type { AiHandoffRequest } from "../../services/aiHandoffApi";
 import type { AiAnswer } from "../../services/myAiApi";
 import GenerationProgress from "./ai/GenerationProgress";
 import AIReviewList, { LinkToggle, type ReviewQuestion } from "./ai/AIReviewList";
@@ -342,6 +344,37 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
     }
   };
 
+  /**
+   * "Open in my AI ▾" / "Paste the answer": one prompt for the first batch (up to 12
+   * questions), from the same prepared source. Never a background job.
+   */
+  const handoffRequest = async (aiHandoff: AiHandoffRequest) => {
+    if (!canGenerate) throw new Error(blockers[0] || "Finish the settings first.");
+    const contextId =
+      prepared && prepared.signature === signature ? prepared.ctx.context_id : (await prepare(new AbortController().signal)).context_id;
+    return AIQuestionGenerationApi.generateHandoff(courseId, {
+      context_id: contextId,
+      plan: batchPlan[0],
+      additional_context: instructions.trim() || undefined,
+      avoid_questions: review.map((q) => q.question_text).slice(-60),
+      aiHandoff,
+    });
+  };
+
+  const onHandoffImported = (body: any) => {
+    const qs: any[] = Array.isArray(body?.data) ? body.data : [];
+    if (body?.meta?.blooms_levels?.length) setBloomLevels(body.meta.blooms_levels);
+    setLastAi(body?.ai ?? null);
+    if (!qs.length) {
+      toast.error("None of the pasted questions passed the checks. Ask your AI to answer again in the format given.");
+      return;
+    }
+    const mapped = qs.map((q) => ({ ...q, uid: nextUid(), selected: true, provider: "handoff" }));
+    setReview((prev) => [...prev, ...mapped]);
+    toast.success(`${mapped.length} question${mapped.length === 1 ? "" : "s"} ready for review`);
+    setStage("review");
+  };
+
   const handleCancel = () => {
     setCancelling(true);
     abortRef.current?.abort();
@@ -612,6 +645,12 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
                 />
                 <PromptComposer value={instructions} onChange={setInstructions} suggestions={suggestions} />
                 <AiSourceControl idPrefix="ai-generate-source" value={aiRoute} onChange={setAiRoute} />
+                <HandoffControl
+                  idPrefix="ai-generate-handoff"
+                  disabled={!canGenerate}
+                  request={handoffRequest}
+                  onImported={onHandoffImported}
+                />
                 <ProviderPicker providers={providers} value={provider} onChange={setProvider} />
               </section>
             </div>

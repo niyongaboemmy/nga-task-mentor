@@ -6,6 +6,7 @@ import { sql } from "@codemirror/lang-sql";
 import { Sparkles, AlertTriangle } from "lucide-react";
 import { usePermissions } from "../hooks/usePermissions";
 import { AiAnsweredBy, AiSourceControl } from "../components/ai/AiSourceControl";
+import HandoffControl from "../components/ai/HandoffControl";
 import type { AiAnswer } from "../services/myAiApi";
 import {
   confirmDbAccess,
@@ -19,6 +20,7 @@ import {
   getQueryHistory,
   exportTable,
   generateSqlWithAI,
+  generateSqlHandoff,
   type DbTableSummary,
   type DbTableStructure,
   type DbTableDataResult,
@@ -931,6 +933,18 @@ const DatabaseManagementPage: React.FC = () => {
                 className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-text-primary-light dark:text-text-primary-dark resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <AiSourceControl idPrefix="sql-ai-source" value={aiRoute} onChange={setAiRoute} disabled={aiGenerating} />
+              <HandoffControl
+                idPrefix="sql-handoff"
+                disabled={aiGenerating || !aiPrompt.trim()}
+                request={(aiHandoff) => generateSqlHandoff(aiPrompt.trim(), selectedTable || undefined, aiHandoff)}
+                onImported={(body) => {
+                  const result = body.data;
+                  if (!result?.sql) return;
+                  setSqlQuery(result.sql);
+                  setAiNote({ explanation: result.explanation, providerUsed: result.providerUsed, ai: body.ai ?? result.ai ?? null });
+                  toast.success("SQL query drafted — review before running.");
+                }}
+              />
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/70">
                   Drafts a query for you to review — it never runs automatically.
@@ -947,7 +961,7 @@ const DatabaseManagementPage: React.FC = () => {
               {aiNote && (
                 <p className="text-[11px] text-blue-700 dark:text-blue-300 border-t border-blue-100 dark:border-blue-900/40 pt-2">
                   {aiNote.explanation || "Query drafted."}{" "}
-                  {aiNote.ai?.route !== "personal" && (
+                  {aiNote.ai?.route !== "personal" && aiNote.ai?.route !== "handoff" && (
                     <span className="text-gray-400 dark:text-gray-500">(via {aiNote.providerUsed})</span>
                   )}
                 </p>

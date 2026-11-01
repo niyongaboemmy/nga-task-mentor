@@ -130,8 +130,14 @@ export class SubmissionsApiService {
   /** AI marking draft for the teacher to check (nothing is saved). */
   static async draftFeedback(
     id: string | number,
-    payload: { tone?: "encouraging" | "neutral" | "direct"; instructions?: string; aiRoute?: string },
-  ): Promise<{ success: boolean; data: AiMarkingDraft; ai?: AiAnswer | null }> {
+    payload: {
+      tone?: "encouraging" | "neutral" | "direct";
+      instructions?: string;
+      aiRoute?: string;
+      /** "Open in my AI" / "Paste the answer" (prompt mode answers { success, handoff }). */
+      aiHandoff?: import("./aiHandoffApi").AiHandoffRequest;
+    },
+  ): Promise<{ success: boolean; data: AiMarkingDraft; ai?: AiAnswer | null; handoff?: import("./aiHandoffApi").HandoffPayload }> {
     const response = await api.post(`/submissions/${id}/ai-feedback`, payload);
     return response.data;
   }

@@ -159,6 +159,24 @@ export const AIQuestionGenerationApi = {
   },
 
   /**
+   * "Open in my AI" / "Paste the answer" for one batch: never a job, the server answers at
+   * once with the batch's prompt (prompt mode) or the pasted questions (import mode).
+   */
+  async generateHandoff(
+    courseId: number,
+    body: {
+      context_id: string;
+      plan: AIPlanItem[];
+      additional_context?: string;
+      avoid_questions?: string[];
+      aiHandoff: import("./aiHandoffApi").AiHandoffRequest;
+    },
+  ): Promise<AIBatchResult & { handoff?: import("./aiHandoffApi").HandoffPayload }> {
+    const res = await axios.post(`${root(courseId)}/generate`, body, { timeout: 60_000 });
+    return res.data;
+  },
+
+  /**
    * Runs one batch as a server-side job and polls until it finishes. The AI
    * provider chain can outlast the reverse proxy's 60 s read timeout, so the
    * request that starts the job returns at once (202 + job_id). A non-2xx

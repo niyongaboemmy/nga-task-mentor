@@ -122,6 +122,11 @@ export interface AiPolicySummary {
   itemModes: boolean;
   hasAiUse: boolean;
   author: { allowed: boolean; reason: AiReason; message: string };
+  /**
+   * "Open in my AI ▾" (EXTERNAL_AI_CONTRACT.md §1): handoff is true when the school allows it
+   * and this person holds AI_EXTERNAL_CONNECT; pupilNames says whether pupil details may go.
+   */
+  external?: { handoff: boolean; pupilNames: "never" | "with_consent" };
   v: number | null;
 }
 

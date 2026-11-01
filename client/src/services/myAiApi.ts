@@ -24,7 +24,8 @@ export interface MyAiRoutes {
 
 /** What answered a call (the `ai` field of an AI response). */
 export interface AiAnswer {
-  route: "personal" | "school";
+  /** "handoff": the person pasted the answer from their own Claude / ChatGPT. */
+  route: "personal" | "school" | "handoff";
   reason: string;
   credentialId?: number;
   label?: string | null;
@@ -88,6 +89,7 @@ const FALLBACK_WHY: Record<string, string> = {
 /** One line saying who answered, or null when there's nothing worth saying. */
 export function describeAiAnswer(ai: AiAnswer | null | undefined): string | null {
   if (!ai) return null;
+  if (ai.route === "handoff") return "via your own AI (pasted)";
   if (ai.route === "personal") {
     const who = ai.label || (ai.provider ? `My ${ai.provider}` : "My AI");
     return `via ${who}${ai.model ? ` · ${ai.model}` : ""}`;

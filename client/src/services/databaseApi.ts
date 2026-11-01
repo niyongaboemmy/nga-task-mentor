@@ -179,6 +179,16 @@ export const generateSqlWithAI = async (
   return response.data.data;
 };
 
+/** "Open in my AI" / "Paste the answer" for the SQL draft: the raw answer body. */
+export const generateSqlHandoff = async (
+  prompt: string,
+  table: string | undefined,
+  aiHandoff: import("./aiHandoffApi").AiHandoffRequest,
+): Promise<{ success: boolean; data?: AiSqlResult; ai?: AiAnswer | null; handoff?: import("./aiHandoffApi").HandoffPayload }> => {
+  const response = await api.post("/database/query/ai-generate", { prompt, table, aiHandoff }, { headers: dbAccessHeaders() });
+  return response.data;
+};
+
 export const getQueryHistory = async (
   params: { page?: number; limit?: number } = {},
 ): Promise<{
