@@ -58,3 +58,13 @@ describe("answer in my language (H3)", () => {
     expect(ChatSchema.safeParse({ messages: [{ role: "user", content: "hi" }], context: { reply_language: "Klingon" } }).success).toBe(false);
   });
 });
+
+describe("Industrial · Guided scaffolds (A6, E7)", () => {
+  it("agents explain each step and leave TODO(you) gaps; plain chat and Learning don't", () => {
+    const agent = { mode: "edit" as const, step: 0, tools: [] };
+    const guided = ChatSchema.parse({ messages: [{ role: "user", content: "build it" }], agent, context: { scaffolds: true } });
+    expect(buildMessages(guided)[0].content).toContain("TODO(you)");
+    const chatOnly = ChatSchema.parse({ messages: [{ role: "user", content: "hi" }], context: { scaffolds: true } });
+    expect(buildMessages(chatOnly)[0].content).not.toContain("TODO(you)");
+  });
+});

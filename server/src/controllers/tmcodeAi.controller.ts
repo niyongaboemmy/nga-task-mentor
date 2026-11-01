@@ -306,6 +306,8 @@ export const ChatSchema = z.object({
        */
       purpose: z.string().max(40).optional(),
       grading: GradingSchema.optional(),
+      /** Industrial · Guided (proposal A6, E7): explain each step, leave TODO(you) gaps. */
+      scaffolds: z.boolean().optional(),
       /** Answer in this language (TMCode's "Answer in My Language"; proposal H3). */
       reply_language: z.enum(["English", "French", "Kinyarwanda"]).optional(),
     })
@@ -352,6 +354,12 @@ const AGENT_RULES = `You are working inside the student's project folder in TMCo
 - After changing code, check get_problems (and run tests or the program when that helps).
 - When you are done, reply with a short summary of what you changed and why (file names), without repeating the code.`;
 
+/** Industrial · Guided scaffolds: the student learns to build with AI, not only to receive code. */
+export const GUIDED_SCAFFOLDS = `The student is in Industrial · Guided: you build WITH them.
+- Before each tool call, write one plain sentence saying what you are about to do and why.
+- In each new function that teaches something (a loop, a condition, a query), leave ONE small, clearly marked gap for the student: a line \`// TODO(you): <what to write and a hint>\` (use the language's comment syntax) instead of writing that line. Never leave a gap in configuration, security or setup code.
+- End with a short list: what you built, the TODO(you) gaps you left, and how to check it works.`;
+
 /** Learning's agent: it may look at the student's files to help, never change them. */
 const LEARNING_AGENT = `You can look at the student's project with read-only tools (list_files, read_file, search, get_problems, repo_map, find_symbol, explore) to understand their code and their errors. You cannot and must not change anything. Your best move is often ask_user: ask the student what they think should happen, with 2-4 choices. Read what you need, then answer as the tutor: in words, no code.`;
 
@@ -373,8 +381,9 @@ export function buildMessages(input: z.infer<typeof ChatSchema>, staff = false, 
     : input.agent
       ? `\n\n${grading ? GRADING_AGENT_RULES : AGENT_RULES}\n${grading && input.agent.mode !== "plan" ? "" : AGENT[input.agent.mode]}`.trimEnd()
       : "";
+  const scaffolds = !learning && !grading && input.agent && c?.scaffolds ? `\n\n${GUIDED_SCAFFOLDS}` : "";
   const base = learning ? tutorSystem(learning) : grading ? GRADING_SYSTEM : c?.purpose === "terminal" && !input.agent ? TERMINAL_SYSTEM : SYSTEM;
-  const system = (parts.length ? `${base}\n\n${parts.join("\n\n")}` : base) + agent;
+  const system = (parts.length ? `${base}\n\n${parts.join("\n\n")}` : base) + agent + scaffolds;
   return [{ role: "system", content: system }, ...(input.messages as ChatMessage[])];
 }
 
