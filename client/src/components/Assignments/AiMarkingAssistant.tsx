@@ -2,6 +2,7 @@ import React from "react";
 import { useAiAuthoring } from "../../hooks/useAiAccess";
 import { AlertTriangle, Check, Sparkles } from "lucide-react";
 import SubmissionsApiService, { type AiMarkingDraft } from "../../services/submissionsApi";
+import { AiAnsweredBy, AiSourceControl } from "../ai/AiSourceControl";
 
 type Tone = "encouraging" | "neutral" | "direct";
 const TONES: Array<{ id: Tone; label: string }> = [
@@ -28,6 +29,8 @@ interface Props {
 const AiMarkingAssistant: React.FC<Props> = ({ submissionId, onApplyMarks, onUseFeedback, onCriterionNotes }) => {
   const [tone, setTone] = React.useState<Tone>("encouraging");
   const [busy, setBusy] = React.useState(false);
+  /** My AI: a one-off choice ("" = the person's default). */
+  const [aiRoute, setAiRoute] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   // AI usage control: AI_USE + the school policy (the server refuses otherwise).
   const aiAuthoring = useAiAuthoring();
@@ -38,7 +41,7 @@ const AiMarkingAssistant: React.FC<Props> = ({ submissionId, onApplyMarks, onUse
     setBusy(true);
     setError(null);
     try {
-      const res = await SubmissionsApiService.draftFeedback(submissionId, { tone });
+      const res = await SubmissionsApiService.draftFeedback(submissionId, { tone, ...(aiRoute ? { aiRoute } : {}) });
       setDraft(res.data);
       setApplied({ marks: false, feedback: false });
       onCriterionNotes?.(Object.fromEntries(res.data.criteria.filter((c) => c.comment).map((c) => [c.index, c.comment])));
@@ -95,6 +98,7 @@ const AiMarkingAssistant: React.FC<Props> = ({ submissionId, onApplyMarks, onUse
           </button>
         </div>
       </div>
+      <AiSourceControl idPrefix="ai-marking-source" value={aiRoute} onChange={setAiRoute} disabled={busy} className="mt-2" />
       <p className="mt-1 text-xs text-violet-900/80 dark:text-violet-100/80">
         The AI reads the work and your rubric and suggests marks and feedback. You decide: nothing is saved, and the student sees nothing until you save the grade.
       </p>
@@ -113,6 +117,7 @@ const AiMarkingAssistant: React.FC<Props> = ({ submissionId, onApplyMarks, onUse
 
       {draft && (
         <div className="mt-4 space-y-4" data-testid="ai-draft">
+          <AiAnsweredBy ai={draft.ai} />
           <div className="flex flex-wrap items-center gap-3 text-sm text-slate-800 dark:text-slate-100">
             <span className="text-2xl font-bold tabular-nums">
               {draft.score}

@@ -1,4 +1,5 @@
 import axios from "../utils/axiosConfig";
+import type { AiAnswer } from "./myAiApi";
 import type { QuestionType, DifficultyLevel } from "../types/quiz.types";
 
 // AI Question Generator: prepare a source (upload or MIS resources) once, then
@@ -105,6 +106,8 @@ export interface AIBloomLevel {
 
 export interface AIBatchResult {
   data: AIGeneratedQuestion[];
+  /** What answered (My AI). */
+  ai?: AiAnswer | null;
   meta: {
     requested: number;
     returned: number;
@@ -170,6 +173,8 @@ export const AIQuestionGenerationApi = {
       additional_context?: string;
       provider?: AIProviderName | null;
       avoid_questions?: string[];
+      /** My AI: a one-off choice from AiSourceControl ("" = the person's default). */
+      aiRoute?: string;
     },
     signal?: AbortSignal,
     opts: { pollMs?: number; maxWaitMs?: number } = {},

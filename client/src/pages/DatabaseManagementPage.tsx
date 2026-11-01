@@ -5,6 +5,8 @@ import CodeMirror from "@uiw/react-codemirror";
 import { sql } from "@codemirror/lang-sql";
 import { Sparkles, AlertTriangle } from "lucide-react";
 import { usePermissions } from "../hooks/usePermissions";
+import { AiAnsweredBy, AiSourceControl } from "../components/ai/AiSourceControl";
+import type { AiAnswer } from "../services/myAiApi";
 import {
   confirmDbAccess,
   getTables,
@@ -129,9 +131,11 @@ const DatabaseManagementPage: React.FC = () => {
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiNote, setAiNote] = useState<{ explanation: string | null; providerUsed: string } | null>(
+  const [aiNote, setAiNote] = useState<{ explanation: string | null; providerUsed: string; ai?: AiAnswer | null } | null>(
     null,
   );
+  /** My AI: a one-off choice ("" = the person's default). */
+  const [aiRoute, setAiRoute] = useState("");
 
   const [history, setHistory] = useState<DbQueryLogEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -406,9 +410,9 @@ const DatabaseManagementPage: React.FC = () => {
     setAiGenerating(true);
     setAiNote(null);
     try {
-      const result = await generateSqlWithAI(aiPrompt.trim(), selectedTable || undefined);
+      const result = await generateSqlWithAI(aiPrompt.trim(), selectedTable || undefined, aiRoute || undefined);
       setSqlQuery(result.sql);
-      setAiNote({ explanation: result.explanation, providerUsed: result.providerUsed });
+      setAiNote({ explanation: result.explanation, providerUsed: result.providerUsed, ai: result.ai ?? null });
       toast.success("SQL query drafted — review before running.");
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "AI could not generate a query.");
@@ -926,6 +930,7 @@ const DatabaseManagementPage: React.FC = () => {
                 rows={2}
                 className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-text-primary-light dark:text-text-primary-dark resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              <AiSourceControl idPrefix="sql-ai-source" value={aiRoute} onChange={setAiRoute} disabled={aiGenerating} />
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/70">
                   Drafts a query for you to review — it never runs automatically.
@@ -942,9 +947,12 @@ const DatabaseManagementPage: React.FC = () => {
               {aiNote && (
                 <p className="text-[11px] text-blue-700 dark:text-blue-300 border-t border-blue-100 dark:border-blue-900/40 pt-2">
                   {aiNote.explanation || "Query drafted."}{" "}
-                  <span className="text-gray-400 dark:text-gray-500">(via {aiNote.providerUsed})</span>
+                  {aiNote.ai?.route !== "personal" && (
+                    <span className="text-gray-400 dark:text-gray-500">(via {aiNote.providerUsed})</span>
+                  )}
                 </p>
               )}
+              {aiNote && <AiAnsweredBy ai={aiNote.ai} />}
             </div>
           )}
 

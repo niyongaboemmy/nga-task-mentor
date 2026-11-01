@@ -17,6 +17,8 @@ import {
 import { toast } from "react-toastify";
 import { ReportCardApiService, type AttributeRating } from "../../services/reportCardApi";
 import Select from "../ui/Select";
+import { AiAnsweredBy, AiSourceControl } from "../ai/AiSourceControl";
+import type { AiAnswer } from "../../services/myAiApi";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -503,6 +505,9 @@ export default function GeneralAttributesForm({
   const [isSavingAll, setIsSavingAll] = useState(false);
   // AI comment drafts: who is being drafted now, and the bulk run's progress.
   const [drafting, setDrafting] = useState<Record<number, boolean>>({});
+  // My AI: a one-off choice for drafting ("" = the person's default) and who answered last.
+  const [aiRoute, setAiRoute] = useState("");
+  const [lastAi, setLastAi] = useState<AiAnswer | null>(null);
   const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
   const formStateRef = useRef(formState);
   formStateRef.current = formState;
@@ -574,7 +579,9 @@ export default function GeneralAttributesForm({
         attributes: GENERAL_ATTRIBUTES.filter((a) => state.attributes[a]).map((a) => ({ attribute_name: a, rating: state.attributes[a] as AttributeRating })),
         attendance: state.attendance,
         current: state.comment.trim() || null,
+        ...(aiRoute ? { aiRoute } : {}),
       });
+      setLastAi(res.ai ?? res.data.ai ?? null);
       const text = res.data.comment.split("[NAME]").join(firstName(student.name));
       setFormState((prev) => ({ ...prev, [student.id]: { ...prev[student.id], comment: text, saved: false } }));
       return true;
@@ -784,6 +791,12 @@ export default function GeneralAttributesForm({
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
+              </div>
+            )}
+            {students.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <AiSourceControl idPrefix="report-comment-ai-source" value={aiRoute} onChange={setAiRoute} disabled={!!bulk} />
+                <AiAnsweredBy ai={lastAi} />
               </div>
             )}
             {students.length > 0 && (
