@@ -15,7 +15,8 @@
     "migrate:term": "ts-node --transpile-only src/migrations/add_academic_term_id.ts",
     "access:publish": "node dist/access/publishCli.js",
     "test": "TZ=UTC jest",
-    "test:watch": "TZ=UTC jest --watch"
+    "test:watch": "TZ=UTC jest --watch",
+    "eval:tutor": "ts-node --transpile-only src/tmcode/ai/evals/runTutorEval.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

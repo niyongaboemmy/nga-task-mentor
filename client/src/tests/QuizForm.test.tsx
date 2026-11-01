@@ -204,9 +204,9 @@ describe("QuizForm", () => {
     await user.click(screen.getByLabelText(/Randomize question order/i));
     await user.click(screen.getByLabelText(/Require instructor manual grading/i));
     await user.click(screen.getByLabelText(/publicly accessible/i));
-    // AI assistance for students: Off by default; pick "Hints only".
-    expect(screen.getByRole("radio", { name: /^Off$/ })).toHaveAttribute("aria-checked", "true");
-    await user.click(screen.getByRole("radio", { name: /Hints only/i }));
+    // AI assistance for students: No AI by default; pick Learning.
+    expect(screen.getByRole("radio", { name: /^No AI$/ })).toHaveAttribute("aria-checked", "true");
+    await user.click(screen.getByRole("radio", { name: /^Learning$/i }));
 
     await user.click(screen.getByRole("button", { name: /Create Quiz/i }));
 
@@ -226,6 +226,7 @@ describe("QuizForm", () => {
       require_manual_grading: true,
       is_public: true,
       ai_mode: "hints",
+      ai_own_tools: false,
       start_date: null,
       end_date: null,
     });

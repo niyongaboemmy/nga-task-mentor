@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { isFreeModel, freeModels } from "../../services/aiProviders/openrouterProvider";
 import { assertAiApp } from "../../services/aiPolicy";
+import { admittedToLearning, permittedForStudents } from "./privacy";
 
 /**
  * TMCode AI (nga-tmcode docs/AI_AND_ACTIVITY_PLAN.md, B): chat and inline completions for the
@@ -429,6 +430,11 @@ export interface StreamOptions {
   /** Answer length cap (default TMCODE_AI_MAX_TOKENS, else 1500 for chat, 4000 for agents). */
   maxTokens?: number;
   temperature?: number;
+  /**
+   * Which free models may answer (privacy.ts): Learning only admitted models (I7); a student's
+   * Learning/Guided request only providers the school's routing permits for students (J4).
+   */
+  route?: { learning: boolean; student: boolean };
 }
 
 type Delta = { content?: string | null; tool_calls?: { index: number; id?: string; function?: { name?: string; arguments?: string } }[] };
@@ -630,6 +636,11 @@ export async function streamChat(
     throw new AiError(429, "USER_QUOTA", kind === "chat" ? `You've used today's ${userLimit("chat")} AI questions. They come back tomorrow.` : `TMCode AI has done today's ${userLimit("agent")} agent steps for you. They come back tomorrow.`);
   let steps = await plan(agent ? "agent" : "chat", mode);
   if (!steps.length) throw new AiError(429, "POOL_EXHAUSTED", "The school's free AI requests are used up for today. Try again tomorrow.");
+  if (opts.route) {
+    const r = opts.route;
+    steps = steps.filter((st) => (!r.learning || admittedToLearning(st.provider, st.model)) && (!r.student || permittedForStudents(st.provider)));
+    if (!steps.length) throw new AiError(503, "NO_PERMITTED_PROVIDER", r.student ? "None of the school's AI providers that are allowed for students can answer this now. Pick Auto, or ask your teacher." : "No admitted model can answer in Learning now. Pick Auto.");
+  }
   if (hasImages(messages)) {
     steps = visionSteps(steps);
     if (!steps.length) throw new AiError(400, "NO_VISION", NO_VISION);

@@ -277,15 +277,15 @@ describe("TMCode AI with project_id", () => {
     expect(status.body).toMatchObject({ allowed: false, reason: "GLOBAL_OFF", enabled: false });
   });
 
-  it("hints-only and no project: a student is refused; a teacher without a project is allowed by role", async () => {
+  it("hints (Learning): the tutor answers, suggestions are refused; no project: by role", async () => {
     const a = await makeAssignment("hints");
     const p = await makeProject(student, { assignment_id: a.id });
-    expect((await chat(student, { project_id: p.id })).body.reason).toBe("HINTS_ONLY");
+    expect((await chat(student, { project_id: p.id })).status).toBe(201);
     expect((await chat(student, {})).body.reason).toBe("ROLE_OFF");
     expect((await chat(teacher, {})).status).toBe(201);
     const complete = await request(app).post("/api/tmcode/ai/complete").set("Authorization", tok(student)).send({ prefix: "x", project_id: p.id });
     expect(complete.status).toBe(403);
-    expect(complete.body.reason).toBe("HINTS_ONLY");
+    expect(complete.body.code).toBe("LAYER_LEARNING");
   });
 
   it("an open exam is the context: its quiz's ai_mode applies (off → EXAM_ACTIVE)", async () => {

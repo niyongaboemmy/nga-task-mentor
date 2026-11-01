@@ -128,6 +128,17 @@ const baseQuizFields = {
   ai_mode: z
     .enum(QUIZ_AI_MODES, { message: `AI mode must be one of: ${QUIZ_AI_MODES.join(", ")}` })
     .optional(),
+  // AI layers: the Learning knobs (normalised by the controller) and Industrial's own-tools toggle.
+  ai_help: z
+    .object({
+      strength: z.enum(["hints", "tutor"]).optional(),
+      pseudo: z.boolean().optional(),
+      syntax: z.boolean().optional(),
+      allowance: z.object({ max: z.number().int().min(1).max(100).optional(), regain_minutes: z.number().min(0.5).max(120).optional() }).optional(),
+    })
+    .nullable()
+    .optional(),
+  ai_own_tools: z.boolean({ message: "ai_own_tools must be true or false" }).optional(),
 };
 
 /** end_date must be after start_date when both are set. */
@@ -183,6 +194,8 @@ export const updateQuizSchema = z
     start_date: baseQuizFields.start_date,
     end_date: baseQuizFields.end_date,
     ai_mode: baseQuizFields.ai_mode,
+    ai_help: baseQuizFields.ai_help,
+    ai_own_tools: baseQuizFields.ai_own_tools,
   })
   .superRefine(dateOrderCheck);
 

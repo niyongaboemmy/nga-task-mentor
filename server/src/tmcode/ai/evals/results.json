@@ -1,0 +1,13 @@
+{
+  "about": "Written by npm run eval:tutor (I7). Learning routing skips models above TMCODE_AI_LEARNING_MAX_LEAK.",
+  "results": [
+    {
+      "provider": "groq",
+      "model": "openai/gpt-oss-20b",
+      "raw_leak_rate": 0,
+      "filtered_leak_rate": 0,
+      "answered": 5,
+      "at": "2026-11-01T01:18:25.584Z"
+    }
+  ]
+}

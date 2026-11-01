@@ -1,5 +1,5 @@
 import React from "react";
-import type { AiMode } from "../../services/aiApi";
+import { aiHelpOf, type AiMode } from "../../services/aiApi";
 import type { AxiosProgressEvent } from "axios";
 import { toast } from "react-toastify";
 import api, { isAxiosError } from "../../utils/axiosConfig";
@@ -24,6 +24,8 @@ interface UpdateAssignmentProps {
     status: string;
     /** AI for students working on it (AI usage control). */
     ai_mode?: AiMode | null;
+    ai_help?: unknown;
+    ai_own_tools?: boolean | null;
     attachments?: ExistingAttachment[];
     /** TMCode practical settings from GET /assignments/:id (null = off). */
     tmcode?: TmcodeSettings | null;
@@ -100,6 +102,8 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({ assignment, on
         course_id: "",
         status: assignment.status || "draft",
         ai_mode: assignment.ai_mode === "hints" || assignment.ai_mode === "full" ? assignment.ai_mode : "off",
+        ai_help: assignment.ai_help ? aiHelpOf(assignment.ai_help) : null,
+        ai_own_tools: !!assignment.ai_own_tools,
       }}
       existingAttachments={assignment.attachments || []}
       initialTmcode={initialTmcode}

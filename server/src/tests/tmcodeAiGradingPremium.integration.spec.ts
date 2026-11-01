@@ -156,7 +156,7 @@ describe("premium", () => {
     const after = await chatAndStream(teacher, { mode: "premium:openai/gpt-4.1" });
     expect(after.res.status).toBe(201);
     const ev = events(after.stream!.text);
-    expect(ev.find((e) => e.event === "meta")!.data).toEqual({ provider: "openai", model: "gpt-4.1", tier: "premium" });
+    expect(ev.find((e) => e.event === "meta")!.data).toEqual({ provider: "openai", model: "gpt-4.1", tier: "premium", privacy: "Paid API · no training · 13+ with consent" });
     expect(ev.find((e) => e.event === "done")!.data).toMatchObject({ tier: "premium", premium_you: { used: 1, limit: 2 } });
     expect(OpenAIMock).toHaveBeenLastCalledWith(expect.objectContaining({ apiKey: SCHOOL_KEY, baseURL: "https://api.openai.com/v1" }));
     expect(create.mock.calls[0][0]).toMatchObject({ model: "gpt-4.1", stream: true });

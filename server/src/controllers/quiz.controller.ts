@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { aiHelpInput, boolInput } from "../tmcode/ai/learning";
 import axios from "axios";
 import { QuizQuestion, QuizAttempt, User, Quiz, QuestionBank } from "../models";
 import QuizSubmission from "../models/QuizSubmission.model";
@@ -695,6 +696,8 @@ export const createQuiz = async (req: Request, res: Response) => {
         is_public: quizData.is_public,
         // AI for students inside the quiz: off unless the teacher chooses otherwise.
         ai_mode: quizData.ai_mode ?? "off",
+        ai_help: aiHelpInput(quizData.ai_help) ?? null,
+        ai_own_tools: boolInput(quizData.ai_own_tools) ?? false,
         academic_term_id: academicTermId ?? null,
       },
       { transaction },
@@ -856,6 +859,10 @@ export const updateQuiz = async (req: Request, res: Response) => {
     // canManageQuiz above: only the creator or QUIZZES_MANAGE_ANY gets here.
     const previousAiMode = quiz.ai_mode;
     if (updateData.ai_mode !== undefined) changes.ai_mode = updateData.ai_mode;
+    const help = aiHelpInput(updateData.ai_help);
+    if (help !== undefined) changes.ai_help = help;
+    const ownTools = boolInput(updateData.ai_own_tools);
+    if (ownTools !== undefined) changes.ai_own_tools = ownTools;
     if (updateData.start_date !== undefined)
       changes.start_date = effectiveStart ?? (null as any);
     if (updateData.end_date !== undefined)

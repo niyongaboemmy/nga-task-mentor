@@ -1,7 +1,7 @@
 import React from "react";
 import { Bot, Lock, Sparkles } from "lucide-react";
 import Badge, { type BadgeTone } from "../ui/Badge";
-import { AI_MODE_OPTIONS, type AiMode } from "../../services/aiApi";
+import { AI_MODE_OPTIONS, type AiHelp, type AiMode } from "../../services/aiApi";
 import { useAiPolicy } from "../../hooks/useAiAccess";
 
 /**
@@ -70,6 +70,98 @@ export const AiModeControl: React.FC<{
           </>
         )}
       </p>
+    </div>
+  );
+};
+
+/**
+ * What each layer lets the teacher tune (proposal §8.3, A4, A11): Learning's help strength,
+ * pseudo-code, tiny syntax examples and question allowance; Industrial's "students' own AI tools".
+ * For a quiz with AI the session is a timed task, not an exam (D9).
+ */
+export const AiLayerOptions: React.FC<{
+  mode: AiMode;
+  help: AiHelp;
+  onHelp: (h: AiHelp) => void;
+  ownTools: boolean;
+  onOwnTools: (v: boolean) => void;
+  idPrefix: string;
+  /** A quiz: say that AI makes it a timed task. */
+  quiz?: boolean;
+}> = ({ mode, help, onHelp, ownTools, onOwnTools, idPrefix, quiz }) => {
+  if (mode === "off") return null;
+  const box = "rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-3 text-sm";
+  const label = "text-text-primary-light dark:text-text-primary-dark";
+  const hint = "text-xs text-text-secondary-light dark:text-text-secondary-dark/80";
+  return (
+    <div className={box} data-testid={`${idPrefix}-ai-layer-options`}>
+      {quiz && <p className={hint}>With AI on, TMCode shows this quiz as a <strong>timed task</strong>, not an exam: exams are always No AI.</p>}
+      {mode === "hints" ? (
+        <>
+          <fieldset className="space-y-1.5">
+            <legend className={`font-medium ${label}`}>Help strength</legend>
+            <div className="flex flex-wrap gap-3">
+              {(
+                [
+                  ["hints", "Hints", "Questions and nudges only"],
+                  ["tutor", "Tutor", "Also explains concepts, errors and reviews code, in words"],
+                ] as const
+              ).map(([v, l, d]) => (
+                <label key={v} className="inline-flex items-start gap-2 cursor-pointer" title={d}>
+                  <input type="radio" name={`${idPrefix}-ai-strength`} checked={help.strength === v} onChange={() => onHelp({ ...help, strength: v })} data-testid={`${idPrefix}-ai-strength-${v}`} />
+                  <span>
+                    <span className={label}>{l}</span> <span className={hint}>{d}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={help.pseudo} onChange={(e) => onHelp({ ...help, pseudo: e.target.checked })} data-testid={`${idPrefix}-ai-pseudo`} />
+            <span className={label}>Pseudo-code in words</span>
+            <span className={hint}>("loop over the list; keep the largest so far")</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={help.syntax} onChange={(e) => onHelp({ ...help, syntax: e.target.checked })} data-testid={`${idPrefix}-ai-syntax`} />
+            <span className={label}>Tiny generic syntax examples</span>
+            <span className={hint}>(at most 2 lines, never the students' own names)</span>
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={label}>Questions:</span>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              className="w-16 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent px-2 py-1"
+              value={help.allowance.max}
+              onChange={(e) => onHelp({ ...help, allowance: { ...help.allowance, max: Math.max(1, Math.min(100, Number(e.target.value) || 1)) } })}
+              aria-label="Questions a student can ask in a row"
+              data-testid={`${idPrefix}-ai-allowance-max`}
+            />
+            <span className={hint}>in a row, one more every</span>
+            <input
+              type="number"
+              min={0.5}
+              max={120}
+              step={0.5}
+              className="w-16 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent px-2 py-1"
+              value={help.allowance.regain_minutes}
+              onChange={(e) => onHelp({ ...help, allowance: { ...help.allowance, regain_minutes: Math.max(0.5, Math.min(120, Number(e.target.value) || 3)) } })}
+              aria-label="Minutes until one more question"
+              data-testid={`${idPrefix}-ai-allowance-minutes`}
+            />
+            <span className={hint}>minutes (a pause to think is part of learning)</span>
+          </div>
+        </>
+      ) : (
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input type="checkbox" checked={ownTools} onChange={(e) => onOwnTools(e.target.checked)} data-testid={`${idPrefix}-ai-own-tools`} className="mt-1" />
+          <span>
+            <span className={label}>Allow students' own AI tools</span>{" "}
+            <span className={hint}>(Industrial · Open: Claude Code, Copilot, AI command-line tools and own keys. They bypass the school's logging and limits; best for S5–S6 and TVET.)</span>
+          </span>
+        </label>
+      )}
     </div>
   );
 };
