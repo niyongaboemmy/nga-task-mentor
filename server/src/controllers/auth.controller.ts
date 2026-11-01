@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { namesFromMis } from "../utils/names";
 import { noteAccessVersion } from "../access/snapshot";
 import { noteAiPolicyVersion } from "../services/aiPolicy";
+import { noteMyAiVersions } from "../services/myAiGateway";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -861,6 +862,8 @@ export const verifyMisSession = async (req: Request, res: Response) => {
     noteAccessVersion(req.user?.mis_user_id, response.data?.data?.access_version);
     // A changed ai_policy_v (the school AI policy) expires the cached policy.
     noteAiPolicyVersion(response.data?.data?.ai_policy_v);
+    // My AI: a new ai_routes_v (the person's keys/routes) or ai_policy_v drops their cached routes.
+    noteMyAiVersions(req.user?.mis_user_id, response.data?.data);
     // MIS reports the current picture on every poll: a picture changed in MIS (or
     // another NGA app) reaches this app's top bar within a minute.
     let profileImage: string | null | undefined;

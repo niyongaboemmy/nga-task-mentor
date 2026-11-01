@@ -1,4 +1,5 @@
 import axios from "../utils/axiosConfig";
+import type { AiAnswer } from "./myAiApi";
 import type {
   Quiz,
   QuizQuestion,
@@ -311,7 +312,9 @@ export class QuizApiService {
     problemDescription: string;
     language: string;
     starterCode?: string;
-  }): Promise<{ success: boolean; data: any[] }> {
+    /** My AI: a one-off choice from AiSourceControl ("" = the person's default). */
+    aiRoute?: string;
+  }): Promise<{ success: boolean; data: any[]; ai?: AiAnswer | null }> {
     const response = await axios.post("/quizzes/generate-test-cases", data);
     return response.data;
   }
@@ -695,6 +698,7 @@ export class QuestionBankApiService {
       countPerType: number;
       difficulty: "EASY" | "MEDIUM" | "DIFFICULT";
       additionalContext?: string;
+      aiRoute?: string;
     },
   ): Promise<{
     success: boolean;
@@ -702,6 +706,7 @@ export class QuestionBankApiService {
     skipped: number;
     document_info: { char_count: number; truncated: boolean };
     data: any[];
+    ai?: AiAnswer | null;
   }> {
     const formData = new FormData();
     formData.append("file", file);
@@ -711,6 +716,7 @@ export class QuestionBankApiService {
     if (options.additionalContext) {
       formData.append("additional_context", options.additionalContext);
     }
+    if (options.aiRoute) formData.append("aiRoute", options.aiRoute);
 
     const response = await axios.post(
       `/courses/${courseId}/question-bank/ai-generate`,

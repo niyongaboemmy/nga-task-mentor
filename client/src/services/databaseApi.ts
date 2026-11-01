@@ -1,4 +1,5 @@
 import api from "../utils/axiosConfig";
+import type { AiAnswer } from "./myAiApi";
 
 export interface DbTableSummary {
   tableName: string;
@@ -160,15 +161,19 @@ export interface AiSqlResult {
   sql: string;
   explanation: string | null;
   providerUsed: string;
+  /** What answered (My AI). */
+  ai?: AiAnswer | null;
 }
 
 export const generateSqlWithAI = async (
   prompt: string,
   table?: string,
+  /** My AI: a one-off choice from AiSourceControl ("" = the person's default). */
+  aiRoute?: string,
 ): Promise<AiSqlResult> => {
   const response = await api.post(
     "/database/query/ai-generate",
-    { prompt, table },
+    { prompt, table, ...(aiRoute ? { aiRoute } : {}) },
     { headers: dbAccessHeaders() },
   );
   return response.data.data;

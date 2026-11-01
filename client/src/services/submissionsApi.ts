@@ -1,4 +1,5 @@
 import api from "../utils/axiosConfig";
+import type { AiAnswer } from "./myAiApi";
 import type { SubmissionItemInterface } from "../components/Assignments/SubmissionMarking";
 
 export interface SubmissionListItem extends SubmissionItemInterface {
@@ -21,6 +22,8 @@ export interface AiMarkingDraft {
   confidence: "low" | "medium" | "high";
   warnings: string[];
   provider_used: string;
+  /** What answered (My AI). */
+  ai?: AiAnswer | null;
 }
 
 export interface SubmissionListFilters {
@@ -127,8 +130,8 @@ export class SubmissionsApiService {
   /** AI marking draft for the teacher to check (nothing is saved). */
   static async draftFeedback(
     id: string | number,
-    payload: { tone?: "encouraging" | "neutral" | "direct"; instructions?: string },
-  ): Promise<{ success: boolean; data: AiMarkingDraft }> {
+    payload: { tone?: "encouraging" | "neutral" | "direct"; instructions?: string; aiRoute?: string },
+  ): Promise<{ success: boolean; data: AiMarkingDraft; ai?: AiAnswer | null }> {
     const response = await api.post(`/submissions/${id}/ai-feedback`, payload);
     return response.data;
   }

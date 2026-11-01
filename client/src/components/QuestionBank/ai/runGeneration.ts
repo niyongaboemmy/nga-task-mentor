@@ -5,6 +5,7 @@ import type {
 } from "../../../services/aiQuestionGenerationApi";
 import { aiErrorMessage, httpStatus, isContextExpired } from "../../../services/aiQuestionGenerationApi";
 import { planTotal } from "./aiGeneratorModel";
+import type { AiAnswer } from "../../../services/myAiApi";
 
 export type BatchStatus = "queued" | "running" | "done" | "failed" | "cancelled";
 
@@ -17,6 +18,8 @@ export interface BatchState {
   skipped?: number;
   provider?: string;
   fellBack?: boolean;
+  /** What answered this batch (My AI). */
+  ai?: AiAnswer | null;
   error?: string;
   durationMs?: number;
   /** A transient failure is being retried once. */
@@ -127,6 +130,7 @@ export async function runGeneration(opts: RunOptions, cb: RunCallbacks) {
         skipped: res.meta.skipped.length,
         provider: res.meta.provider_used,
         fellBack: res.meta.fell_back,
+        ai: res.ai ?? null,
         durationMs: Date.now() - started,
       });
       cb.onMeta?.(res.meta);

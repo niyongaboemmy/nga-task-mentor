@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { draftComment } from "../services/ai/reportCommentDrafter";
 import { sendControllerError } from "../utils/controllerErrors";
+import { personalAiFrom } from "../services/myAiGateway";
 
 /**
  * POST /api/report-cards/ai-comment
@@ -20,8 +21,9 @@ export const draftReportComment = async (req: Request, res: Response) => {
       tone,
       current,
       provider,
+      personal: personalAiFrom(req, "author", "tm.report-comment"),
     });
-    return res.json({ success: true, data: draft });
+    return res.json({ success: true, data: draft, ai: draft.ai ?? null });
   } catch (error: any) {
     if ([400, 502, 503].includes(error?.statusCode)) {
       return res.status(error.statusCode).json({ success: false, message: error.message });

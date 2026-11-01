@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { generateRubric } from "../services/ai/rubricGenerator";
 import { sendControllerError } from "../utils/controllerErrors";
+import { personalAiFrom } from "../services/myAiGateway";
 
 /**
  * POST /api/assignments/ai/rubric
@@ -18,8 +19,9 @@ export const generateAssignmentRubric = async (req: Request, res: Response) => {
       criteriaCount: criteria_count,
       instructions,
       provider,
+      personal: personalAiFrom(req, "author", "tm.rubric"),
     });
-    return res.json({ success: true, data: rubric });
+    return res.json({ success: true, data: rubric, ai: rubric.ai ?? null });
   } catch (error: any) {
     // 400 nothing to read, 502 empty AI reply, 503 no provider could answer —
     // all carry a teacher-friendly message.

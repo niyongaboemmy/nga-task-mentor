@@ -6,6 +6,7 @@ import { canGradeAssignment, GRADE_DENIED_MESSAGE } from "../utils/gradingAccess
 import fileServer from "../utils/fileServer";
 import { DocumentExtractorService } from "../services/DocumentExtractorService";
 import { draftFeedback, type RubricCriterion } from "../services/ai/feedbackDrafter";
+import { personalAiFrom } from "../services/myAiGateway";
 import { sendControllerError } from "../utils/controllerErrors";
 
 const parse = <T>(v: unknown, fallback: T): T => {
@@ -94,8 +95,9 @@ export const draftSubmissionFeedback = async (req: Request, res: Response) => {
       tone,
       instructions,
       provider,
+      personal: personalAiFrom(req, "author", "tm.marking-draft"),
     });
-    return res.json({ success: true, data: draft });
+    return res.json({ success: true, data: draft, ai: draft.ai ?? null });
   } catch (error: any) {
     if ([400, 502, 503].includes(error?.statusCode)) {
       return res.status(error.statusCode).json({ success: false, message: error.message });

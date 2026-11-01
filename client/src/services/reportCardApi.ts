@@ -1,4 +1,5 @@
 import axios from "../utils/axiosConfig";
+import type { AiAnswer } from "./myAiApi";
 
 export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT";
 export type AssessmentType = "quiz" | "assignment" | "manual";
@@ -422,7 +423,9 @@ export class ReportCardApiService {
     attendance?: "present" | "absent" | "late" | null;
     tone?: "encouraging" | "balanced" | "concise";
     current?: string | null;
-  }): Promise<{ success: boolean; data: { comment: string; provider_used: string } }> {
+    /** My AI: a one-off choice from AiSourceControl ("" = the person's default). */
+    aiRoute?: string;
+  }): Promise<{ success: boolean; data: { comment: string; provider_used: string; ai?: AiAnswer | null }; ai?: AiAnswer | null }> {
     const response = await axios.post(`/report-cards/ai-comment`, body);
     return response.data;
   }

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { isPersonalAiUnavailableError, personalAiErrorBody, personalAiFrom } from "../services/myAiGateway";
 import { QueryTypes } from "sequelize";
 import { sequelize } from "../config/database";
 import { DatabaseQueryLog, User } from "../models";
@@ -684,9 +685,10 @@ export const generateSqlWithAI = async (req: Request, res: Response) => {
       tableColumns = await getTableColumns(table);
     }
 
-    const { sql, explanation, providerUsed } = await aiService.generateSqlQuery(
+    const { sql, explanation, providerUsed, ai } = await aiService.generateSqlQuery(
       prompt.trim(),
       { tableNames, tableColumns },
+      personalAiFrom(req, "author", "tm.sql"),
     );
 
     if (!sql) {
@@ -704,10 +706,12 @@ export const generateSqlWithAI = async (req: Request, res: Response) => {
 
     res.status(200).json({
       success: true,
-      data: { sql: cleanSql, explanation: explanation || null, providerUsed },
+      data: { sql: cleanSql, explanation: explanation || null, providerUsed, ai: ai ?? null },
+      ai: ai ?? null,
     });
   } catch (error: any) {
     if (isAiDisabledError(error)) return res.status(403).json(aiDisabledBody(error.reason));
+    if (isPersonalAiUnavailableError(error)) return res.status(503).json(personalAiErrorBody(error));
     console.error("Generate SQL with AI error:", error);
     res.status(500).json({ success: false, message: error.message || "Server error" });
   }

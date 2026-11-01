@@ -1,4 +1,5 @@
 import api, { isAxiosError } from "../../../utils/axiosConfig";
+import type { AiAnswer } from "../../../services/myAiApi";
 import type { RubricCriterion } from "../AssignmentCard";
 
 export interface GeneratedRubric {
@@ -7,6 +8,8 @@ export interface GeneratedRubric {
   total: number;
   note: string;
   provider_used: string;
+  /** What answered (My AI). */
+  ai?: AiAnswer | null;
 }
 
 export async function generateRubric(params: {
@@ -15,6 +18,8 @@ export async function generateRubric(params: {
   max_score: number;
   criteria_count?: number | null;
   instructions?: string;
+  /** My AI: a one-off choice from AiSourceControl ("" = the person's default). */
+  aiRoute?: string;
 }): Promise<GeneratedRubric> {
   try {
     // AI providers can take a while on free tiers.

@@ -21,6 +21,7 @@ import {
 import type { RubricCriterion } from "../AssignmentCard";
 import { evenRubric, rubricTotal, scaleRubric } from "../../../utils/rubricMarks";
 import { generateRubric, type GeneratedRubric } from "./assignmentAiApi";
+import { AiAnsweredBy, AiSourceControl } from "../../ai/AiSourceControl";
 import Select from "../../ui/Select";
 
 interface RubricBuilderProps {
@@ -61,6 +62,8 @@ const RubricBuilder: React.FC<RubricBuilderProps> = ({
   const [aiMarks, setAiMarks] = useState<number>(maxScore || 10);
   const [aiCount, setAiCount] = useState<string>("auto");
   const [aiGuidance, setAiGuidance] = useState("");
+  /** My AI: a one-off choice ("" = the person's default). */
+  const [aiRoute, setAiRoute] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   const [preview, setPreview] = useState<GeneratedRubric | null>(null);
@@ -92,6 +95,7 @@ const RubricBuilder: React.FC<RubricBuilderProps> = ({
         max_score: aiMarks,
         criteria_count: aiCount === "auto" ? null : Number(aiCount),
         instructions: aiGuidance.trim() || undefined,
+        ...(aiRoute ? { aiRoute } : {}),
       });
       setPreview(result);
     } catch (e) {
@@ -247,6 +251,8 @@ const RubricBuilder: React.FC<RubricBuilderProps> = ({
                   </label>
                 </div>
 
+                <AiSourceControl idPrefix="rubric-ai-source" value={aiRoute} onChange={setAiRoute} disabled={aiLoading} />
+
                 {aiError && (
                   <p role="alert" className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
                     <AlertCircle className="w-4 h-4" /> {aiError}
@@ -289,6 +295,7 @@ const RubricBuilder: React.FC<RubricBuilderProps> = ({
                         {preview.criteria.length} criteria · {fmt(preview.total)} marks
                       </span>
                     </div>
+                    <AiAnsweredBy ai={preview.ai} />
                     {preview.note && (
                       <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark italic">
                         {preview.note}

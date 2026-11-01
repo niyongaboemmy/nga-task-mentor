@@ -32,6 +32,8 @@ import DocumentDropzone from "./ai/DocumentDropzone";
 import PlanBuilder from "./ai/PlanBuilder";
 import PromptComposer from "./ai/PromptComposer";
 import ProviderPicker from "./ai/ProviderPicker";
+import { AiAnsweredBy, AiSourceControl } from "../ai/AiSourceControl";
+import type { AiAnswer } from "../../services/myAiApi";
 import GenerationProgress from "./ai/GenerationProgress";
 import AIReviewList, { LinkToggle, type ReviewQuestion } from "./ai/AIReviewList";
 import { runGeneration, type BatchState } from "./ai/runGeneration";
@@ -118,6 +120,9 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
   const [instructions, setInstructions] = useState("");
   const [providers, setProviders] = useState<AIProviderInfo[] | null>(null);
   const [provider, setProvider] = useState<AIProviderName | null>(initial.provider);
+  // My AI: a one-off choice ("" = the person's default) and who answered the last run.
+  const [aiRoute, setAiRoute] = useState("");
+  const [lastAi, setLastAi] = useState<AiAnswer | null>(null);
 
   // Run
   const [prepared, setPrepared] = useState<{ signature: string; ctx: AIPreparedContext } | null>(null);
@@ -293,7 +298,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
         generate: (body, signal) =>
           AIQuestionGenerationApi.generate(
             courseId,
-            { ...body, additional_context: instructions.trim() || undefined, provider },
+            { ...body, additional_context: instructions.trim() || undefined, provider, ...(aiRoute ? { aiRoute } : {}) },
             signal,
           ),
         reprepare: async () => (await prepare(controller.signal)).context_id,
@@ -317,6 +322,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
     );
     abortRef.current = null;
 
+    setLastAi([...result.states].reverse().find((s) => s.ai)?.ai ?? null);
     const fellBack = result.states.find((s) => s.fellBack);
     if (fellBack) toast.info(`Your chosen engine was busy, so ${fellBack.provider} answered instead.`);
     if (added.length) {
@@ -605,6 +611,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
                   plan={plan}
                 />
                 <PromptComposer value={instructions} onChange={setInstructions} suggestions={suggestions} />
+                <AiSourceControl idPrefix="ai-generate-source" value={aiRoute} onChange={setAiRoute} />
                 <ProviderPicker providers={providers} value={provider} onChange={setProvider} />
               </section>
             </div>
@@ -636,6 +643,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
                 Review {review.length} question{review.length === 1 ? "" : "s"}
               </h3>
               <span className="text-xs text-gray-500">Untick or delete what you don't want, adjust difficulty, then save.</span>
+              <AiAnsweredBy ai={lastAi} className="basis-full" />
             </div>
 
             {prepared && (

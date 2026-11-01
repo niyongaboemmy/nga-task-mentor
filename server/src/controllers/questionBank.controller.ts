@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { isPersonalAiUnavailableError, personalAiErrorBody, personalAiFrom } from "../services/myAiGateway";
 import { aiDisabledBody, isAiDisabledError } from "../services/aiPolicy";
 import { QuestionBank, QuizQuestion } from "../models";
 import { sequelize } from "../config/database";
@@ -796,13 +797,16 @@ export const generateQuestionsFromDocument = async (
       });
     }
 
-    const generated = await aiService.generateQuestionsFromDocument({
-      documentText: text,
-      questionTypes,
-      countPerType,
-      difficulty: difficultyLevel,
-      additionalContext: additional_context || undefined,
-    });
+    const { questions: generated, providerUsed, ai } = await aiService.generateQuestionsFromDocumentWithAi(
+      {
+        documentText: text,
+        questionTypes,
+        countPerType,
+        difficulty: difficultyLevel,
+        additionalContext: additional_context || undefined,
+      },
+      personalAiFrom(req, "author", "tm.question-generator"),
+    );
 
     // Filter out questions that fail structural validation
     const valid: typeof generated = [];
@@ -841,9 +845,12 @@ export const generateQuestionsFromDocument = async (
       skipped: skipped.length,
       document_info: { char_count: charCount, truncated },
       data: valid,
+      provider_used: providerUsed,
+      ai: ai ?? null,
     });
   } catch (error: any) {
     if (isAiDisabledError(error)) return res.status(403).json(aiDisabledBody(error.reason));
+    if (isPersonalAiUnavailableError(error)) return res.status(503).json(personalAiErrorBody(error));
     console.error("[AI Generate] Error:", error.message);
     res.status(500).json({
       success: false,

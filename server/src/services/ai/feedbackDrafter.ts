@@ -1,4 +1,5 @@
 import { generateStructuredContent, JSONSchema } from "../aiProviders";
+import type { AiAnswer, PersonalAiCall } from "../myAiGateway";
 import { preferredOrder } from "../aiProviders/registry";
 import { htmlToText } from "./misCourseResources";
 import { isAiDisabledError } from "../aiPolicy";
@@ -40,6 +41,8 @@ export interface FeedbackInput {
   tone?: Tone;
   instructions?: string;
   provider?: string | null;
+  /** My AI: the teacher asking (their own key may answer). */
+  personal?: PersonalAiCall | null;
 }
 
 export interface FeedbackDraft {
@@ -56,6 +59,8 @@ export interface FeedbackDraft {
   /** Things the teacher should know (couldn't read a file, off-topic, very short…). */
   warnings: string[];
   provider_used: string;
+  /** What answered (My AI). */
+  ai?: AiAnswer;
 }
 
 const draftSchema: JSONSchema = {
@@ -171,8 +176,9 @@ export async function draftFeedback(input: FeedbackInput): Promise<FeedbackDraft
   };
   let data: Raw;
   let providerUsed: string;
+  let ai: AiAnswer | undefined;
   try {
-    ({ data, providerUsed } = await generateStructuredContent<Raw>(
+    ({ data, providerUsed, ai } = await generateStructuredContent<Raw>(
       {
         schemaName: "marking_draft",
         schema: draftSchema,
@@ -188,7 +194,7 @@ export async function draftFeedback(input: FeedbackInput): Promise<FeedbackDraft
         }),
         maxOutputTokens: 2500,
       },
-      { providerOrder: preferredOrder(input.provider) },
+      { providerOrder: preferredOrder(input.provider), personal: input.personal },
     ));
   } catch (err: any) {
     if (isAiDisabledError(err)) throw err;
@@ -238,5 +244,6 @@ export async function draftFeedback(input: FeedbackInput): Promise<FeedbackDraft
     confidence,
     warnings,
     provider_used: providerUsed,
+    ai,
   };
 }

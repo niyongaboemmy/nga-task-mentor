@@ -2,6 +2,7 @@ import { GenerateJSONParams } from "./types";
 import { orderedProviders, isCoolingDown, markCoolingDown } from "./registry";
 import { isQuotaError, isDeadProviderError, friendlyAIErrorMessage } from "./errors";
 import { assertAiApp } from "../aiPolicy";
+import { withPersonalAi, type AiAnswer, type PersonalAiCall } from "../myAiGateway";
 
 /** A bad key or an empty billing account won't recover in minutes. */
 const DEAD_PROVIDER_COOLDOWN_MS = 60 * 60 * 1000;
@@ -14,12 +15,23 @@ function coolDownIfNeeded(name: string, err: any) {
 export interface GenerateStructuredContentResult<T> {
   data: T;
   providerUsed: string;
+  /** What answered (My AI): set when the call passed `options.personal`. */
+  ai?: AiAnswer;
 }
 
 export interface GenerateStructuredContentOptions {
   /** Try these providers, in this order, instead of AI_PROVIDER_ORDER — see orderedProviders(). */
   providerOrder?: string[];
+  /**
+   * A call made by a person (My AI, MY_AI_GATEWAY.md): their own key may answer through
+   * the MIS gateway, with the same prompt/schema; otherwise the school chain below runs.
+   * Leave unset for system work (grading on submit) — that always uses the school AI.
+   */
+  personal?: PersonalAiCall | null;
 }
+
+/** Personal answers report the provider of the person's key as providerUsed. */
+const personalProvider = (ai: AiAnswer) => `${ai.provider || "personal"}`;
 
 // Adapted from nga_central_mis/backend/src/services/aiProviders/generate.ts (that version
 // throws a shared ServiceUnavailableError via an error-class hierarchy this app doesn't
@@ -37,6 +49,28 @@ export async function generateStructuredContent<T = any>(
   // Chokepoint (AI_USAGE_CONTROL_PLAN.md §5.5): no provider is called while the
   // school's AI policy has AI off for Task Mentor -- throws AiDisabledError (403).
   await assertAiApp("tm");
+  if (options?.personal) {
+    const { result, ai } = await withPersonalAi(options.personal, {
+      personal: async (gw) => {
+        const out = await gw.json<T>({
+          prompt: params.prompt,
+          schema: params.schema,
+          schemaName: params.schemaName,
+          maxOutputTokens: params.maxOutputTokens,
+        });
+        return { data: { data: out.data, providerUsed: personalProvider(out.ai) }, ai: out.ai };
+      },
+      school: () => schoolStructured<T>(params, options),
+    });
+    return { ...result, ai };
+  }
+  return schoolStructured<T>(params, options);
+}
+
+async function schoolStructured<T>(
+  params: GenerateJSONParams,
+  options?: GenerateStructuredContentOptions,
+): Promise<GenerateStructuredContentResult<T>> {
   const providers = orderedProviders(options?.providerOrder);
   let lastErr: any = null;
   let attempted = 0;
@@ -146,6 +180,28 @@ export async function generateFreeformJSON<T = any>(
   // Chokepoint (AI_USAGE_CONTROL_PLAN.md §5.5): no provider is called while the
   // school's AI policy has AI off for Task Mentor -- throws AiDisabledError (403).
   await assertAiApp("tm");
+  if (options?.personal) {
+    const { result, ai } = await withPersonalAi(options.personal, {
+      // Same prompt; the gateway's plain-text call, parsed as leniently as below.
+      personal: async (gw) => {
+        const out = await gw.text({ prompt, system: FREEFORM_JSON_SYSTEM });
+        return { data: { data: parseLenientJson(out.data) as T, providerUsed: personalProvider(out.ai) }, ai: out.ai };
+      },
+      school: () => schoolFreeform<T>(prompt, maxOutputTokens, options),
+    });
+    return { ...result, ai };
+  }
+  return schoolFreeform<T>(prompt, maxOutputTokens, options);
+}
+
+/** The gateway's text call has no JSON mode; this asks for the same thing the local json mode does. */
+const FREEFORM_JSON_SYSTEM = "Reply with valid JSON only: no prose, no markdown code fences.";
+
+async function schoolFreeform<T>(
+  prompt: string,
+  maxOutputTokens?: number,
+  options?: GenerateStructuredContentOptions,
+): Promise<GenerateStructuredContentResult<T>> {
   const providers = orderedProviders(options?.providerOrder);
   let lastErr: any = null;
   let attempted = 0;

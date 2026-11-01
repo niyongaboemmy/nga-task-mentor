@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useAiAuthoring } from "../../hooks/useAiAccess";
 import { Sparkles, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { QuizApiService } from "../../services/quizApi";
+import { AiAnsweredBy, AiSourceControl } from "../ai/AiSourceControl";
+import type { AiAnswer } from "../../services/myAiApi";
 
 interface TestCase {
   id: string;
@@ -29,6 +31,9 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
   const [generatedCases, setGeneratedCases] = useState<TestCase[]>([]);
   const [error, setError] = useState<string>("");
   const [showPreview, setShowPreview] = useState(false);
+  // My AI: a one-off choice ("" = the person's default) and who answered.
+  const [aiRoute, setAiRoute] = useState("");
+  const [answeredBy, setAnsweredBy] = useState<AiAnswer | null>(null);
   // AI usage control: AI_USE + the school policy (the server refuses otherwise).
   const aiAuthoring = useAiAuthoring();
 
@@ -46,9 +51,11 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
         problemDescription,
         language,
         starterCode,
+        ...(aiRoute ? { aiRoute } : {}),
       });
 
       if (response.success) {
+        setAnsweredBy(response.ai ?? null);
         setGeneratedCases(response.data);
         setShowPreview(true);
       } else {
@@ -108,6 +115,8 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
                 </>
               )}
             </button>
+            <AiSourceControl idPrefix="testcases-ai-source" value={aiRoute} onChange={setAiRoute} disabled={isGenerating} className="mt-3" />
+            {showPreview && <AiAnsweredBy ai={answeredBy} className="mt-2" />}
             {!aiAuthoring.allowed && aiAuthoring.reason && (
               <p className="mt-2 text-xs text-purple-700/80 dark:text-purple-300/80" data-testid="ai-testcases-locked">
                 {aiAuthoring.reason}

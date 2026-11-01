@@ -29,6 +29,8 @@ export const generateRubricSchema = z.object({
     .enum(["gemini", "groq", "glm", "openai", "deepseek", "openrouter"])
     .nullish()
     .transform((v) => v ?? null),
+  /** My AI: a one-off choice from the AI panel ("school", "<credentialId>" or "<credentialId>:<model>"). */
+  aiRoute: z.string().trim().max(200).nullish(),
 });
 
 export const importEditorImageSchema = z.object({
@@ -40,4 +42,6 @@ export const draftFeedbackSchema = z.object({
   tone: z.enum(["encouraging", "neutral", "direct"]).optional(),
   instructions: z.string().max(500).optional(),
   provider: z.string().max(40).nullable().optional(),
+  /** My AI: a one-off choice from the AI panel ("school", "<credentialId>" or "<credentialId>:<model>"). */
+  aiRoute: z.string().trim().max(200).nullish(),
 });

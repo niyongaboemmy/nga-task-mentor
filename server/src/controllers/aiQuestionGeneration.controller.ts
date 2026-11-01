@@ -18,6 +18,7 @@ import {
 } from "../services/ai/misCourseResources";
 import { getMisToken, handleMisError } from "../utils/misUtils";
 import { createJob, getJob } from "../services/ai/generationJobs";
+import { isPersonalAiUnavailableError, personalAiFrom, type PersonalAiCall } from "../services/myAiGateway";
 import { BLOOM_GUIDE, alignBloomLevel, loadBloomLevels } from "../services/ai/bloomsAlignment";
 import type { AIDifficulty } from "../services/ai/types";
 import { sendControllerError } from "../utils/controllerErrors";
@@ -173,7 +174,12 @@ export const prepareResourcesContext = async (req: Request, res: Response) => {
 // @route   POST /api/courses/:courseId/question-bank/ai/generate
 type BatchOutcome = { status: number; payload: Record<string, unknown> };
 
-async function runBatch(userId: number, courseId: number, body: AIGenerateBatchBody): Promise<BatchOutcome> {
+async function runBatch(
+  userId: number,
+  courseId: number,
+  body: AIGenerateBatchBody,
+  personal: PersonalAiCall | null = null,
+): Promise<BatchOutcome> {
   const ctx = getContext(body.context_id, userId, courseId);
   if (!ctx) {
     return {
@@ -205,7 +211,7 @@ async function runBatch(userId: number, courseId: number, body: AIGenerateBatchB
     const fromRun = body.avoid_questions.slice(-25).reverse();
     const avoid = [...fromRun, ...existingTexts.slice(0, Math.max(15, 40 - fromRun.length))];
 
-    const { questions, providerUsed } = await aiService.generateQuestionsFromSource(
+    const { questions, providerUsed, ai } = await aiService.generateQuestionsFromSource(
       {
         sourceText: ctx.text,
         sourceLabel: ctx.label,
@@ -213,7 +219,7 @@ async function runBatch(userId: number, courseId: number, body: AIGenerateBatchB
         additionalContext: body.additional_context,
         avoidQuestions: avoid,
       },
-      { provider: body.provider },
+      { provider: body.provider, personal },
     );
 
     const allowedTypes = new Set(plan.map((p) => p.question_type));
@@ -284,13 +290,14 @@ async function runBatch(userId: number, courseId: number, body: AIGenerateBatchB
       payload: {
       success: true,
       data: kept,
+      ai: ai ?? null,
       meta: {
         requested,
         returned: kept.length,
         skipped,
         provider_used: providerUsed,
         provider_requested: body.provider,
-        fell_back: !!body.provider && body.provider !== providerUsed,
+        fell_back: !!body.provider && ai?.route !== "personal" && body.provider !== providerUsed,
         duration_ms: Date.now() - startedAt,
         blooms_adjusted: bloomsAdjusted,
         blooms_levels: bloomLevels,
@@ -301,6 +308,9 @@ async function runBatch(userId: number, courseId: number, body: AIGenerateBatchB
   } catch (error: any) {
     console.error("[AI Generate batch] Error:", error?.message);
     const msg = String(error?.message || "");
+    if (isPersonalAiUnavailableError(error)) {
+      return { status: 503, payload: { success: false, code: error.code, message: msg } };
+    }
     const status = /not configured/i.test(msg) ? 503 : /rate-limited/i.test(msg) ? 429 : 502;
     return {
       status,
@@ -320,8 +330,10 @@ export const generateQuestionBatch = async (req: Request, res: Response) => {
   const courseId = courseIdOf(req);
   // Usage analytics: count a batch that produced questions (also when it runs as a background job).
   const who = keyEventIdentity(req);
+  // My AI: who asked, and their one-off choice, captured now (an async job runs later).
+  const personal = personalAiFrom(req, "author", "tm.question-generator");
   const run = async () => {
-    const outcome = await runBatch(userId, courseId, body);
+    const outcome = await runBatch(userId, courseId, body, personal);
     if (outcome.status === 200) {
       const meta = (outcome.payload as any)?.meta;
       trackAs(who, "tm.question.generate", {
