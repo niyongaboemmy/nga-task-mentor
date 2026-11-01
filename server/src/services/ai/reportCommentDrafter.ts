@@ -1,4 +1,5 @@
 import { generateStructuredContent, JSONSchema } from "../aiProviders";
+import type { AiAnswer, PersonalAiCall } from "../myAiGateway";
 import { preferredOrder } from "../aiProviders/registry";
 import { isAiDisabledError } from "../aiPolicy";
 
@@ -25,11 +26,15 @@ export interface CommentInput {
   /** The teacher's current text, to improve rather than replace. */
   current?: string | null;
   provider?: string | null;
+  /** My AI: the teacher asking (their own key may answer). */
+  personal?: PersonalAiCall | null;
 }
 
 export interface CommentDraft {
   comment: string;
   provider_used: string;
+  /** What answered (My AI). */
+  ai?: AiAnswer;
 }
 
 const schema: JSONSchema = {
@@ -101,10 +106,11 @@ export async function draftComment(input: CommentInput): Promise<CommentDraft> {
   }
   let data: { comment?: string };
   let providerUsed: string;
+  let ai: AiAnswer | undefined;
   try {
-    ({ data, providerUsed } = await generateStructuredContent<{ comment?: string }>(
+    ({ data, providerUsed, ai } = await generateStructuredContent<{ comment?: string }>(
       { schemaName: "report_comment", schema, prompt: buildCommentPrompt({ ...input, tone }), maxOutputTokens: 600 },
-      { providerOrder: preferredOrder(input.provider) },
+      { providerOrder: preferredOrder(input.provider), personal: input.personal },
     ));
   } catch (err: any) {
     if (isAiDisabledError(err)) throw err;
@@ -114,5 +120,5 @@ export async function draftComment(input: CommentInput): Promise<CommentDraft> {
   if (comment.length < 20) {
     throw Object.assign(new Error("The AI didn't return a usable comment. Try again."), { statusCode: 502 });
   }
-  return { comment, provider_used: providerUsed };
+  return { comment, provider_used: providerUsed, ai };
 }

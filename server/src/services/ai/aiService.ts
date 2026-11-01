@@ -14,6 +14,7 @@ import {
   planTotal,
 } from "./prompts/generateFromDocumentPrompt";
 import { parseBloomLevel } from "./bloomsAlignment";
+import type { AiAnswer, PersonalAiCall } from "../myAiGateway";
 import {
   AIGradingResult,
   AICodingGradingResult,
@@ -155,6 +156,18 @@ Grade quality (0-20) and efficiency (0-20). Correctness is fixed at ${correctnes
     chatHistory: { role: "user" | "assistant"; content: string }[],
     lastError?: string,
   ): Promise<string> {
+    return (await this.getSocraticHintWithAi(questionText, studentCode, language, chatHistory, lastError)).hint;
+  }
+
+  /** getSocraticHint for a person (My AI: `personal`), with what answered. */
+  async getSocraticHintWithAi(
+    questionText: string,
+    studentCode: string,
+    language: string,
+    chatHistory: { role: "user" | "assistant"; content: string }[],
+    lastError?: string,
+    personal?: PersonalAiCall | null,
+  ): Promise<{ hint: string; ai?: AiAnswer }> {
     const lastMessages = chatHistory
       .slice(-4)
       .map((m) => `${m.role}: ${m.content}`)
@@ -166,7 +179,7 @@ Grade quality (0-20) and efficiency (0-20). Correctness is fixed at ${correctnes
       required: ["hint"],
     };
 
-    const { data } = await generateStructuredContent<{ hint: string }>({
+    const { data, ai } = await generateStructuredContent<{ hint: string }>({
       schemaName: "socratic_hint",
       schema,
       prompt: `You are a Socratic programming tutor. NEVER provide code solutions. Use leading questions to guide the student.
@@ -178,9 +191,9 @@ Student's current code:
 ${studentCode}
 ${lastError ? `Error: ${lastError}` : ""}
 Give a single helpful question or hint, as the "hint" field.`,
-    });
+    }, { personal });
 
-    return data.hint || "Have you considered breaking the problem into smaller parts?";
+    return { hint: data.hint || "Have you considered breaking the problem into smaller parts?", ai };
   }
 
   async generateCodingTestCases(
@@ -188,6 +201,16 @@ Give a single helpful question or hint, as the "hint" field.`,
     language: string,
     starterCode?: string,
   ): Promise<AITestCase[]> {
+    return (await this.generateCodingTestCasesWithAi(problemDescription, language, starterCode)).testCases;
+  }
+
+  /** generateCodingTestCases for a person (My AI: `personal`), with what answered. */
+  async generateCodingTestCasesWithAi(
+    problemDescription: string,
+    language: string,
+    starterCode?: string,
+    personal?: PersonalAiCall | null,
+  ): Promise<{ testCases: AITestCase[]; ai?: AiAnswer }> {
     const schema: JSONSchema = {
       type: "object",
       properties: {
@@ -210,7 +233,7 @@ Give a single helpful question or hint, as the "hint" field.`,
       required: ["testcases"],
     };
 
-    const { data } = await generateStructuredContent<{ testcases: any[] }>({
+    const { data, ai } = await generateStructuredContent<{ testcases: any[] }>({
       schemaName: "coding_test_cases",
       schema,
       prompt: `You are an expert in creating programming challenge test cases.
@@ -220,9 +243,9 @@ ${starterCode ? `Starter Code:\n${starterCode}` : ""}
 
 Generate 3-5 high-quality test cases including a basic test, an edge case, and a hidden performance test.
 Points must sum to 100.`,
-    });
+    }, { personal });
 
-    return (data.testcases || []).map((tc: any, i: number) => ({
+    const testCases = (data.testcases || []).map((tc: any, i: number) => ({
       id: String(tc.id || `tc${i + 1}`),
       input: String(tc.input ?? ""),
       expected_output: String(tc.expected_output ?? ""),
@@ -230,6 +253,7 @@ Points must sum to 100.`,
       points: Number(tc.points) || 0,
       explanation: String(tc.explanation || ""),
     }));
+    return { testCases, ai };
   }
 
   async generateQuiz(
@@ -329,14 +353,22 @@ Content: ${lessonContent.slice(0, 3000)}`,
   async generateQuestionsFromDocument(
     params: AIGenerateFromDocumentParams,
   ): Promise<AIGeneratedQuestion[]> {
+    return (await this.generateQuestionsFromDocumentWithAi(params)).questions;
+  }
+
+  /** generateQuestionsFromDocument for a person (My AI: `personal`), with what answered. */
+  async generateQuestionsFromDocumentWithAi(
+    params: AIGenerateFromDocumentParams,
+    personal?: PersonalAiCall | null,
+  ): Promise<{ questions: AIGeneratedQuestion[]; providerUsed: string; ai?: AiAnswer }> {
     // Question shape (question_data/correct_answer) differs per question_type, which
     // can't be expressed as one fixed JSON Schema — uses the freeform (prompt-only JSON)
     // path instead of constrained decoding, but still goes through the same provider
     // order/fallback/cooldown chain as every other operation here.
     const prompt = buildGenerateFromDocumentPrompt(params);
-    const { data } = await generateFreeformJSON<any>(prompt, 8000);
+    const { data, providerUsed, ai } = await generateFreeformJSON<any>(prompt, 8000, { personal });
     const arr = Array.isArray(data) ? data : data.questions || data.data || [];
-    return this.normalizeGeneratedQuestions(arr, params.difficulty);
+    return { questions: this.normalizeGeneratedQuestions(arr, params.difficulty), providerUsed, ai };
   }
 
   /**
@@ -346,22 +378,24 @@ Content: ${lessonContent.slice(0, 3000)}`,
    */
   async generateQuestionsFromSource(
     params: AIGenerateFromSourceParams,
-    options: { provider?: string | null } = {},
-  ): Promise<{ questions: AIGeneratedQuestion[]; providerUsed: string }> {
+    options: { provider?: string | null; personal?: PersonalAiCall | null } = {},
+  ): Promise<{ questions: AIGeneratedQuestion[]; providerUsed: string; ai?: AiAnswer }> {
     const prompt = buildGenerateFromSourcePrompt(params);
     // ~450 output tokens per question plus headroom; reasoning models (gpt-oss) eat into it too.
     const budget = Math.min(16000, Math.max(4000, planTotal(params.plan) * 700));
-    const { data, providerUsed } = await generateFreeformJSON<any>(prompt, budget, {
+    const { data, providerUsed, ai } = await generateFreeformJSON<any>(prompt, budget, {
       providerOrder: preferredOrder(options.provider),
+      personal: options.personal,
     });
     const arr = Array.isArray(data) ? data : data.questions || data.data || [];
-    return { questions: this.normalizeGeneratedQuestions(arr, "MEDIUM"), providerUsed };
+    return { questions: this.normalizeGeneratedQuestions(arr, "MEDIUM"), providerUsed, ai };
   }
 
   async generateSqlQuery(
     prompt: string,
     context: AISqlQueryContext,
-  ): Promise<AISqlQueryResult & { providerUsed: string }> {
+    personal?: PersonalAiCall | null,
+  ): Promise<AISqlQueryResult & { providerUsed: string; ai?: AiAnswer }> {
     const structureLine = context.tableColumns?.length
       ? `\nThe admin is currently viewing a table with these columns: ${context.tableColumns.join(", ")}.`
       : "";
@@ -375,7 +409,7 @@ Content: ${lessonContent.slice(0, 3000)}`,
       required: ["sql", "explanation"],
     };
 
-    const { data, providerUsed } = await generateStructuredContent<AISqlQueryResult>({
+    const { data, providerUsed, ai } = await generateStructuredContent<AISqlQueryResult>({
       schemaName: "database_sql_query",
       schema,
       maxOutputTokens: 800,
@@ -393,12 +427,13 @@ Write ONE single valid MySQL statement fulfilling this request. Prefer SELECT un
 asks to insert, update, delete, or alter data. Never produce DROP DATABASE, DROP SCHEMA, GRANT, REVOKE, CREATE
 USER, DROP USER, ALTER USER, SET GLOBAL, or SHUTDOWN. Do not wrap the SQL in markdown code fences, no trailing
 semicolon.`,
-    });
+    }, { personal });
 
     return {
       sql: String(data.sql || "").trim(),
       explanation: data.explanation ? String(data.explanation) : undefined,
       providerUsed,
+      ai,
     };
   }
 

@@ -7,6 +7,7 @@ import { Permission } from "../models/Permission.model";
 import { applyEnforcedPermissions } from "../access/policy";
 import { noteAccessVersion } from "../access/snapshot";
 import { noteAiPolicyVersion } from "../services/aiPolicy";
+import { noteMyAiVersions } from "../services/myAiGateway";
 
 /**
  * Authentication for /api/integration/* only: the caller (the MIS backend,
@@ -86,6 +87,8 @@ export const misBearerAuth = async (req: Request, res: Response, next: NextFunct
       noteAccessVersion(id, data.access_version);
       // A changed ai_policy_v means the super admin changed the AI policy.
       noteAiPolicyVersion(data.ai_policy_v);
+      // My AI: a new ai_routes_v or ai_policy_v drops this person's cached routes.
+      noteMyAiVersions(id, data);
     } catch (error: any) {
       const status = error?.response?.status;
       if (status === 401 || status === 403) return invalid(res);

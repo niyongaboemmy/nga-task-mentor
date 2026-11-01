@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { isPersonalAiUnavailableError, personalAiErrorBody, personalAiFrom } from "../services/myAiGateway";
 import { aiHelpInput, boolInput } from "../tmcode/ai/learning";
 import axios from "axios";
 import { QuizQuestion, QuizAttempt, User, Quiz, QuestionBank } from "../models";
@@ -2064,20 +2065,25 @@ export const getAIHint = async (req: Request, res: Response) => {
     }
 
     const questionText = question.questionBank?.question_text || "";
-    const hint = await aiService.getSocraticHint(
+    // My AI: task "hint"; a student asking is always inside a quiz, so the policy
+    // default (personal.inAssessments "never") keeps the school AI there.
+    const { hint, ai } = await aiService.getSocraticHintWithAi(
       questionText,
       code,
       language || "javascript",
       chatHistory || [],
       lastError,
+      personalAiFrom(req, "hint", "tm.socratic-hint", { inAssessment: true }),
     );
 
     res.status(200).json({
       success: true,
       data: { hint },
+      ai: ai ?? null,
     });
   } catch (error: any) {
     if (isAiDisabledError(error)) return res.status(403).json(aiDisabledBody(error.reason));
+    if (isPersonalAiUnavailableError(error)) return res.status(503).json(personalAiErrorBody(error));
     console.error("AI hint error:", error);
     res.status(500).json({
       success: false,
@@ -2419,18 +2425,21 @@ export const generateTestCases = async (req: Request, res: Response) => {
       });
     }
 
-    const testCases = await aiService.generateCodingTestCases(
+    const { testCases, ai } = await aiService.generateCodingTestCasesWithAi(
       problemDescription,
       language,
       starterCode,
+      personalAiFrom(req, "author", "tm.test-cases"),
     );
 
     res.status(200).json({
       success: true,
       data: testCases,
+      ai: ai ?? null,
     });
   } catch (error: any) {
     if (isAiDisabledError(error)) return res.status(403).json(aiDisabledBody(error.reason));
+    if (isPersonalAiUnavailableError(error)) return res.status(503).json(personalAiErrorBody(error));
     console.error("Generate test cases error:", error);
     res.status(500).json({
       success: false,

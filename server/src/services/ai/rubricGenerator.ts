@@ -1,4 +1,5 @@
 import { generateStructuredContent, JSONSchema } from "../aiProviders";
+import type { AiAnswer, PersonalAiCall } from "../myAiGateway";
 import { preferredOrder } from "../aiProviders/registry";
 import { htmlToText } from "./misCourseResources";
 import { isAiDisabledError } from "../aiPolicy";
@@ -30,6 +31,8 @@ export interface GeneratedRubric {
   total: number;
   note: string;
   provider_used: string;
+  /** What answered (My AI). */
+  ai?: AiAnswer;
 }
 
 export interface GenerateRubricParams {
@@ -40,6 +43,8 @@ export interface GenerateRubricParams {
   criteriaCount?: number | null;
   instructions?: string;
   provider?: string | null;
+  /** My AI: the teacher asking (their own key may answer). */
+  personal?: PersonalAiCall | null;
 }
 
 /**
@@ -192,8 +197,9 @@ export async function generateRubric(
   };
   let data: RawRubric;
   let providerUsed: string;
+  let ai: AiAnswer | undefined;
   try {
-    ({ data, providerUsed } = await generateStructuredContent<RawRubric>(
+    ({ data, providerUsed, ai } = await generateStructuredContent<RawRubric>(
       {
         schemaName: "assignment_rubric",
         schema: rubricSchema,
@@ -206,7 +212,7 @@ export async function generateRubric(
         }),
         maxOutputTokens: 2500,
       },
-      { providerOrder: preferredOrder(params.provider) },
+      { providerOrder: preferredOrder(params.provider), personal: params.personal },
     ));
   } catch (err: any) {
     if (isAiDisabledError(err)) throw err;
@@ -260,5 +266,6 @@ export async function generateRubric(
       .trim()
       .slice(0, 300),
     provider_used: providerUsed,
+    ai,
   };
 }

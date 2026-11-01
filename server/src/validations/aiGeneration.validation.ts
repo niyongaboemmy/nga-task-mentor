@@ -45,6 +45,9 @@ export const aiGenerateBatchSchema = z
       .transform((list) => list.slice(-60).map((q) => q.slice(0, 300))),
     /** Run as a background job (202 + job_id) instead of holding the request open. */
     async: z.boolean().optional().default(false),
+    /** My AI: a one-off choice from the AI panel ("school", "<credentialId>" or "<credentialId>:<model>"). */
+    aiRoute: z.string().trim().max(200).nullish(),
+
   })
   .superRefine((body, ctx) => {
     const seen = new Set<string>();
