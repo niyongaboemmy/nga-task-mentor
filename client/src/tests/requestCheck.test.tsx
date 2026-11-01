@@ -9,10 +9,13 @@ import { useState } from "react";
  */
 
 vi.mock("../hooks/useAiAccess", () => ({ useAiPolicy: () => ({ policy: null, loading: false }) }));
+const get = vi.fn();
+vi.mock("../utils/axiosConfig", () => ({ default: { get: (...a: unknown[]) => get(...a) }, API_BASE_URL: "" }));
 
 import { AiLayerOptions } from "../components/ai/AiControls";
 import { AI_HELP_DEFAULTS, aiHelpOf, type AiHelp, type AiMode } from "../services/aiApi";
 import { requestTrend } from "../components/Projects/grading/ActivityPane";
+import { RequestCheckMetrics } from "../pages/Admin/AiSettingsPage";
 
 function Harness({ mode, quiz, onHelp }: { mode: AiMode; quiz?: boolean; onHelp?: (h: AiHelp) => void }) {
   const [help, setHelp] = useState<AiHelp>(aiHelpOf(null));
@@ -84,5 +87,19 @@ describe("the activity tab's requests trend", () => {
     const ev = (t: number, completeness: number, outcome: string) => ({ kind: "ai", action: "intent", t, data: { completeness, outcome } }) as never;
     const r = requestTrend([ev(3, 0.83, "accepted"), ev(1, 0.33, "edited"), ev(2, 0.5, "as-is"), { kind: "ai", action: "chat", t: 4 } as never]);
     expect(r).toEqual({ points: [0.33, 0.5, 0.83], checked: 3, confirmed: 2, edited: 1 });
+  });
+});
+
+describe("the admin's A/B panel", () => {
+  it("shows the card arm against the holdout and refetches for another period", async () => {
+    const arm = (users: number, accept: number | null) => ({ users, questions: 12, cards: 9, coach: 0, accept_rate: accept, edit_rate: 0.2, as_is_rate: 0.1, ms_p50: 1200, ms_p95: 3400, completeness_mean: 0.66, runs: 10, run_pass_rate: 0.7 });
+    get.mockResolvedValue({ data: { arms: { card: arm(20, 0.6), holdout: { ...arm(4, null), cards: 0 } }, languages: { en: 6, mixed: 3 }, stages: { full: 7, hint: 2 }, holdout_pct: 15 } });
+    render(<RequestCheckMetrics />);
+    expect(await screen.findByTestId("request-check-arm-card")).toHaveTextContent("60%");
+    expect(screen.getByTestId("request-check-arm-holdout")).toHaveTextContent("Holdout");
+    expect(screen.getByTestId("request-check-metrics")).toHaveTextContent("15% of students");
+    expect(screen.getByTestId("request-check-metrics")).toHaveTextContent("mixed 3");
+    fireEvent.click(screen.getByTestId("request-check-days-7"));
+    expect(get).toHaveBeenLastCalledWith("/tmcode/ai/interpret/metrics", { params: { days: 7 } });
   });
 });

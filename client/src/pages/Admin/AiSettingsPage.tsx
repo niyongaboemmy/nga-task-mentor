@@ -438,6 +438,8 @@ const AiSettingsPage: React.FC = () => {
         </>
       ) : null}
 
+      <RequestCheckMetrics />
+
       <ConfirmDialog
         open={!!revoking}
         title="Revoke premium AI?"
@@ -448,6 +450,117 @@ const AiSettingsPage: React.FC = () => {
         onCancel={() => setRevoking(null)}
       />
     </div>
+  );
+};
+
+type ArmMetrics = {
+  users: number;
+  questions: number;
+  cards: number;
+  coach: number;
+  accept_rate: number | null;
+  edit_rate: number | null;
+  as_is_rate: number | null;
+  ms_p50: number | null;
+  ms_p95: number | null;
+  completeness_mean: number | null;
+  runs: number;
+  run_pass_rate: number | null;
+};
+
+const pct = (v: number | null) => (v === null ? "—" : `${Math.round(v * 100)}%`);
+const secs = (v: number | null) => (v === null ? "—" : `${(v / 1000).toFixed(1)} s`);
+
+/**
+ * TMCode's request check, measured (nga-tmcode reports/TMCode prompt interpreter layer.md, Q14):
+ * the card arm against the holdout that never sees it, from the activity TMCode uploads. The
+ * pre-registered primary metric is passing runs; acceptance alone means little without it.
+ */
+export const RequestCheckMetrics: React.FC = () => {
+  const [days, setDays] = useState(30);
+  const [data, setData] = useState<{ arms: Record<string, ArmMetrics>; languages: Record<string, number>; stages: Record<string, number>; holdout_pct: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    setError(null);
+    api
+      .get("/tmcode/ai/interpret/metrics", { params: { days } })
+      .then((r) => live && setData(r.data))
+      .catch((e) => live && setError(errorOf(e, "The request-check numbers couldn't load.")));
+    return () => {
+      live = false;
+    };
+  }, [days]);
+  const arms = data ? (["card", "holdout"] as const).filter((a) => data.arms[a]) : [];
+  return (
+    <section className={card} aria-labelledby="ai-request-check" data-testid="request-check-metrics">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 id="ai-request-check" className={`${h2} flex items-center gap-2`}>
+          <Sparkles className="h-4 w-4 text-violet-500" aria-hidden="true" /> TMCode request check (A/B)
+        </h2>
+        <span className="flex-1" />
+        <div className="inline-flex rounded-lg border border-gray-200 p-0.5 dark:border-white/10" role="group" aria-label="Period">
+          {[7, 30, 90].map((d) => (
+            <button key={d} type="button" onClick={() => setDays(d)} aria-pressed={days === d} className={`rounded-md px-2.5 py-1 text-xs font-medium ${days === d ? "bg-violet-600 text-white" : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5"}`} data-testid={`request-check-days-${d}`}>
+              {d} days
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className={`${muted} mt-1`}>
+        Students in the card arm confirm what TMCode understood before the AI acts; {data ? `${data.holdout_pct}%` : "a share"} of students (the holdout) never see it. Compare passing runs and request completeness; acceptance alone means little.
+      </p>
+      {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {!data && !error && <Skeleton className="mt-3 h-24 w-full" />}
+      {data && !arms.length && <p className={`${muted} mt-3`}>No request checks in this period yet.</p>}
+      {data && !!arms.length && (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm" data-testid="request-check-table">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                <th className="py-2 pr-3">Arm</th>
+                <th className="py-2 pr-3 text-right">Students</th>
+                <th className="py-2 pr-3 text-right">Questions</th>
+                <th className="py-2 pr-3 text-right">Cards</th>
+                <th className="py-2 pr-3 text-right">Confirmed · edited · as typed</th>
+                <th className="py-2 pr-3 text-right">Completeness</th>
+                <th className="py-2 pr-3 text-right">Latency p50 / p95</th>
+                <th className="py-2 text-right">Runs passing</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+              {arms.map((a) => {
+                const m = data.arms[a];
+                return (
+                  <tr key={a} data-testid={`request-check-arm-${a}`}>
+                    <td className="py-2 pr-3">
+                      <Badge tone={a === "card" ? "info" : "neutral"}>{a === "card" ? "Card" : "Holdout"}</Badge>
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{m.users}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{m.questions}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{m.cards + m.coach}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">
+                      {pct(m.accept_rate)} · {pct(m.edit_rate)} · {pct(m.as_is_rate)}
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{pct(m.completeness_mean)}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">
+                      {secs(m.ms_p50)} / {secs(m.ms_p95)}
+                    </td>
+                    <td className="py-2 text-right tabular-nums">{m.runs ? `${pct(m.run_pass_rate)} of ${m.runs}` : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {!!Object.keys(data.languages).length && (
+            <p className={`${muted} mt-2`}>
+              Languages: {Object.entries(data.languages).map(([l, n]) => `${l} ${n}`).join(" · ")}
+              {Object.keys(data.stages).length ? ` — stages: ${Object.entries(data.stages).map(([s, n]) => `${s} ${n}`).join(" · ")}` : ""}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
   );
 };
 
