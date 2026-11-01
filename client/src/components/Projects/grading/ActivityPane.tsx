@@ -41,6 +41,12 @@ const DETAIL_LABELS: Record<string, string> = {
   from: "Since",
   command: "Command",
   tool: "Tool",
+  outcome: "What the student did",
+  completeness: "Request completeness",
+  supplied: "Said unaided",
+  edited: "Fields edited",
+  stage: "Card stage",
+  language: "Language",
 };
 const ORIGIN_LABELS: Record<string, string> = { inside: "copied inside TMCode", outside: "outside TMCode (another app)", ai: "an AI's answer" };
 
@@ -75,6 +81,33 @@ const Card: React.FC<{ label: string; value: React.ReactNode; tone?: "ai" | "war
     <div className="mt-0.5 text-lg font-semibold tabular-nums">{value}</div>
   </div>
 );
+
+/**
+ * The request check's evidence (prompt interpreter report, Q10): how complete each request was in
+ * the student's own words (0–1), oldest first. A rising line means the scaffold is building the skill.
+ */
+export function requestTrend(events: ActivityEvent[]): { points: number[]; checked: number; confirmed: number; edited: number } {
+  const intent = events.filter((e) => e.kind === "ai" && (e.action === "intent" || e.action === "intent-coach") && typeof e.data?.completeness === "number").sort((a, b) => a.t - b.t);
+  return {
+    points: intent.map((e) => Number(e.data!.completeness)),
+    checked: intent.length,
+    confirmed: intent.filter((e) => e.data?.outcome === "accepted" || e.data?.outcome === "edited").length,
+    edited: intent.filter((e) => e.data?.outcome === "edited").length,
+  };
+}
+
+const Sparkline: React.FC<{ points: number[] }> = ({ points }) => {
+  if (points.length < 2) return null;
+  const w = 96;
+  const h = 22;
+  const xs = points.map((_, i) => (i / (points.length - 1)) * w);
+  const d = points.map((p, i) => `${i ? "L" : "M"}${xs[i].toFixed(1)},${(h - 2 - p * (h - 4)).toFixed(1)}`).join(" ");
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="ml-2 inline-block align-middle text-violet-500" aria-hidden="true" data-testid="activity-requests-trend">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+};
 
 const ActivityPane: React.FC<{ projectId: number }> = ({ projectId }) => {
   const [data, setData] = useState<{ events: ActivityEvent[]; summary: ActivitySummary; next_before: number | null } | null>(null);
@@ -114,6 +147,7 @@ const ActivityPane: React.FC<{ projectId: number }> = ({ projectId }) => {
   if (error) return <p className="p-6 text-center text-sm text-slate-500">{error}</p>;
   if (!data) return <Loader2 className="m-auto mt-10 h-5 w-5 animate-spin text-blue-600" />;
   const s = data.summary;
+  const trend = requestTrend(data.events);
   if (!s.total) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-slate-500" data-testid="activity-empty">
@@ -183,6 +217,20 @@ const ActivityPane: React.FC<{ projectId: number }> = ({ projectId }) => {
           testid="activity-away"
         />
         <Card label="File changes" value={s.by_kind.file ?? 0} hint={`${s.runs ?? 0} runs, ${s.terminal_commands ?? 0} terminal commands`} />
+        {trend.checked > 0 && (
+          <Card
+            label="Requests"
+            value={
+              <span className="text-sm">
+                {Math.round((trend.points.reduce((a, b) => a + b, 0) / trend.points.length) * 100)}% complete
+                <Sparkline points={trend.points} />
+              </span>
+            }
+            tone="ai"
+            hint={`TMCode checked ${trend.checked} request${trend.checked === 1 ? "" : "s"}; the student confirmed ${trend.confirmed} (edited ${trend.edited}). Completeness: how many of goal, inputs, outputs, an example, an unusual case and the file the student said in their own words. The line shows it over time.`}
+            testid="activity-requests"
+          />
+        )}
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-1.5 px-3 py-2">
         {FILTERS.map((f) => (

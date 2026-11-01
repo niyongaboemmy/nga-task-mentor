@@ -36,7 +36,12 @@ import { accessFor, byokAllowed, isStaff, premiumEntitlement } from "../services
 import { GRADING_AGENT_RULES, GRADING_SYSTEM, gradingContextText } from "../tmcode/ai/grading";
 import { decideLayer, layerToken, referenceSolutions, type LayerDecision } from "../tmcode/ai/layers";
 import { privacyOf, permittedForStudents, studentRouting } from "../tmcode/ai/privacy";
-import { allowanceOf, identifiersOf, LEARNING_TOOLS, LearningFilter, referenceLines, takeQuestion, tutorSystem, type LearningHelp } from "../tmcode/ai/learning";
+import { allowanceOf, identifiersOf, LEARNING_TOOLS, LearningFilter, publicPromptProblem, referenceLines, takeQuestion, tutorSystem, type LearningHelp } from "../tmcode/ai/learning";
+import { coachPassIsFree, interpretCard, interpretCoach, interpretLimit, interpretUsed, interpreterArm, interpreterSteps, takeInterpret } from "../tmcode/ai/interpreter";
+import { checkPromptProblem } from "../tmcode/ai/promptProblem";
+import { detectLanguage } from "../tmcode/ai/intent";
+import { ProjectEvent } from "../models";
+import { Op } from "sequelize";
 
 /** Plan mode only ever gets these (the server enforces it, whatever the app sends). */
 const READ_ONLY = new Set(["list_files", "read_file", "search", "get_problems", "repo_map", "find_symbol", "explore", "ask_user"]);
@@ -192,6 +197,15 @@ export async function aiStatus(req: Request, res: Response) {
     own_tools: !!layered.item && layered.ownTools,
     learning: learning ? learningInfo(id, layered) : null,
     layer_token: layerToken(projectId, layered),
+    // The request interpreter (prompt interpreter report, group Q; additive).
+    interpreter: {
+      available: assist.allowed && !item?.examActive && layered.layer !== "exam" && interpreterSteps("en", !staff && !!layered.item).length > 0,
+      arm: interpreterArm(id, staff),
+      stage: layered.help.interpreter,
+      show_prompts: layered.help.show_prompts,
+      prompt_problem: layered.layer === "industrial" ? publicPromptProblem(layered.help.prompt_problem) : null,
+      you: { cards: { used: interpretUsed(id, "card"), limit: interpretLimit("card") }, coach: { used: interpretUsed(id, "coach"), limit: interpretLimit("coach") } },
+    },
   });
 }
 
@@ -363,8 +377,19 @@ export const GUIDED_SCAFFOLDS = `The student is in Industrial · Guided: you bui
 /** Learning's agent: it may look at the student's files to help, never change them. */
 const LEARNING_AGENT = `You can look at the student's project with read-only tools (list_files, read_file, search, get_problems, repo_map, find_symbol, explore) to understand their code and their errors. You cannot and must not change anything. Your best move is often ask_user: ask the student what they think should happen, with 2-4 choices. Read what you need, then answer as the tutor: in words, no code.`;
 
+/**
+ * A Prompt Problem (prompt interpreter report, Q11): the student's request is the only input; the
+ * AI writes the whole entry file from it. The app sends no file text, so the request must say it all.
+ */
+export const PROMPT_PROBLEM_SYSTEM = `You are TMCode AI answering a PROMPT PROBLEM: a student practises describing a program precisely. Write exactly the program their request describes, nothing more, as the complete contents of the file named in the task, in ONE fenced code block with the language, and nothing else (no explanation).
+Follow the request literally: if it is vague or leaves something out, do NOT fill the gap with what the examples suggest -- the student must learn to say it. Define functions at the top level of the file so they can be imported.`;
+
 export function buildMessages(input: z.infer<typeof ChatSchema>, staff = false, learning: LearningHelp | null = null): ChatMessage[] {
   const c = input.context;
+  if (!learning && !input.agent && c?.purpose === "prompt-problem") {
+    const task = c.task ? `\n\nThe task: ${c.task.slice(0, 4000)}` : "";
+    return [{ role: "system", content: PROMPT_PROBLEM_SYSTEM + task }, ...(input.messages as ChatMessage[])];
+  }
   const parts: string[] = [];
   const grading = !learning && staff && c?.purpose === "grading";
   if (grading && c?.grading) parts.push(gradingContextText(c.grading));
@@ -569,3 +594,186 @@ export async function aiVerifyKey(req: Request, res: Response) {
     return tmcodeError(res, err.status, err.code, scrubSecrets(err.message, key), { code: err.code });
   }
 }
+
+// ── the request interpreter (nga-tmcode reports/TMCode prompt interpreter layer.md, group Q) ──
+
+export const InterpretSchema = z.object({
+  text: z.string().trim().min(1).max(4000),
+  /** "auto": the layer decides (Learning: the coach; Industrial: the card). */
+  purpose: z.enum(["card", "coach", "auto"]).default("auto"),
+  reply_language: z.enum(["English", "French", "Kinyarwanda"]).optional(),
+  paths: z.array(z.string().max(300)).max(2000).optional(),
+  symbols: z.array(z.string().max(120)).max(400).optional(),
+  assignment_title: z.string().max(200).optional(),
+  project_id: z.number().int().positive().nullable().optional(),
+  mode: z.string().max(200).default("free"),
+  byok: ByokSchema.optional(),
+  /** Q15: two samples, compared (only granted on quota-rich paths). */
+  samples: z.union([z.literal(1), z.literal(2)]).default(1),
+  /** The draft being coached (QD2: its first coach pass is free). */
+  draft_id: z.string().max(80).optional(),
+  guided: z.boolean().optional(),
+});
+
+function interpreterError(res: Response, e: unknown) {
+  if (e instanceof AiError) return tmcodeError(res, e.status, e.code, e.message, { code: e.code });
+  if (isAiDisabledError(e)) return tmcodeError(res, 403, "AI_DISABLED", e.message, { code: "AI_DISABLED", reason: e.reason });
+  throw e;
+}
+
+/**
+ * POST /ai/interpret: Industrial → an intent card the user confirms (the agent then receives their
+ * words plus the card); Learning → the prompt coach (missing items and the student's own words,
+ * never a rewrite; the first pass on a draft is free, the next ones spend a question). Exam: 403
+ * LAYER_EXAM -- the app never even loads the interpreter there. Refusals the app treats as "send
+ * the words as they are": INTERPRETER_UNAVAILABLE, INTERPRETER_INVALID, INTERPRET_QUOTA, timeouts.
+ */
+export async function aiInterpret(req: Request, res: Response) {
+  const parsed = InterpretSchema.safeParse(req.body);
+  if (!parsed.success) return tmcodeError(res, 400, "VALIDATION", "That request isn't valid.");
+  const b = parsed.data;
+  const id = userId(req);
+  const layered = await decideLayer(req, "assist", await itemFor(req, b.project_id ?? null));
+  if (layered.item?.examActive || layered.layer === "exam") return tmcodeError(res, 403, "LAYER_EXAM", "No AI in exams, so there is no request check either.", { code: "LAYER_EXAM" });
+  const v = layered.verdict;
+  if (!v.allowed) return refuse(req, res, "assist", v);
+  const staff = isStaff(req);
+  const student = !staff && !!layered.item;
+  const learning = layered.layer === "learning";
+  const u = req.user as { first_name?: string; last_name?: string; name?: string; username?: string };
+  const input = {
+    text: b.text,
+    replyLanguage: b.reply_language ?? null,
+    paths: b.paths,
+    symbols: b.symbols,
+    assignmentTitle: b.assignment_title ?? null,
+    names: [u.first_name, u.last_name, u.name, u.username].filter((x): x is string => !!x),
+    guided: !!b.guided && !staff,
+  };
+  const abort = new AbortController();
+  req.on("close", () => abort.abort());
+  try {
+    if (learning || b.purpose === "coach") {
+      if (!takeInterpret(id, "coach")) return tmcodeError(res, 429, "INTERPRET_QUOTA", "You've used today's request checks. Ask the tutor directly.", { code: "INTERPRET_QUOTA" });
+      let allowance: ReturnType<typeof allowanceOf> | null = null;
+      if (learning && !coachPassIsFree(id, b.draft_id ?? b.text.slice(0, 80))) {
+        const t = takeQuestion(id, allowanceScope(layered), layered.help);
+        if (!t.ok) return tmcodeError(res, 429, "LEARNING_ALLOWANCE", "You've used your questions for now: rewrite your request yourself, then ask.", { code: "LEARNING_ALLOWANCE", allowance: t.allowance });
+        allowance = t.allowance;
+      }
+      const r = await interpretCoach(input, { student, signal: abort.signal });
+      return res.json({ kind: "coach", coach: r.coach, provider: r.provider, model: r.model, ms: r.ms, language: r.language, ...(learning ? { allowance: allowance ?? allowanceOf(id, allowanceScope(layered), layered.help) } : {}) });
+    }
+    if (student && layered.help.interpreter === "off") return tmcodeError(res, 403, "INTERPRETER_OFF", "Your teacher turned the request check off for this work.", { code: "INTERPRETER_OFF" });
+    const paidMode = parseMode(b.mode);
+    let access: PaidAccess | undefined;
+    if (paidMode.tier !== "free") {
+      const paid = await paidAccessOr(req, res, b.mode, b.byok);
+      if (!paid) return;
+      access = paid.access;
+      if (student && !permittedForStudents(paidMode.provider, paidMode.tier)) return tmcodeError(res, 403, "PROVIDER_NOT_PERMITTED", `Your school doesn't let student work reach ${paidMode.provider}.`, { code: "PROVIDER_NOT_PERMITTED" });
+    }
+    if (!takeInterpret(id, "card")) return tmcodeError(res, 429, "INTERPRET_QUOTA", "You've used today's request checks; your words go to the AI as they are.", { code: "INTERPRET_QUOTA" });
+    // Two samples only where quota is plentiful: an own key, premium, or most of today's checks left.
+    const samples = b.samples === 2 && (paidMode.tier !== "free" || interpretUsed(id, "card") <= interpretLimit("card") / 2) ? 2 : 1;
+    const r = await interpretCard(input, { student, signal: abort.signal, mode: paidMode.tier !== "free" ? b.mode : undefined, access, samples });
+    res.json({ kind: "card", card: r.card, provider: r.provider, model: r.model, ms: r.ms, language: r.language, notes: r.notes, samples: r.samples, agreed: r.agreed, arm: interpreterArm(id, staff), stage: layered.help.interpreter });
+  } catch (e) {
+    return interpreterError(res, e);
+  }
+}
+
+const PromptCheckSchema = z.object({ project_id: z.number().int().positive(), code: z.string().max(100_000) });
+
+/** POST /ai/prompt-problem/check: runs the AI's code for a Prompt Problem against the shown and hidden examples. */
+export async function aiPromptProblemCheck(req: Request, res: Response) {
+  const parsed = PromptCheckSchema.safeParse(req.body);
+  if (!parsed.success) return tmcodeError(res, 400, "VALIDATION", "That request isn't valid.");
+  const layered = await decideLayer(req, "assist", await itemFor(req, parsed.data.project_id));
+  if (layered.item?.examActive) return tmcodeError(res, 403, "LAYER_EXAM", "No AI in exams.", { code: "LAYER_EXAM" });
+  const pp = layered.layer === "industrial" ? layered.help.prompt_problem : null;
+  if (!pp) return tmcodeError(res, 404, "NO_PROMPT_PROBLEM", "This work isn't a Prompt Problem.", { code: "NO_PROMPT_PROBLEM" });
+  try {
+    res.json(await checkPromptProblem(pp, parsed.data.code));
+  } catch (e) {
+    return tmcodeError(res, 503, "RUNNER_UNAVAILABLE", `The code runner couldn't check it now: ${String((e as Error)?.message ?? e).slice(0, 200)}`, { code: "RUNNER_UNAVAILABLE" });
+  }
+}
+
+type Flat = { kind?: string; action?: string; t?: number; data?: Record<string, unknown> };
+
+/**
+ * GET /ai/interpret/metrics?days=30 (staff): the online evaluation (Q14) from the activity TMCode
+ * uploads -- per arm (card / holdout): requests, cards and what users did with them, latency,
+ * prompt completeness, and test runs passing; per language and per stage. Metadata only.
+ */
+export async function aiInterpretMetrics(req: Request, res: Response) {
+  if (!isStaff(req)) return tmcodeError(res, 403, "FORBIDDEN", "Staff only.");
+  const days = Math.max(1, Math.min(180, Number(req.query.days) || 30));
+  const rows = await ProjectEvent.findAll({ where: { type: "activity", created_at: { [Op.gte]: new Date(Date.now() - days * 86_400_000) } } as never, attributes: ["user_id", "data"], order: [["id", "DESC"]], limit: 5000 });
+  type Arm = { users: Set<number>; questions: number; cards: number; outcomes: Record<string, number>; ms: number[]; completeness: number[]; runs: number; runsPassed: number; coach: number };
+  const arms: Record<string, Arm> = {};
+  const languages: Record<string, number> = {};
+  const stages: Record<string, number> = {};
+  const armOf = new Map<number, string>();
+  const get = (a: string) => (arms[a] ??= { users: new Set(), questions: 0, cards: 0, outcomes: {}, ms: [], completeness: [], runs: 0, runsPassed: 0, coach: 0 });
+  const all: { user: number; e: Flat }[] = [];
+  for (const r of rows) {
+    const d = (r as unknown as { user_id: number; data: { events?: Flat[] } }).data;
+    for (const e of d?.events ?? []) all.push({ user: (r as unknown as { user_id: number }).user_id, e });
+  }
+  // A user's arm is what their interpreter events say (holdout students log it on their questions).
+  for (const { user, e } of all) if (typeof e.data?.arm === "string") armOf.set(user, String(e.data.arm));
+  for (const { user, e } of all) {
+    const arm = armOf.get(user);
+    if (!arm) continue;
+    const a = get(arm);
+    a.users.add(user);
+    if (e.kind === "ai" && e.action === "chat") a.questions++;
+    if (e.kind === "ai" && e.action === "intent") {
+      a.cards++;
+      const outcome = String(e.data?.outcome ?? "shown");
+      a.outcomes[outcome] = (a.outcomes[outcome] ?? 0) + 1;
+      if (typeof e.data?.ms === "number") a.ms.push(e.data.ms);
+      if (typeof e.data?.completeness === "number") a.completeness.push(e.data.completeness);
+      if (typeof e.data?.language === "string") languages[String(e.data.language)] = (languages[String(e.data.language)] ?? 0) + 1;
+      if (typeof e.data?.stage === "string") stages[String(e.data.stage)] = (stages[String(e.data.stage)] ?? 0) + 1;
+    }
+    if (e.kind === "ai" && e.action === "intent-coach") a.coach++;
+    if (e.kind === "run") {
+      a.runs++;
+      if (e.data?.status === "passed" || e.data?.passed === true) a.runsPassed++;
+    }
+  }
+  const pct = (xs: number[], p: number) => (xs.length ? [...xs].sort((x, y) => x - y)[Math.min(xs.length - 1, Math.floor((p / 100) * xs.length))] : null);
+  const mean = (xs: number[]) => (xs.length ? Math.round((xs.reduce((x, y) => x + y, 0) / xs.length) * 100) / 100 : null);
+  res.json({
+    days,
+    arms: Object.fromEntries(
+      Object.entries(arms).map(([k, a]) => [
+        k,
+        {
+          users: a.users.size,
+          questions: a.questions,
+          cards: a.cards,
+          coach: a.coach,
+          outcomes: a.outcomes,
+          accept_rate: a.cards ? Math.round(((a.outcomes.accepted ?? 0) / a.cards) * 100) / 100 : null,
+          edit_rate: a.cards ? Math.round(((a.outcomes.edited ?? 0) / a.cards) * 100) / 100 : null,
+          as_is_rate: a.cards ? Math.round(((a.outcomes["as-is"] ?? 0) / a.cards) * 100) / 100 : null,
+          ms_p50: pct(a.ms, 50),
+          ms_p95: pct(a.ms, 95),
+          completeness_mean: mean(a.completeness),
+          runs: a.runs,
+          run_pass_rate: a.runs ? Math.round((a.runsPassed / a.runs) * 100) / 100 : null,
+        },
+      ]),
+    ),
+    languages,
+    stages,
+    holdout_pct: Number(process.env.TMCODE_INTERPRETER_HOLDOUT_PCT ?? 15),
+  });
+}
+
+/** Exported for tests: the language a request was detected in. */
+export const requestLanguage = detectLanguage;

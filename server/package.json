@@ -16,7 +16,8 @@
     "access:publish": "node dist/access/publishCli.js",
     "test": "TZ=UTC jest",
     "test:watch": "TZ=UTC jest --watch",
-    "eval:tutor": "ts-node --transpile-only src/tmcode/ai/evals/runTutorEval.ts"
+    "eval:tutor": "ts-node --transpile-only src/tmcode/ai/evals/runTutorEval.ts",
+    "eval:interpreter": "ts-node --transpile-only src/tmcode/ai/evals/runInterpreterEval.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

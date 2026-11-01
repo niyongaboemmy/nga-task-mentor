@@ -699,6 +699,58 @@ export async function streamChat(
   throw new AiError(502, "PROVIDER_FAILED", "The AI didn't answer. Try again, or switch model.");
 }
 
+/**
+ * One short JSON answer (the request interpreter, nga-tmcode reports "TMCode prompt interpreter
+ * layer", Q2): each step is a pinned provider and model -- never OpenRouter's random free router,
+ * so the same request reaches the same company and only providers whose terms were checked.
+ * Steps are tried in order (a provider that fails passes to the next); each use counts against
+ * the provider's free pool. Paid modes (premium:/byok:) use their one model.
+ */
+export async function jsonCompletion(
+  steps: { provider: ProviderId; model: string }[],
+  messages: ChatMessage[],
+  signal: AbortSignal,
+  opts: { maxTokens?: number; temperature?: number; timeoutMs?: number; mode?: string; access?: PaidAccess } = {},
+): Promise<{ text: string; provider: ProviderId | PaidProviderId; model: string; tier: Tier }> {
+  await assertAiApp("tmcode");
+  const body = (model: string, json: boolean) => ({ model, messages, temperature: opts.temperature ?? 0.1, max_tokens: opts.maxTokens ?? 900, ...(json ? { response_format: { type: "json_object" } } : {}) });
+  const textOf = (res: unknown) => String((res as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content ?? "");
+  const timeout = opts.timeoutMs ?? 12_000;
+  if (opts.mode && parseMode(opts.mode).tier !== "free") {
+    const step = paidStep(opts.mode, opts.access);
+    try {
+      const res = await paidClient(step).chat.completions.create(body(step.model, step.provider !== "anthropic") as never, { signal, timeout });
+      return { text: textOf(res), provider: step.provider, model: step.model, tier: step.tier };
+    } catch (e) {
+      if (signal.aborted) throw e;
+      throw paidFailure(e, step);
+    }
+  }
+  let lastErr: unknown = null;
+  for (const s of steps) {
+    if (!configured(s.provider) || coolingDown(s.provider)) continue;
+    if (s.provider === "openrouter" && !isFreeModel(s.model)) continue;
+    if ((await remaining(s.provider)).remaining <= RESERVE[s.provider]) continue;
+    for (const json of [true, false]) {
+      try {
+        const res = await client(s.provider).chat.completions.create({ ...body(s.model, json), ...modelOptions(s.provider, s.model, "chat") } as never, { signal, timeout });
+        roll();
+        providerUse.set(s.provider, (providerUse.get(s.provider) ?? 0) + 1);
+        return { text: textOf(res), provider: s.provider, model: s.model, tier: "free" };
+      } catch (e) {
+        if (signal.aborted) throw e;
+        lastErr = e;
+        // A provider that doesn't take response_format: once more without it.
+        if (json && (e as { status?: number })?.status === 400) continue;
+        noteFailure(s.provider, e);
+        break;
+      }
+    }
+  }
+  if (lastErr instanceof AiError) throw lastErr;
+  throw new AiError(503, "INTERPRETER_UNAVAILABLE", "The interpreter couldn't answer now; your words go to the AI as they are.");
+}
+
 const COMPLETE_SYSTEM =
   "You complete code. Reply with ONLY the text to insert at <CURSOR>: no explanation, no code fences, no repetition of the code before or after the cursor. Keep it short (a line or a small block). If nothing sensible fits, reply with nothing.";
 

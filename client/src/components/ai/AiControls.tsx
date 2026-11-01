@@ -1,7 +1,7 @@
 import React from "react";
-import { Bot, Lock, Sparkles } from "lucide-react";
+import { Bot, Lock, Plus, Sparkles, Trash2, Wand2 } from "lucide-react";
 import Badge, { type BadgeTone } from "../ui/Badge";
-import { AI_MODE_OPTIONS, type AiHelp, type AiMode } from "../../services/aiApi";
+import { AI_MODE_OPTIONS, INTERPRETER_STAGE_OPTIONS, type AiHelp, type AiMode, type PromptExample, type PromptProblem } from "../../services/aiApi";
 import { useAiPolicy } from "../../hooks/useAiAccess";
 
 /**
@@ -162,7 +162,142 @@ export const AiLayerOptions: React.FC<{
           </span>
         </label>
       )}
+      <RequestCheckOptions help={help} onHelp={onHelp} idPrefix={idPrefix} learning={mode === "hints"} />
+      {mode === "full" && !quiz && <PromptProblemEditor value={help.prompt_problem} onChange={(p) => onHelp({ ...help, prompt_problem: p })} idPrefix={idPrefix} />}
     </div>
+  );
+};
+
+/**
+ * TMCode's request check (prompt interpreter report, Q7/Q10): in Industrial an intent card students
+ * confirm before the AI acts; in Learning a prompt coach that points out what is missing (it never
+ * rewrites the request). "Auto" fades it as a student's requests get complete.
+ */
+const RequestCheckOptions: React.FC<{ help: AiHelp; onHelp: (h: AiHelp) => void; idPrefix: string; learning: boolean }> = ({ help, onHelp, idPrefix, learning }) => {
+  const label = "text-text-primary-light dark:text-text-primary-dark";
+  const hint = "text-xs text-text-secondary-light dark:text-text-secondary-dark/80";
+  const current = INTERPRETER_STAGE_OPTIONS.find((o) => o.value === help.interpreter) ?? INTERPRETER_STAGE_OPTIONS[0];
+  return (
+    <fieldset className="space-y-2 border-t border-gray-200 pt-3 dark:border-gray-700" data-testid={`${idPrefix}-ai-request-check`}>
+      <legend className={`flex items-center gap-1.5 font-medium ${label}`}>
+        <Wand2 className="h-4 w-4 text-violet-500" aria-hidden="true" /> Request check
+      </legend>
+      <p className={hint}>
+        {learning
+          ? "Before a question reaches the tutor, TMCode's coach shows students what their request leaves out (inputs, an example, an unusual case). It never writes the request for them."
+          : "Before the AI acts, students see what TMCode understood: the goal, examples to tick, unusual cases and files. Kinyarwanda requests are restated in Kinyarwanda and sent to the AI in clear English."}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <label htmlFor={`${idPrefix}-ai-interpreter`} className={label}>
+          Stage
+        </label>
+        <select
+          id={`${idPrefix}-ai-interpreter`}
+          className="rounded-lg border border-gray-300 bg-transparent px-2 py-1 dark:border-gray-600"
+          value={help.interpreter}
+          onChange={(e) => onHelp({ ...help, interpreter: e.target.value as AiHelp["interpreter"] })}
+          data-testid={`${idPrefix}-ai-interpreter`}
+        >
+          {INTERPRETER_STAGE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <span className={hint}>{current.help}</span>
+      </div>
+      <label className="flex items-start gap-2 cursor-pointer">
+        <input type="checkbox" className="mt-1" checked={help.show_prompts} onChange={(e) => onHelp({ ...help, show_prompts: e.target.checked })} data-testid={`${idPrefix}-ai-show-prompts`} />
+        <span>
+          <span className={label}>Show me the text of students' requests</span> <span className={hint}>(off: the activity log shows only what was checked, how complete each request was and what students did with the card; students see this choice)</span>
+        </span>
+      </label>
+    </fieldset>
+  );
+};
+
+const EMPTY_PROBLEM: PromptProblem = { language: "python", entry: "solution.py", examples: [{ input: "", output: "" }], hidden: [], instructions: "", hints: true };
+
+/** A list of input → output rows (shown or hidden examples). */
+const ExampleRows: React.FC<{ rows: PromptExample[]; onChange: (r: PromptExample[]) => void; idPrefix: string; kind: "shown" | "hidden" }> = ({ rows, onChange, idPrefix, kind }) => (
+  <div className="space-y-1.5">
+    {rows.map((r, i) => (
+      <div key={i} className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-1.5">
+        <input
+          className="min-w-0 rounded-lg border border-gray-300 bg-transparent px-2 py-1 font-mono text-xs dark:border-gray-600"
+          placeholder={kind === "shown" ? "is_even(4)" : "is_even(-2)"}
+          value={r.input}
+          aria-label={`${kind} example ${i + 1} input`}
+          onChange={(e) => onChange(rows.map((x, j) => (j === i ? { ...x, input: e.target.value } : x)))}
+          data-testid={`${idPrefix}-pp-${kind}-input-${i}`}
+        />
+        <span className="text-xs text-gray-400">→</span>
+        <input
+          className="min-w-0 rounded-lg border border-gray-300 bg-transparent px-2 py-1 font-mono text-xs dark:border-gray-600"
+          placeholder={kind === "shown" ? "True" : "True"}
+          value={r.output}
+          aria-label={`${kind} example ${i + 1} output`}
+          onChange={(e) => onChange(rows.map((x, j) => (j === i ? { ...x, output: e.target.value } : x)))}
+          data-testid={`${idPrefix}-pp-${kind}-output-${i}`}
+        />
+        <button type="button" className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-800" onClick={() => onChange(rows.filter((_, j) => j !== i))} aria-label={`Remove ${kind} example ${i + 1}`}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    ))}
+    <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline dark:text-blue-300" onClick={() => onChange([...rows, { input: "", output: "" }])} data-testid={`${idPrefix}-pp-add-${kind}`}>
+      <Plus className="h-3.5 w-3.5" /> Add {kind === "shown" ? "an example" : "a hidden example"}
+    </button>
+  </div>
+);
+
+/**
+ * Prompt Problems (Q11): students see input → output examples and write a request (in any
+ * language); they pass when the code the AI writes from it passes the examples, including hidden
+ * ones that never leave Task Mentor. Practises saying precisely what a program should do.
+ */
+const PromptProblemEditor: React.FC<{ value: PromptProblem | null; onChange: (p: PromptProblem | null) => void; idPrefix: string }> = ({ value, onChange, idPrefix }) => {
+  const label = "text-text-primary-light dark:text-text-primary-dark";
+  const hint = "text-xs text-text-secondary-light dark:text-text-secondary-dark/80";
+  const p = value;
+  return (
+    <fieldset className="space-y-2 border-t border-gray-200 pt-3 dark:border-gray-700" data-testid={`${idPrefix}-ai-prompt-problem`}>
+      <label className="flex items-start gap-2 cursor-pointer">
+        <input type="checkbox" className="mt-1" checked={!!p} onChange={(e) => onChange(e.target.checked ? EMPTY_PROBLEM : null)} data-testid={`${idPrefix}-pp-toggle`} />
+        <span>
+          <span className={`font-medium ${label}`}>Prompt Problem</span> <span className={hint}>(students write a request; it passes when the AI's code from it passes your examples)</span>
+        </span>
+      </label>
+      {p && (
+        <div className="space-y-3 pl-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <select className="rounded-lg border border-gray-300 bg-transparent px-2 py-1 dark:border-gray-600" value={p.language} onChange={(e) => onChange({ ...p, language: e.target.value as PromptProblem["language"], entry: e.target.value === "python" ? "solution.py" : "solution.js" })} aria-label="Language" data-testid={`${idPrefix}-pp-language`}>
+              <option value="python">Python</option>
+              <option value="javascript">JavaScript</option>
+            </select>
+            <input className="w-36 rounded-lg border border-gray-300 bg-transparent px-2 py-1 font-mono text-xs dark:border-gray-600" value={p.entry} onChange={(e) => onChange({ ...p, entry: e.target.value })} aria-label="File the AI writes" data-testid={`${idPrefix}-pp-entry`} />
+            <span className={hint}>the file the AI writes</span>
+          </div>
+          <div>
+            <div className={`mb-1 text-sm ${label}`}>Examples students see</div>
+            <ExampleRows rows={p.examples} onChange={(examples) => onChange({ ...p, examples })} idPrefix={idPrefix} kind="shown" />
+          </div>
+          <div>
+            <div className={`mb-1 text-sm ${label}`}>
+              Hidden examples <span className={hint}>(checked too; students only see how many passed)</span>
+            </div>
+            <ExampleRows rows={p.hidden} onChange={(hidden) => onChange({ ...p, hidden })} idPrefix={idPrefix} kind="hidden" />
+          </div>
+          <p className={hint}>A call (is_even(4) → True) checks a function; any other input is typed into the program and its output compared.</p>
+          <textarea className="w-full rounded-lg border border-gray-300 bg-transparent px-2 py-1 text-sm dark:border-gray-600" rows={2} placeholder="Extra instructions for students (optional)" value={p.instructions} onChange={(e) => onChange({ ...p, instructions: e.target.value })} data-testid={`${idPrefix}-pp-instructions`} />
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={p.hints} onChange={(e) => onChange({ ...p, hints: e.target.checked })} data-testid={`${idPrefix}-pp-hints`} />
+            <span className={label}>Request-check hints while solving</span>
+            <span className={hint}>(off: students are on their own)</span>
+          </label>
+        </div>
+      )}
+    </fieldset>
   );
 };
 

@@ -25,9 +25,49 @@ export interface AiHelp {
   pseudo: boolean;
   syntax: boolean;
   allowance: { max: number; regain_minutes: number };
+  /** TMCode's request check for students (intent card / Learning's prompt coach): "auto" fades as their requests improve. */
+  interpreter: InterpreterStage;
+  /** The teacher sees the text of students' requests in the activity log (else only what was checked). */
+  show_prompts: boolean;
+  /** A Prompt Problem: the student's request must make the AI write code that passes these examples. */
+  prompt_problem: PromptProblem | null;
 }
 
-export const AI_HELP_DEFAULTS: AiHelp = { strength: "tutor", pseudo: true, syntax: false, allowance: { max: 10, regain_minutes: 3 } };
+export type InterpreterStage = "auto" | "full" | "hint" | "strip" | "off";
+export const INTERPRETER_STAGE_OPTIONS: { value: InterpreterStage; label: string; help: string }[] = [
+  { value: "auto", label: "Auto (fades)", help: "The full card while students learn, then hints, then a one-line summary as their requests get complete" },
+  { value: "full", label: "Always the full card", help: "Every new request gets the card; students fill in one field themselves" },
+  { value: "hint", label: "Hints only", help: "TMCode flags what is missing; students fill it in" },
+  { value: "strip", label: "One-line summary", help: "Only 'Understood as …', to confirm" },
+  { value: "off", label: "Off", help: "Requests go to the AI as typed" },
+];
+
+export interface PromptExample {
+  input: string;
+  output: string;
+}
+
+export interface PromptProblem {
+  language: "python" | "javascript";
+  entry: string;
+  examples: PromptExample[];
+  hidden: PromptExample[];
+  instructions: string;
+  hints: boolean;
+}
+
+export const AI_HELP_DEFAULTS: AiHelp = { strength: "tutor", pseudo: true, syntax: false, allowance: { max: 10, regain_minutes: 3 }, interpreter: "auto", show_prompts: false, prompt_problem: null };
+
+const STAGES: InterpreterStage[] = ["auto", "full", "hint", "strip", "off"];
+const examples = (v: unknown): PromptExample[] => (Array.isArray(v) ? v : []).map((e: any) => ({ input: String(e?.input ?? ""), output: String(e?.output ?? "") }));
+
+/** A stored Prompt Problem, or null. */
+export function promptProblemOf(v: unknown): PromptProblem | null {
+  if (!v || typeof v !== "object") return null;
+  const r = v as Record<string, unknown>;
+  const language = r.language === "javascript" ? "javascript" : "python";
+  return { language, entry: String(r.entry ?? (language === "python" ? "solution.py" : "solution.js")), examples: examples(r.examples), hidden: examples(r.hidden), instructions: String(r.instructions ?? ""), hints: r.hints !== false };
+}
 
 /** A stored ai_help (object, JSON text or null) with every field filled. */
 export function aiHelpOf(v: unknown): AiHelp {
@@ -45,6 +85,9 @@ export function aiHelpOf(v: unknown): AiHelp {
     pseudo: r.pseudo !== false,
     syntax: r.syntax === true,
     allowance: { max: Number(r.allowance?.max) || AI_HELP_DEFAULTS.allowance.max, regain_minutes: Number(r.allowance?.regain_minutes) || AI_HELP_DEFAULTS.allowance.regain_minutes },
+    interpreter: STAGES.includes(r.interpreter) ? r.interpreter : "auto",
+    show_prompts: r.show_prompts === true,
+    prompt_problem: promptProblemOf(r.prompt_problem),
   };
 }
 
