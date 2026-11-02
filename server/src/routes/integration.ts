@@ -11,6 +11,7 @@ import { getSession, openEvents, sendInput, SessionError, sessionsReady, startSe
 import { buildHomeSummary, emptySummary } from "../integration/homeSummary";
 import { computeOverview } from "../controllers/instructorOverview.controller";
 import { PASS_MARK } from "../services/instructorOverview.service";
+import { callTool, listTools, ToolError } from "../integration/mcpTools";
 
 /**
  * /api/integration/* -- server-to-server reads for the NGA Central MIS,
@@ -199,6 +200,37 @@ router.get("/code/sessions/:id/events", misBearerAuth, lessonSessionEvents);
 router.post("/code/sessions/:id/input", misBearerAuth, lessonSessionInput);
 router.delete("/code/sessions/:id", misBearerAuth, stopLessonSession);
 
+/**
+ * NGA connector (nga_central_mis EXTERNAL_AI_CONTRACT.md §2): the MIS's MCP server relays
+ * Task Mentor tools here with the person's own MIS token (integration/mcpTools.ts).
+ *   GET  /mcp/tools  { tools }            [] when the school or the person's role says no
+ *   POST /mcp/call   { name, arguments, consent }  → { result, summary, openUrl } | 4xx { code, message }
+ */
+const mcpTools = async (req: Request, res: Response) => {
+  try {
+    if (!(req as any).misProvisioned || !req.user || (req as any).accessUnavailable) return res.status(200).json({ tools: [] });
+    res.status(200).json({ tools: await listTools(req) });
+  } catch (error: any) {
+    console.error("MCP tools error:", error?.message ?? error);
+    res.status(500).json({ code: "SERVER_ERROR", message: "Server error" });
+  }
+};
+
+const mcpCall = async (req: Request, res: Response) => {
+  try {
+    if ((req as any).accessUnavailable) {
+      return res.status(503).json({ code: "ACCESS_UNAVAILABLE", message: "Access check unavailable -- please try again shortly" });
+    }
+    res.status(200).json(await callTool(req, req.body));
+  } catch (error: any) {
+    if (error instanceof ToolError) return res.status(error.status).json({ code: error.code, message: error.message });
+    console.error("MCP call error:", error?.message ?? error);
+    res.status(500).json({ code: "SERVER_ERROR", message: "Server error" });
+  }
+};
+
+router.get("/mcp/tools", misBearerAuth, integrationLimiter, mcpTools);
+router.post("/mcp/call", misBearerAuth, integrationLimiter, mcpCall);
 router.post("/home-summary", misBearerAuth, integrationLimiter, homeSummary);
 router.get("/student-standing", misBearerAuth, integrationLimiter, studentStanding);
 router.get("/home-summary", misBearerAuth, integrationLimiter, homeSummary);

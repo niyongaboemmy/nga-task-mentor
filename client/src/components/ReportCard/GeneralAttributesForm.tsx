@@ -18,6 +18,9 @@ import { toast } from "react-toastify";
 import { ReportCardApiService, type AttributeRating } from "../../services/reportCardApi";
 import Select from "../ui/Select";
 import { AiAnsweredBy, AiSourceControl } from "../ai/AiSourceControl";
+import HandoffControl from "../ai/HandoffControl";
+import { useAiPolicy } from "../../hooks/useAiAccess";
+import type { AiHandoffRequest } from "../../services/aiHandoffApi";
 import type { AiAnswer } from "../../services/myAiApi";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -491,6 +494,45 @@ function StudentTableRow({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+/** "Open in my AI ▾" for one student's comment: who it is for, then the hand-off control. */
+function HandoffPicker({
+  students,
+  value,
+  onChange,
+  disabled,
+  control,
+}: {
+  students: StudentRow[];
+  value: string;
+  onChange: (id: string) => void;
+  disabled?: boolean;
+  control: React.ReactNode;
+}) {
+  const { policy } = useAiPolicy();
+  if (!policy?.external?.handoff) return null;
+  return (
+    <div className="flex flex-col gap-1" data-testid="report-comment-handoff-picker">
+      <Select
+        size="sm"
+        variant="outline"
+        className="min-w-[12rem]"
+        value={value}
+        onValueChange={onChange}
+        disabled={disabled}
+        aria-label="Student for Open in my AI"
+      >
+        <option value="">Open in my AI for…</option>
+        {students.map((s) => (
+          <option key={s.id} value={String(s.id)}>
+            {s.name}
+          </option>
+        ))}
+      </Select>
+      {value && control}
+    </div>
+  );
+}
+
 export default function GeneralAttributesForm({
   students,
   term,
@@ -566,6 +608,32 @@ export default function GeneralAttributesForm({
     [updateStudentField],
   );
 
+  /** What the AI reads for one student (the same for the school AI and "Open in my AI"). */
+  const commentBody = (student: StudentRow) => {
+    const state = formStateRef.current[student.id];
+    return {
+      term,
+      academic_year: academicYear,
+      subjects: results?.[student.id] ?? [],
+      attributes: GENERAL_ATTRIBUTES.filter((a) => state.attributes[a]).map((a) => ({ attribute_name: a, rating: state.attributes[a] as AttributeRating })),
+      attendance: state.attendance,
+      current: state.comment.trim() || null,
+    };
+  };
+
+  const putComment = (student: StudentRow, comment: string) => {
+    const text = comment.split("[NAME]").join(firstName(student.name));
+    setFormState((prev) => ({ ...prev, [student.id]: { ...prev[student.id], comment: text, saved: false } }));
+  };
+
+  /** "Open in my AI ▾": which student's comment the hand-off is for. */
+  const [handoffStudentId, setHandoffStudentId] = useState<string>("");
+  const handoffStudent = students.find((s) => String(s.id) === handoffStudentId) ?? null;
+  const handoffRequest = async (aiHandoff: AiHandoffRequest) => {
+    if (!handoffStudent || !formStateRef.current[handoffStudent.id]) throw new Error("Choose the student first.");
+    return ReportCardApiService.draftComment({ ...commentBody(handoffStudent), aiHandoff });
+  };
+
   /** Draft one student's comment with AI into the comment box (unsaved). Returns false on failure. */
   const draftComment = async (student: StudentRow, quiet = false): Promise<boolean> => {
     const state = formStateRef.current[student.id];
@@ -573,17 +641,11 @@ export default function GeneralAttributesForm({
     setDrafting((d) => ({ ...d, [student.id]: true }));
     try {
       const res = await ReportCardApiService.draftComment({
-        term,
-        academic_year: academicYear,
-        subjects: results?.[student.id] ?? [],
-        attributes: GENERAL_ATTRIBUTES.filter((a) => state.attributes[a]).map((a) => ({ attribute_name: a, rating: state.attributes[a] as AttributeRating })),
-        attendance: state.attendance,
-        current: state.comment.trim() || null,
+        ...commentBody(student),
         ...(aiRoute ? { aiRoute } : {}),
       });
       setLastAi(res.ai ?? res.data.ai ?? null);
-      const text = res.data.comment.split("[NAME]").join(firstName(student.name));
-      setFormState((prev) => ({ ...prev, [student.id]: { ...prev[student.id], comment: text, saved: false } }));
+      putComment(student, res.data.comment);
       return true;
     } catch (e: any) {
       if (!quiet) toast.error(e?.response?.data?.message || "The AI couldn't draft this comment. Try again.");
@@ -797,6 +859,25 @@ export default function GeneralAttributesForm({
               <div className="flex flex-col gap-1">
                 <AiSourceControl idPrefix="report-comment-ai-source" value={aiRoute} onChange={setAiRoute} disabled={!!bulk} />
                 <AiAnsweredBy ai={lastAi} />
+                <HandoffPicker
+                  students={students}
+                  value={handoffStudentId}
+                  onChange={setHandoffStudentId}
+                  disabled={!!bulk}
+                  control={
+                    <HandoffControl
+                      idPrefix="report-comment-handoff"
+                      pupilData
+                      disabled={!!bulk || !handoffStudent}
+                      request={handoffRequest}
+                      onImported={(body) => {
+                        if (!handoffStudent) return;
+                        setLastAi(body.ai ?? body.data?.ai ?? null);
+                        putComment(handoffStudent, String(body.data?.comment ?? ""));
+                      }}
+                    />
+                  }
+                />
               </div>
             )}
             {students.length > 0 && (

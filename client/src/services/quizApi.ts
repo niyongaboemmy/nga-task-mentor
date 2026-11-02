@@ -314,7 +314,9 @@ export class QuizApiService {
     starterCode?: string;
     /** My AI: a one-off choice from AiSourceControl ("" = the person's default). */
     aiRoute?: string;
-  }): Promise<{ success: boolean; data: any[]; ai?: AiAnswer | null }> {
+    /** "Open in my AI" / "Paste the answer" (prompt mode answers { success, handoff }). */
+    aiHandoff?: import("./aiHandoffApi").AiHandoffRequest;
+  }): Promise<{ success: boolean; data: any[]; ai?: AiAnswer | null; handoff?: import("./aiHandoffApi").HandoffPayload }> {
     const response = await axios.post("/quizzes/generate-test-cases", data);
     return response.data;
   }

@@ -22,6 +22,7 @@ import { isPersonalAiUnavailableError, personalAiFrom, type PersonalAiCall } fro
 import { BLOOM_GUIDE, alignBloomLevel, loadBloomLevels } from "../services/ai/bloomsAlignment";
 import type { AIDifficulty } from "../services/ai/types";
 import { sendControllerError } from "../utils/controllerErrors";
+import { isHandoffError, isHandoffPrompt } from "../services/aiHandoff";
 import { intOrNull, keyEventIdentity, trackAs } from "../activity/keyEvents";
 import type {
   AIGenerateBatchBody,
@@ -306,6 +307,11 @@ async function runBatch(
       },
     };
   } catch (error: any) {
+    // "Open in Claude / ChatGPT": the prompt for this batch, or a hand-off refusal.
+    if (isHandoffPrompt(error)) return { status: 200, payload: { success: true, handoff: error.payload } };
+    if (isHandoffError(error)) {
+      return { status: error.statusCode, payload: { success: false, code: error.code, message: error.message } };
+    }
     console.error("[AI Generate batch] Error:", error?.message);
     const msg = String(error?.message || "");
     if (isPersonalAiUnavailableError(error)) {
@@ -334,8 +340,8 @@ export const generateQuestionBatch = async (req: Request, res: Response) => {
   const personal = personalAiFrom(req, "author", "tm.question-generator");
   const run = async () => {
     const outcome = await runBatch(userId, courseId, body, personal);
-    if (outcome.status === 200) {
-      const meta = (outcome.payload as any)?.meta;
+    const meta = (outcome.payload as any)?.meta;
+    if (outcome.status === 200 && meta) {
       trackAs(who, "tm.question.generate", {
         course_id: intOrNull(courseId),
         count: Number(meta?.returned) || 0,
@@ -344,7 +350,9 @@ export const generateQuestionBatch = async (req: Request, res: Response) => {
     }
     return outcome;
   };
-  if (!body.async) {
+  // A hand-off never runs as a job: prompt mode answers with the batch's prompt at once
+  // (no provider, no job), import mode only validates the pasted questions.
+  if (!body.async || personal.handoff) {
     const { status, payload } = await run();
     return res.status(status).json(payload);
   }

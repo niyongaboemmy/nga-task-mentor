@@ -6,6 +6,7 @@ import {
   DatabaseError,
 } from "sequelize";
 import { aiDisabledBody, isAiDisabledError } from "../services/aiPolicy";
+import { sendHandoff } from "../services/aiHandoff";
 
 export interface FieldError {
   field: string;
@@ -33,6 +34,9 @@ export const sendControllerError = (
   const errorId = `${Date.now().toString(36)}-${Math.random()
     .toString(36)
     .slice(2, 8)}`;
+
+  // "Open in Claude / ChatGPT": the prompt (200) or a hand-off refusal (403/400).
+  if (sendHandoff(res, error)) return res;
 
   // The school's AI policy turned AI off (provider chokepoint) → 403 AI_DISABLED.
   if (isAiDisabledError(error)) {

@@ -8,6 +8,7 @@ import { DocumentExtractorService } from "../services/DocumentExtractorService";
 import { draftFeedback, type RubricCriterion } from "../services/ai/feedbackDrafter";
 import { personalAiFrom } from "../services/myAiGateway";
 import { sendControllerError } from "../utils/controllerErrors";
+import { sendHandoff } from "../services/aiHandoff";
 
 const parse = <T>(v: unknown, fallback: T): T => {
   if (v == null) return fallback;
@@ -99,6 +100,7 @@ export const draftSubmissionFeedback = async (req: Request, res: Response) => {
     });
     return res.json({ success: true, data: draft, ai: draft.ai ?? null });
   } catch (error: any) {
+    if (sendHandoff(res, error)) return;
     if ([400, 502, 503].includes(error?.statusCode)) {
       return res.status(error.statusCode).json({ success: false, message: error.message });
     }

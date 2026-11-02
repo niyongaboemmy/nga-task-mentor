@@ -3,6 +3,16 @@ import { orderedProviders, isCoolingDown, markCoolingDown } from "./registry";
 import { isQuotaError, isDeadProviderError, friendlyAIErrorMessage } from "./errors";
 import { assertAiApp } from "../aiPolicy";
 import { withPersonalAi, type AiAnswer, type PersonalAiCall } from "../myAiGateway";
+import {
+  HandoffPrompt,
+  assertHandoffAllowed,
+  assertHandoffPupilData,
+  freeformHandoffPrompt,
+  jsonHandoffPrompt,
+  readPastedFreeform,
+  readPastedJson,
+  scrub,
+} from "../aiHandoff";
 
 /** A bad key or an empty billing account won't recover in minutes. */
 const DEAD_PROVIDER_COOLDOWN_MS = 60 * 60 * 1000;
@@ -28,6 +38,35 @@ export interface GenerateStructuredContentOptions {
    * Leave unset for system work (grading on submit) — that always uses the school AI.
    */
   personal?: PersonalAiCall | null;
+  /**
+   * The prompt carries pupil-identifying data (a named student's work or record).
+   * "Open in Claude / ChatGPT" then needs the school's policy and the person's consent.
+   */
+  pupilData?: boolean;
+}
+
+const HANDOFF_ANSWER: AiAnswer = { route: "handoff", reason: "HANDOFF" };
+
+/**
+ * "Open in Claude / ChatGPT" (prompt: throws HandoffPrompt, no provider is called) and
+ * "Paste the answer" (import: the pasted text, validated, as the provider result).
+ */
+async function handoffCall<T>(
+  options: GenerateStructuredContentOptions,
+  build: () => { prompt: string; expects: "json" | "text"; schemaName?: string },
+  read: (text: string) => T,
+): Promise<GenerateStructuredContentResult<T>> {
+  const personal = options.personal!;
+  const ctx = personal.handoff!;
+  await assertHandoffAllowed({ ...ctx, task: personal.task, inAssessment: personal.inAssessment });
+  if (ctx.handoff.mode === "prompt") {
+    await assertHandoffPupilData(options.pupilData, ctx.handoff.pupilConsent);
+    const b = build();
+    throw new HandoffPrompt({ prompt: scrub(b.prompt), expects: b.expects, schemaName: b.schemaName });
+  }
+  const data = read(ctx.handoff.text);
+  console.log(`[AI] handoff answer imported (${personal.feature})`);
+  return { data, providerUsed: "handoff", ai: HANDOFF_ANSWER };
 }
 
 /** Personal answers report the provider of the person's key as providerUsed. */
@@ -49,6 +88,13 @@ export async function generateStructuredContent<T = any>(
   // Chokepoint (AI_USAGE_CONTROL_PLAN.md §5.5): no provider is called while the
   // school's AI policy has AI off for Task Mentor -- throws AiDisabledError (403).
   await assertAiApp("tm");
+  if (options?.personal?.handoff) {
+    return handoffCall<T>(
+      options,
+      () => ({ prompt: jsonHandoffPrompt(params.prompt, params.schema), expects: "json", schemaName: params.schemaName }),
+      (text) => readPastedJson<T>(text, params.schema),
+    );
+  }
   if (options?.personal) {
     const { result, ai } = await withPersonalAi(options.personal, {
       personal: async (gw) => {
@@ -180,6 +226,13 @@ export async function generateFreeformJSON<T = any>(
   // Chokepoint (AI_USAGE_CONTROL_PLAN.md §5.5): no provider is called while the
   // school's AI policy has AI off for Task Mentor -- throws AiDisabledError (403).
   await assertAiApp("tm");
+  if (options?.personal?.handoff) {
+    return handoffCall<T>(
+      options,
+      () => ({ prompt: freeformHandoffPrompt(prompt), expects: "json" }),
+      (text) => readPastedFreeform<T>(text, parseLenientJson),
+    );
+  }
   if (options?.personal) {
     const { result, ai } = await withPersonalAi(options.personal, {
       // Same prompt; the gateway's plain-text call, parsed as leniently as below.

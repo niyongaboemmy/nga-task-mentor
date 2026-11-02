@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { generateRubric } from "../services/ai/rubricGenerator";
 import { sendControllerError } from "../utils/controllerErrors";
+import { sendHandoff } from "../services/aiHandoff";
 import { personalAiFrom } from "../services/myAiGateway";
 
 /**
@@ -23,6 +24,7 @@ export const generateAssignmentRubric = async (req: Request, res: Response) => {
     });
     return res.json({ success: true, data: rubric, ai: rubric.ai ?? null });
   } catch (error: any) {
+    if (sendHandoff(res, error)) return;
     // 400 nothing to read, 502 empty AI reply, 503 no provider could answer —
     // all carry a teacher-friendly message.
     if ([400, 502, 503].includes(error?.statusCode)) {

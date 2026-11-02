@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { isPersonalAiUnavailableError, personalAiErrorBody, personalAiFrom } from "../services/myAiGateway";
+import { sendHandoff } from "../services/aiHandoff";
 import { aiHelpInput, boolInput } from "../tmcode/ai/learning";
 import axios from "axios";
 import { QuizQuestion, QuizAttempt, User, Quiz, QuestionBank } from "../models";
@@ -2082,6 +2083,7 @@ export const getAIHint = async (req: Request, res: Response) => {
       ai: ai ?? null,
     });
   } catch (error: any) {
+    if (sendHandoff(res, error)) return;
     if (isAiDisabledError(error)) return res.status(403).json(aiDisabledBody(error.reason));
     if (isPersonalAiUnavailableError(error)) return res.status(503).json(personalAiErrorBody(error));
     console.error("AI hint error:", error);
@@ -2438,6 +2440,7 @@ export const generateTestCases = async (req: Request, res: Response) => {
       ai: ai ?? null,
     });
   } catch (error: any) {
+    if (sendHandoff(res, error)) return;
     if (isAiDisabledError(error)) return res.status(403).json(aiDisabledBody(error.reason));
     if (isPersonalAiUnavailableError(error)) return res.status(503).json(personalAiErrorBody(error));
     console.error("Generate test cases error:", error);
