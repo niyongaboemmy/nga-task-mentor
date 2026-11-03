@@ -1,3 +1,4 @@
+import { markStudentSubmitted } from "../controllers/markSubmitted.controller";
 import { Router } from "express";
 import {
   getAssignments,
@@ -110,6 +111,13 @@ router.post(
     assignment_id: intOrNull(req.params.assignmentId),
   })),
   gradeUnsubmittedStudent,
+);
+
+// Mark a student's work as submitted on their behalf, so it can be graded
+router.post(
+  "/:assignmentId/students/:studentId/mark-submitted",
+  authorizePermission("SUBMISSIONS_GRADE"),
+  markStudentSubmitted,
 );
 
 // Download submissions as zip (TODO: implement)

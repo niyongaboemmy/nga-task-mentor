@@ -196,9 +196,11 @@ const PracticalGradingPage: React.FC = () => {
   const backHref = type === "quiz" ? `/quizzes/${activityId}/submissions` : `/assignments/${activityId}`;
   const close = useCallback(() => navigate(backHref), [navigate, backHref]);
 
+  // The student the page was opened on is listed even with no work yet.
+  const openedOn = useRef(studentParam);
   const load = useCallback(async () => {
     try {
-      const r = await practicalsApi.roster(type, activityId, questionParam);
+      const r = await practicalsApi.roster(type, activityId, questionParam, openedOn.current);
       setRoster(r);
       setError(null);
       return r;
@@ -713,7 +715,8 @@ const StudentWorkspace: React.FC<{
   const [returnOpen, setReturnOpen] = useState(false);
 
   const projectId = row.project?.id ?? null;
-  const gradable = !!row.link && (row.state === "submitted" || row.state === "graded");
+  // Submitted by the student, or marked submitted by a teacher (maybe with no frozen project).
+  const gradable = row.state === "submitted" || row.state === "graded";
   const name = row.student?.name ?? "Student";
 
   useEffect(() => {
@@ -1218,6 +1221,26 @@ const CriteriaScorer: React.FC<{
     store.set(SNIPPETS_KEY, next);
   };
 
+  const [marking, setMarking] = useState(false);
+  const markSubmitted = async () => {
+    if (!row.student) return;
+    setError(null);
+    setMarking(true);
+    try {
+      const r = await practicalsApi.markSubmitted(a.id, row.student.id);
+      toast.success(
+        r.source === "project"
+          ? `Handed in ${row.student.name}'s latest saved work. You can grade it now.`
+          : `Marked ${row.student.name} as submitted. You can grade it now.`,
+      );
+      await onSaved();
+    } catch (e) {
+      setError(apiErrorMessage(e, "Couldn't mark it as submitted."));
+    } finally {
+      setMarking(false);
+    }
+  };
+
   const save = async (advance: boolean) => {
     if (!row.student || !gradable) return;
     setError(null);
@@ -1299,8 +1322,26 @@ const CriteriaScorer: React.FC<{
       {!gradable && (
         <p className="mx-4 mt-3 flex shrink-0 items-start gap-1.5 rounded-xl bg-slate-100 p-2.5 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">
           <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          {!a.can_grade ? "You can view this work but not grade it." : "Nothing to grade yet: the student hasn't submitted a project."}
+          {!a.can_grade
+            ? "You can view this work but not grade it."
+            : a.type === "assignment"
+              ? row.project
+                ? "Not submitted yet. Mark it as submitted to grade it: their latest saved work is handed in for them."
+                : "Nothing handed in. Mark it as submitted to grade it anyway (for example, work checked on paper or a zero)."
+              : "Nothing to grade yet: the student hasn't submitted a project."}
         </p>
+      )}
+      {!gradable && a.can_grade && a.type === "assignment" && row.student && (
+        <button
+          type="button"
+          onClick={markSubmitted}
+          disabled={marking}
+          data-testid="mark-submitted"
+          className="mx-4 mt-2 inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
+        >
+          {marking ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+          Mark as submitted
+        </button>
       )}
       {restored && (
         <div className="mx-4 mt-3 flex shrink-0 items-center gap-2 rounded-xl bg-blue-50 p-2.5 text-xs text-blue-800 dark:bg-blue-500/10 dark:text-blue-200" data-testid="draft-restored">

@@ -212,9 +212,20 @@ export const practicalsApi = {
     return { project: normalizeProjectDetail(data.project), link_id: Number(data.link_id), created: !!data.created };
   },
 
-  async roster(type: PracticalActivity, id: number, questionId?: number | null): Promise<GradingRoster> {
-    const res = await api.get(`${BASE}/grading/${type}/${id}`, { params: questionId ? { question_id: questionId } : undefined });
+  /** `studentId` lists that student even before they have any work. */
+  async roster(type: PracticalActivity, id: number, questionId?: number | null, studentId?: number | null): Promise<GradingRoster> {
+    const params = { ...(questionId ? { question_id: questionId } : {}), ...(studentId ? { student_id: studentId } : {}) };
+    const res = await api.get(`${BASE}/grading/${type}/${id}`, { params });
     return unwrap<GradingRoster>(res.data);
+  },
+
+  /**
+   * Mark a student's assignment as submitted for them, so it can be graded:
+   * their latest saved project is handed in, else a placeholder submission.
+   */
+  async markSubmitted(assignmentId: number, studentId: number): Promise<{ submission_id: number; status: string; source: "project" | "draft" | "placeholder" }> {
+    const res = await api.post(`/assignments/${assignmentId}/students/${studentId}/mark-submitted`);
+    return unwrap(res.data);
   },
 
   async saveGrade(
