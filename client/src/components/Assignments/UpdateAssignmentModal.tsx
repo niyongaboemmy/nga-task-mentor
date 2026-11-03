@@ -1,3 +1,4 @@
+import { marksScopeOf } from "./MarksScope";
 import React from "react";
 import { aiHelpOf, type AiMode } from "../../services/aiApi";
 import type { AxiosProgressEvent } from "axios";
@@ -26,6 +27,8 @@ interface UpdateAssignmentProps {
     ai_mode?: AiMode | null;
     ai_help?: unknown;
     ai_own_tools?: boolean | null;
+    marks_scope?: string | null;
+    part_of_title?: string | null;
     attachments?: ExistingAttachment[];
     /** TMCode practical settings from GET /assignments/:id (null = off). */
     tmcode?: TmcodeSettings | null;
@@ -104,6 +107,8 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({ assignment, on
         ai_mode: assignment.ai_mode === "hints" || assignment.ai_mode === "full" ? assignment.ai_mode : "off",
         ai_help: assignment.ai_help ? aiHelpOf(assignment.ai_help) : null,
         ai_own_tools: !!assignment.ai_own_tools,
+        marks_scope: marksScopeOf(assignment.marks_scope),
+        part_of_title: assignment.part_of_title ?? "",
       }}
       existingAttachments={assignment.attachments || []}
       initialTmcode={initialTmcode}

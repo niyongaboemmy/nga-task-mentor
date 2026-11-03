@@ -228,7 +228,7 @@ export async function computeOverview(
     ? await Promise.all([
         Assignment.findAll({
           where: { course_id: { [Op.in]: ids }, status: { [Op.ne]: "removed" }, ...termWhere },
-          attributes: ["id", "title", "course_id", "status", "due_date", "max_score", "created_at"],
+          attributes: ["id", "title", "course_id", "status", "due_date", "max_score", "created_at", "marks_scope"],
           raw: true,
         }),
         Quiz.findAll({

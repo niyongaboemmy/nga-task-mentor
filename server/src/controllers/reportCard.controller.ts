@@ -24,7 +24,7 @@ import {
 } from "../services/reportCardPreview.service";
 import type { AssessmentCategory } from "../services/reportCardGrader.service";
 import { Quiz } from "../models/Quiz.model";
-import { Assignment } from "../models/Assignment.model";
+import { Assignment, COUNTED_MARKS } from "../models/Assignment.model";
 import {
   generateReportCardPdf,
   generateAnnualReportCardPdf,
@@ -1012,7 +1012,7 @@ export const getReportCardPreview = async (req: Request, res: Response) => {
     const [quizzes, assignments, manuals] = await Promise.all([
       idsOf("quiz").length ? Quiz.findAll({ where: { id: { [Op.in]: idsOf("quiz") } }, attributes: ["id", "title"], raw: true }) : [],
       idsOf("assignment").length
-        ? Assignment.findAll({ where: { id: { [Op.in]: idsOf("assignment") } }, attributes: ["id", "title"], raw: true })
+        ? Assignment.findAll({ where: { id: { [Op.in]: idsOf("assignment") }, ...COUNTED_MARKS }, attributes: ["id", "title"], raw: true })
         : [],
       idsOf("manual").length
         ? ManualAssessment.findAll({ where: { id: { [Op.in]: idsOf("manual") } }, attributes: ["id", "title"], raw: true })
@@ -1039,8 +1039,11 @@ export const getReportCardPreview = async (req: Request, res: Response) => {
           subject_id: id,
           name: names.get(id) || `Subject #${id}`,
           source: c.source,
-          // A deleted quiz has no title row (the Quiz scope hides it): drop it.
-          items: c.rows.filter((r) => r.assessment_type !== "quiz" || titles.has(`quiz:${r.assessment_id}`)).map((r) => ({
+          // A deleted quiz (hidden by the Quiz scope) or an assignment that is
+          // part of another assessment has no title row: drop it.
+          items: c.rows
+            .filter((r) => r.assessment_type === "manual" || titles.has(`${r.assessment_type}:${r.assessment_id}`))
+            .map((r) => ({
             assessment_type: r.assessment_type as ItemKind,
             assessment_id: r.assessment_id,
             category: r.category as AssessmentCategory,

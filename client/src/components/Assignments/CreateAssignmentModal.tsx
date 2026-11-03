@@ -44,6 +44,8 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({ onSubmit, onCancel,
         rubric: [],
         allowed_file_types: ["pdf", "docx", "jpg", "png", "zip"],
         status: "draft",
+        marks_scope: "counted",
+        part_of_title: "",
       }}
       submit={onSubmit}
       tmcodeEnabled={can("PROJECTS_USE")}

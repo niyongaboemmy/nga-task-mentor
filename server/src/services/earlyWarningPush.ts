@@ -177,7 +177,7 @@ export async function linkLocalUsers(roster: MisRosterStudent[]): Promise<Roster
   }));
 }
 
-const ASSIGNMENT_FIELDS = ["id", "title", "course_id", "status", "due_date", "max_score", "submission_type", "created_at"];
+const ASSIGNMENT_FIELDS = ["id", "title", "course_id", "status", "due_date", "max_score", "submission_type", "created_at", "marks_scope", "part_of_title"];
 const QUIZ_FIELDS = [
   "id", "title", "course_id", "status", "type", "start_date", "end_date",
   "time_limit", "max_attempts", "passing_score", "is_public", "created_at",

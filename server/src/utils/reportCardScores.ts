@@ -2,6 +2,7 @@ import { Op } from "sequelize";
 import { User } from "../models/User.model";
 import { QuizSubmission } from "../models/QuizSubmission.model";
 import { Quiz } from "../models/Quiz.model";
+import { Assignment, COUNTED_MARKS } from "../models/Assignment.model";
 import { Submission } from "../models/Submission.model";
 import { ManualAssessment } from "../models/ManualAssessment.model";
 import { ManualAssessmentScore } from "../models/ManualAssessmentScore.model";
@@ -70,7 +71,16 @@ export async function loadStudentScores(
   const quizIds = ids("quiz").length
     ? (await Quiz.findAll({ where: { id: { [Op.in]: ids("quiz") } }, attributes: ["id"], raw: true })).map((q) => q.id)
     : [];
-  const assignmentIds = ids("assignment");
+  // An assignment whose marks are part of another assessment doesn't count either.
+  const assignmentIds = ids("assignment").length
+    ? (
+        await Assignment.findAll({
+          where: { id: { [Op.in]: ids("assignment") }, ...COUNTED_MARKS },
+          attributes: ["id"],
+          raw: true,
+        })
+      ).map((a) => a.id!)
+    : [];
   const manualIds = ids("manual");
   const { localIds } = identity;
 

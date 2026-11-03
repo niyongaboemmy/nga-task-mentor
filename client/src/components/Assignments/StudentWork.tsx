@@ -1,3 +1,4 @@
+import { MarksScopeBadge } from "./MarksScope";
 import React from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
@@ -40,6 +41,7 @@ export const WorkCard: React.FC<{ task: StudentTask }> = ({ task: t }) => {
         </Link>
       </h3>
       <p className={`mt-1 text-sm truncate ${ink.secondary}`}>{t.subject_name}</p>
+      {t.part_of && <MarksScopeBadge scope="part_of" partOfTitle={t.part_of_title} className="mt-2 self-start" />}
       <div className="mt-auto flex items-end justify-between gap-3 pt-5">
         <div className="min-w-0 text-sm">
           {open && t.countdown_to && t.countdown_label ? (

@@ -1,3 +1,4 @@
+import { MarksScopeBadge } from "../../Assignments/MarksScope";
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -416,6 +417,7 @@ export const TaskRow: React.FC<{ task: StudentTask }> = ({ task }) => (
           </span>
         )}
         {task.has_feedback && <MessageSquare className="w-3.5 h-3.5 text-blue-500" aria-label="Has feedback" />}
+        {task.part_of && <MarksScopeBadge scope="part_of" partOfTitle={task.part_of_title} />}
       </div>
     </div>
     <ActionButton task={task} />

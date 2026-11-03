@@ -44,6 +44,8 @@ export interface AssignmentRow {
   max_score: number | string | null;
   submission_type?: string | null;
   created_at?: Date | string | null;
+  marks_scope?: string | null;
+  part_of_title?: string | null;
 }
 
 export interface QuizRow {
@@ -158,6 +160,9 @@ export interface StudentTask {
    * "publicly accessible" switch is on. Only these tasks raise reminders.
    */
   is_public: boolean;
+  /** The marks are part of another assessment (shown, never averaged); its title when set. */
+  part_of: boolean;
+  part_of_title: string | null;
   action: { label: string; url: string } | null;
 }
 
@@ -309,6 +314,8 @@ export function buildStudentOverview(input: StudentOverviewInput): StudentOvervi
     has_feedback: false,
     graded_at: null as string | null,
     is_public: true,
+    part_of: false,
+    part_of_title: null as string | null,
     created: toDate(row.created_at),
   });
 
@@ -325,6 +332,8 @@ export function buildStudentOverview(input: StudentOverviewInput): StudentOvervi
     const t = base("assignment", a, subject);
     t.max_score = num(a.max_score);
     t.has_draft = !handedIn && !!draft;
+    t.part_of = a.marks_scope === "part_of";
+    t.part_of_title = t.part_of ? a.part_of_title ?? null : null;
 
     let state: TaskState;
     if (handedIn) {
@@ -517,7 +526,7 @@ export function buildStudentOverview(input: StudentOverviewInput): StudentOvervi
   const assignmentsIn = handedIn.filter((t) => t.kind === "assignment");
   const recentCut = nowMs - 30 * DAY;
   const recentScores = tasks
-    .filter((t) => t.score_pct != null && (toDate(t.graded_at)?.getTime() ?? 0) >= recentCut)
+    .filter((t) => t.score_pct != null && !t.part_of && (toDate(t.graded_at)?.getTime() ?? 0) >= recentCut)
     .map((t) => t.score_pct!);
   const resultCut = nowMs - 7 * DAY;
   const newResults = tasks.filter((t) => t.state === "graded" && (toDate(t.graded_at)?.getTime() ?? 0) >= resultCut);
@@ -555,7 +564,7 @@ export function buildStudentOverview(input: StudentOverviewInput): StudentOvervi
     const mine = tasks.filter((t) => t.subject_id === s.id);
     const done = mine.filter((t) => t.state === "submitted" || t.state === "graded");
     const closed = mine.filter((t) => t.state === "missed" || t.state === "submitted" || t.state === "graded");
-    const scores = mine.filter((t) => t.score_pct != null && (toDate(t.graded_at)?.getTime() ?? 0) >= recentCut);
+    const scores = mine.filter((t) => t.score_pct != null && !t.part_of && (toDate(t.graded_at)?.getTime() ?? 0) >= recentCut);
     const next = mine.find((t) => TODO.includes(t.state) && t.due_at);
     return {
       subject_id: s.id,

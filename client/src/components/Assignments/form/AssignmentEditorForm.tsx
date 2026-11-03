@@ -35,6 +35,7 @@ import TmcodePracticalSection from "./TmcodePracticalSection";
 import { EMPTY_TMCODE, sameTmcode, type TmcodeSettings } from "../../../services/tmcodeAssignmentsApi";
 import { AiLayerOptions, AiModeControl } from "../../ai/AiControls";
 import { aiHelpOf, type AiHelp, type AiMode } from "../../../services/aiApi";
+import { MarksScopeControl, type MarksScope } from "../MarksScope";
 
 /** What the server accepts as an assignment attachment (middleware/assignmentUpload.ts). */
 export const ATTACHMENT_EXTENSIONS =
@@ -65,6 +66,9 @@ export interface AssignmentFormValues {
   /** The Learning layer's knobs, and Industrial's "students' own AI tools". */
   ai_help?: AiHelp | null;
   ai_own_tools?: boolean;
+  /** Counted, or part of another assessment (left out of every total). */
+  marks_scope?: MarksScope;
+  part_of_title?: string;
 }
 
 interface Props {
@@ -365,6 +369,8 @@ const AssignmentEditorForm: React.FC<Props> = ({
     fd.append("ai_mode", values.ai_mode ?? "off");
     if (values.ai_mode === "hints" && values.ai_help) fd.append("ai_help", JSON.stringify(values.ai_help));
     fd.append("ai_own_tools", values.ai_mode === "full" && values.ai_own_tools ? "true" : "false");
+    fd.append("marks_scope", values.marks_scope ?? "counted");
+    fd.append("part_of_title", values.marks_scope === "part_of" ? (values.part_of_title ?? "").trim() : "");
     if (mode === "create") {
       fd.append("course_id", values.course_id);
     } else {
@@ -537,6 +543,18 @@ const AssignmentEditorForm: React.FC<Props> = ({
                 </div>
               </div>
             )}
+            <div data-field="marks_scope">
+              <MarksScopeControl
+                idPrefix="assignment"
+                value={values.marks_scope ?? "counted"}
+                partOfTitle={values.part_of_title ?? ""}
+                disabled={busy}
+                onChange={(scope, title) => {
+                  set("marks_scope", scope);
+                  set("part_of_title", title);
+                }}
+              />
+            </div>
           </div>
           {/* AI for students (AI_USAGE_CONTROL_PLAN.md §5.6) */}
           <div className="mt-5">

@@ -26,6 +26,7 @@ import { assignmentTmcodeSettings } from "./tmcodeAssignments.controller";
 import { canManageAssignment } from "../utils/ownership";
 import { trackAiModeChange } from "../utils/aiEvents";
 import { AI_MODE_VALUES, type AiMode } from "../models/Quiz.model";
+import { MARKS_SCOPES, type MarksScope } from "../models/Assignment.model";
 import { canGradeAssignment, GRADE_DENIED_MESSAGE } from "../utils/gradingAccess";
 import { cancelAssignment, syncAssignment } from "../services/reminderSync";
 import {
@@ -91,6 +92,8 @@ export const getCourseAssignments = async (req: Request, res: Response) => {
         "ai_mode",
         "ai_help",
         "ai_own_tools",
+        "marks_scope",
+        "part_of_title",
       ],
       order: [["due_date", "ASC"]],
     });
@@ -199,6 +202,9 @@ export const getGroupedAssignments = async (req: Request, res: Response) => {
     let statusWhere: any = {};
     if (isStudent) {
       statusWhere = { status: { [Op.in]: ["published", "completed"] } };
+    } else if (statusFilter === "part_of") {
+      // Marks that are part of another assessment (any live status).
+      statusWhere = { marks_scope: "part_of", status: { [Op.ne]: "removed" } };
     } else if (
       ["draft", "published", "completed", "removed"].includes(statusFilter)
     ) {
@@ -307,6 +313,8 @@ export const getGroupedAssignments = async (req: Request, res: Response) => {
           "ai_mode",
           "ai_help",
           "ai_own_tools",
+          "marks_scope",
+          "part_of_title",
         ],
         order: [["due_date", "ASC"]],
       });
@@ -324,6 +332,8 @@ export const getGroupedAssignments = async (req: Request, res: Response) => {
           ai_mode: a.ai_mode,
           ai_help: a.ai_help ?? null,
           ai_own_tools: !!a.ai_own_tools,
+          marks_scope: a.marks_scope ?? "counted",
+          part_of_title: a.part_of_title ?? null,
           course_id: a.course_id,
           creator: (a as any).creator ?? null,
           created_by: a.created_by,
@@ -559,6 +569,11 @@ export const createAssignment = async (req: Request, res: Response) => {
       });
     }
 
+    const marks = marksScopeInput(req.body);
+    if (typeof marks === "string") {
+      return res.status(400).json({ success: false, message: marks, errors: [{ field: "marks_scope", message: marks }] });
+    }
+
     // AI for students working on it (multipart: validated here, not by zod)
     if (ai_mode !== undefined && ai_mode !== "" && !isAiModeValue(ai_mode)) {
       return res.status(400).json({
@@ -620,6 +635,7 @@ export const createAssignment = async (req: Request, res: Response) => {
       ai_mode: isAiModeValue(ai_mode) ? ai_mode : "off",
       ai_help: aiHelpInput(ai_help) ?? null,
       ai_own_tools: boolInput(ai_own_tools) ?? false,
+      ...(marks ?? {}),
       created_by: req.user.id,
       attachments,
       rubric: parsedRubric,
@@ -908,6 +924,15 @@ export const updateAssignment = async (req: Request, res: Response) => {
     const ownTools = boolInput(ai_own_tools);
     if (ownTools !== undefined) assignment.ai_own_tools = ownTools;
 
+    const marks = marksScopeInput(req.body);
+    if (typeof marks === "string") {
+      return res.status(400).json({ success: false, message: marks, errors: [{ field: "marks_scope", message: marks }] });
+    }
+    if (marks) {
+      assignment.marks_scope = marks.marks_scope;
+      assignment.part_of_title = marks.part_of_title;
+    }
+
     if (status !== undefined) {
       const validStatuses = ["draft", "published", "completed", "removed"];
       if (!validStatuses.includes(status)) {
@@ -922,6 +947,7 @@ export const updateAssignment = async (req: Request, res: Response) => {
     }
 
     await assignment.save();
+    if (marks) clearInstructorOverviewCache();
     void syncAssignment(assignment.id);
     trackAiModeChange(req, "assignment", assignment, previousAiMode, assignment.ai_mode);
 
@@ -1385,6 +1411,44 @@ export const submitAssignment = async (req: Request, res: Response) => {
       });
     }
     console.error("Submit assignment error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * The marks status from a create/update body (JSON or multipart). Undefined:
+ * not sent; an error string: invalid. "counted" clears the part-of title.
+ */
+export function marksScopeInput(body: any): { marks_scope: MarksScope; part_of_title: string | null } | undefined | string {
+  const raw = body?.marks_scope;
+  if (raw === undefined || raw === "") return undefined;
+  if (!MARKS_SCOPES.includes(raw)) return `Marks status must be one of: ${MARKS_SCOPES.join(", ")}`;
+  const title = typeof body?.part_of_title === "string" ? body.part_of_title.trim() : "";
+  if (title.length > 255) return "What it is part of must be 255 characters or fewer";
+  return { marks_scope: raw, part_of_title: raw === "part_of" && title ? title : null };
+}
+
+// @desc    Change only the marks status: counted, or part of another assessment
+//          (its marks then stay out of dashboards, rankings and reports).
+// @route   PATCH /api/assignments/:id/marks-scope
+// @access  Private (ASSIGNMENTS_EDIT + creator / MANAGE_ANY)
+export const updateAssignmentMarksScope = async (req: Request, res: Response) => {
+  try {
+    const input = marksScopeInput(req.body);
+    if (input === undefined || typeof input === "string") {
+      const message = input ?? `Marks status must be one of: ${MARKS_SCOPES.join(", ")}`;
+      return res.status(400).json({ success: false, message, errors: [{ field: "marks_scope", message }] });
+    }
+    const assignment = await Assignment.findByPk(req.params.id);
+    if (!assignment) return res.status(404).json({ success: false, message: "Assignment not found" });
+    await assignment.update(input);
+    clearInstructorOverviewCache();
+    res.status(200).json({
+      success: true,
+      data: { id: assignment.id, marks_scope: assignment.marks_scope, part_of_title: assignment.part_of_title },
+    });
+  } catch (error) {
+    console.error("Update assignment marks status error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

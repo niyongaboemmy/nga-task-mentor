@@ -37,6 +37,8 @@ export interface RawStudentAssignment {
   due_date: string | null;
   submissions?: RawAssignmentSubmission[];
   subject: RawSubjectRef | null;
+  /** "part_of": marks belong to another assessment, so not in final grade. */
+  marks_scope?: string | null;
 }
 
 export interface RawQuizSubmission {
@@ -161,7 +163,7 @@ export const toAssignmentItem = (a: RawStudentAssignment, now: number): Activity
     maxScore: best?.max ?? (Number(a.max_score) || null),
     percentage,
     passed: percentage === null ? null : percentage >= PASS_MARK,
-    countsToFinal: true,
+    countsToFinal: a.marks_scope !== "part_of",
     attempts: handedIn.length,
     submittedAt: (best?.sub ?? latest)?.submitted_at ?? null,
     submissionId: (best?.sub ?? latest)?.id ?? null,

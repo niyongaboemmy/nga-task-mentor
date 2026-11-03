@@ -11,6 +11,9 @@ export interface GroupedAssignment {
   /** AI for students working on it (AI usage control). */
   ai_mode?: "off" | "hints" | "full";
   status: AssignmentStatus;
+  /** "part_of": marks belong to another assessment and stay out of totals. */
+  marks_scope?: "counted" | "part_of";
+  part_of_title?: string | null;
   course_id: number;
   creator: { id: number; first_name: string; last_name: string } | null;
   created_by?: number;

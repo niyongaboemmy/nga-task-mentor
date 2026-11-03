@@ -41,6 +41,9 @@ export interface AssignmentInterface {
   submissions: any[];
   isPublished?: boolean;
   status?: "draft" | "published" | "completed" | "removed";
+  /** "part_of": its marks belong to another assessment (left out of totals). */
+  marks_scope?: "counted" | "part_of";
+  part_of_title?: string | null;
 }
 
 interface AssignmentCardProps {

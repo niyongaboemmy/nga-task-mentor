@@ -254,3 +254,24 @@ describe("relTime", () => {
     expect(relTime(days(-1), now)).toBe("1 day ago");
   });
 });
+
+describe("student overview: marks that are part of another assessment", () => {
+  const withPart = buildStudentOverview(
+    input({
+      assignments: input().assignments.map((a) =>
+        a.id === 14 ? { ...a, marks_scope: "part_of", part_of_title: "Term exam, Section C" } : a,
+      ),
+    }),
+  );
+  const graded = withPart.tasks.find((t) => t.kind === "assignment" && t.id === 14)!;
+
+  it("still shows the student the mark, flagged with what it is part of", () => {
+    expect(graded).toMatchObject({ state: "graded", score_pct: 80, part_of: true, part_of_title: "Term exam, Section C" });
+    expect(task("assignment", 10)).toMatchObject({ part_of: false, part_of_title: null });
+  });
+
+  it("leaves it out of the recent averages", () => {
+    expect(withPart.summary.recent_average).toBe(30); // only the Arrays quiz
+    expect(withPart.subjects.find((s) => s.subject_id === 1)!.recent_average).toBeNull();
+  });
+});
