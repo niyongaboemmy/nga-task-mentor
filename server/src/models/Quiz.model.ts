@@ -8,6 +8,8 @@ import {
   BelongsTo,
   HasMany,
   HasOne,
+  DefaultScope,
+  Scopes,
 } from "sequelize-typescript";
 import { User } from "./User.model";
 import QuizQuestion from "./QuizQuestion.model";
@@ -15,7 +17,7 @@ import QuizAttempt from "./QuizAttempt.model";
 import ProctoringSettings from "./ProctoringSettings.model";
 import ProctoringSession from "./ProctoringSession.model";
 
-export type QuizStatus = "draft" | "published" | "completed";
+export type QuizStatus = "draft" | "published" | "completed" | "deleted";
 export type QuizType = "Assessment" | "Homework" | "Quiz" | "Exam";
 /** AI for students inside the quiz (AI_USAGE_CONTROL_PLAN.md §5.6). */
 export type AiMode = "off" | "hints" | "full";
@@ -51,6 +53,8 @@ export interface IQuizAttributes {
   course_id?: number | null;
   academic_term_id?: number | null;
   created_by: number;
+  deleted_at?: Date | null;
+  deleted_by?: number | null;
   created_at?: Date;
   updated_at?: Date;
 }
@@ -60,6 +64,10 @@ export type QuizCreationAttributes = Omit<
   "id" | "created_at" | "updated_at"
 >;
 
+// A deleted quiz is kept for the record (status "deleted" + deleted_at) and
+// hidden from every read, includes too. Quiz.scope("withDeleted") sees it.
+@DefaultScope(() => ({ where: { deleted_at: null } }))
+@Scopes(() => ({ withDeleted: {} }))
 @Table({
   tableName: "quizzes",
   timestamps: true,
@@ -105,7 +113,7 @@ export class Quiz extends Model<IQuizAttributes, QuizCreationAttributes> {
   instructions?: string;
 
   @Column({
-    type: DataType.ENUM("draft", "published", "completed"),
+    type: DataType.ENUM("draft", "published", "completed", "deleted"),
     allowNull: false,
     defaultValue: "draft",
   })
@@ -302,6 +310,12 @@ export class Quiz extends Model<IQuizAttributes, QuizCreationAttributes> {
     field: "created_by",
   })
   created_by!: number;
+
+  @Column({ type: DataType.DATE, allowNull: true, field: "deleted_at" })
+  deleted_at?: Date | null;
+
+  @Column({ type: DataType.INTEGER, allowNull: true, field: "deleted_by" })
+  deleted_by?: number | null;
 
   // Associations
   @BelongsTo(() => User, "created_by")

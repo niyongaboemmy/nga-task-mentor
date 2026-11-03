@@ -1,6 +1,7 @@
 import { Op } from "sequelize";
 import { User } from "../models/User.model";
 import { QuizSubmission } from "../models/QuizSubmission.model";
+import { Quiz } from "../models/Quiz.model";
 import { Submission } from "../models/Submission.model";
 import { ManualAssessment } from "../models/ManualAssessment.model";
 import { ManualAssessmentScore } from "../models/ManualAssessmentScore.model";
@@ -65,7 +66,10 @@ export async function loadStudentScores(
   items: Array<{ assessment_type: string; assessment_id: number }>,
 ): Promise<Map<ScoreKey, RawScore>> {
   const ids = (type: string) => [...new Set(items.filter((i) => i.assessment_type === type).map((i) => i.assessment_id))];
-  const quizIds = ids("quiz");
+  // A deleted quiz still mapped on a card no longer counts.
+  const quizIds = ids("quiz").length
+    ? (await Quiz.findAll({ where: { id: { [Op.in]: ids("quiz") } }, attributes: ["id"], raw: true })).map((q) => q.id)
+    : [];
   const assignmentIds = ids("assignment");
   const manualIds = ids("manual");
   const { localIds } = identity;

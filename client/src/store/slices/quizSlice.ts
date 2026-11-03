@@ -81,17 +81,18 @@ export const updateQuiz = createAsyncThunk<
   }
 });
 
-export const deleteQuiz = createAsyncThunk(
-  "quiz/deleteQuiz",
-  async (quizId: number, { rejectWithValue }) => {
-    try {
-      await handleQuizApiCall(() => QuizApiService.deleteQuiz(quizId));
-      return quizId;
-    } catch (error: any) {
-      return rejectWithValue(error.message);
-    }
+export const deleteQuiz = createAsyncThunk<
+  number,
+  number,
+  { rejectValue: QuizMutationError }
+>("quiz/deleteQuiz", async (quizId, { rejectWithValue }) => {
+  try {
+    await handleQuizApiCall(() => QuizApiService.deleteQuiz(quizId));
+    return quizId;
+  } catch (error: any) {
+    return rejectWithValue(toMutationError(error));
   }
-);
+});
 
 export const fetchQuizStats = createAsyncThunk(
   "quiz/fetchQuizStats",

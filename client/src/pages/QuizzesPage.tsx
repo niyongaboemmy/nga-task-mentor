@@ -418,7 +418,7 @@ const QuizzesPage: React.FC = () => {
   };
 
   const handleDelete = async (q: GroupedQuiz) => {
-    if (!window.confirm(`Delete "${q.title}"? This removes all its questions and submissions.`))
+    if (!window.confirm(`Delete "${q.title}"? It disappears from every list; its questions and submissions are kept for the record.`))
       return;
     try {
       await QuizApiService.deleteQuiz(q.id);
@@ -432,8 +432,8 @@ const QuizzesPage: React.FC = () => {
             : s.quiz_count,
         })),
       );
-    } catch {
-      toast.error("Failed to delete quiz");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to delete quiz");
     }
   };
 

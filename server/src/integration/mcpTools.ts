@@ -153,7 +153,7 @@ export async function examActiveFor(userId: number): Promise<boolean> {
   try {
     const rows = await sequelize.query<{ n: number }>(
       `SELECT 1 AS n FROM tmcode_sessions s JOIN quizzes q ON q.id = s.quiz_id
-        WHERE s.status = 'active' AND s.mode IN ('monitored','secure') AND q.created_by = :userId
+        WHERE s.status = 'active' AND s.mode IN ('monitored','secure') AND q.created_by = :userId AND q.deleted_at IS NULL
           AND COALESCE(s.last_heartbeat, s.started_at) > (NOW() - INTERVAL 2 HOUR)
         LIMIT 1`,
       { replacements: { userId }, type: QueryTypes.SELECT },
