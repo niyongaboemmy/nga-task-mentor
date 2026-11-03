@@ -149,7 +149,7 @@ export async function buildEvidenceTask(key: TaskKey): Promise<EvidenceTask | nu
   const best = new Map<number, { pct: number; at: string }>();
   let task: any;
   if (key.type === "quiz") {
-    [task] = await sequelize.query<any>("SELECT id, title, course_id FROM quizzes WHERE id = :id", { replacements: { id: key.id }, type: QueryTypes.SELECT });
+    [task] = await sequelize.query<any>("SELECT id, title, course_id FROM quizzes WHERE id = :id AND deleted_at IS NULL", { replacements: { id: key.id }, type: QueryTypes.SELECT });
     if (!task) return null;
     const subs = await sequelize.query<any>(
       `SELECT u.mis_user_id AS mis, s.percentage AS pct, COALESCE(s.graded_at, s.completed_at, s.updated_at) AS at

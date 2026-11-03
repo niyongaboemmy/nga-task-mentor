@@ -1039,7 +1039,8 @@ export const getReportCardPreview = async (req: Request, res: Response) => {
           subject_id: id,
           name: names.get(id) || `Subject #${id}`,
           source: c.source,
-          items: c.rows.map((r) => ({
+          // A deleted quiz has no title row (the Quiz scope hides it): drop it.
+          items: c.rows.filter((r) => r.assessment_type !== "quiz" || titles.has(`quiz:${r.assessment_id}`)).map((r) => ({
             assessment_type: r.assessment_type as ItemKind,
             assessment_id: r.assessment_id,
             category: r.category as AssessmentCategory,

@@ -706,7 +706,8 @@ async function toGradeItem(ctx: Ctx): Promise<AttentionItem | null> {
               qs.student_id, COALESCE(qs.completed_at, qs.updated_at) AS waiting_since
          FROM quiz_submissions qs
          JOIN quizzes q ON q.id = qs.quiz_id
-        WHERE qs.status IN ('completed', 'timed_out')
+        WHERE q.deleted_at IS NULL
+          AND qs.status IN ('completed', 'timed_out')
           AND (qs.grade_status IS NULL OR qs.grade_status NOT IN ('graded', 'auto_graded'))${scope.sql}${term.sql}`,
       [...scope.params, ...term.params],
     );
@@ -966,7 +967,7 @@ async function flaggedSessionsItem(ctx: Ctx): Promise<AttentionItem | null> {
     `SELECT ps.id, ps.student_id, q.id AS quiz_id, q.title, q.course_id, q.created_by
        FROM proctoring_sessions ps
        JOIN quizzes q ON q.id = ps.quiz_id
-      WHERE (ps.status = 'flagged' OR ps.flags_count > 0) AND ps.start_time >= ?
+      WHERE q.deleted_at IS NULL AND (ps.status = 'flagged' OR ps.flags_count > 0) AND ps.start_time >= ?
         AND (q.created_by = ?${others})`,
     [new Date(ctx.now.getTime() - 7 * DAY), ctx.userId, ...(Array.isArray(subjectIds) ? subjectIds : [])],
   );
@@ -1011,7 +1012,7 @@ async function unattemptedQuizItem(ctx: Ctx): Promise<AttentionItem | null> {
   const rows = await select<{ id: number; title: string; end_date: Date }>(
     `SELECT q.id, q.title, q.end_date
        FROM quizzes q
-      WHERE q.created_by = ? AND q.status = 'published'
+      WHERE q.created_by = ? AND q.status = 'published' AND q.deleted_at IS NULL
         AND (q.start_date IS NULL OR q.start_date <= ?)
         AND q.end_date > ? AND q.end_date <= ?
         AND NOT EXISTS (SELECT 1 FROM quiz_submissions qs
@@ -1160,7 +1161,7 @@ async function resultUpdates(ctx: Ctx): Promise<UpdateItem[]> {
     const rows = await select<any>(
       `SELECT qs.id, qs.percentage, qs.graded_at, q.id AS quiz_id, q.title
          FROM quiz_submissions qs JOIN quizzes q ON q.id = qs.quiz_id
-        WHERE qs.student_id = ? AND qs.grade_status = 'graded' AND qs.graded_at >= ?
+        WHERE q.deleted_at IS NULL AND qs.student_id = ? AND qs.grade_status = 'graded' AND qs.graded_at >= ?
         ORDER BY qs.graded_at DESC LIMIT ?`,
       [ctx.userId, since, MAX_UPDATES],
     );

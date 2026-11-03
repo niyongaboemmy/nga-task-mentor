@@ -8,6 +8,7 @@ import {
 } from "./testApp";
 import { sequelize } from "../config/database";
 import { Quiz, QuizQuestion, QuestionBank } from "../models";
+import QuizSubmission from "../models/QuizSubmission.model";
 
 /**
  * Integration tests for quiz create / update / delete, run against the real
@@ -32,6 +33,7 @@ let app: ReturnType<typeof buildTestApp>;
 let adminToken: string;
 let studentToken: string;
 let adminId: number;
+let studentId: number;
 const createdQuizIds: number[] = [];
 const createdBankIds: number[] = [];
 
@@ -72,6 +74,7 @@ beforeAll(async () => {
   const admin = await findSeededUserByRole("admin");
   const student = await findSeededUserByRole("student");
   adminId = admin.id;
+  studentId = student.id;
   adminToken = signTokenFor(admin.id);
   studentToken = signTokenFor(student.id);
 });
@@ -83,8 +86,9 @@ beforeEach(() => {
 
 afterAll(async () => {
   if (createdQuizIds.length) {
+    await QuizSubmission.destroy({ where: { quiz_id: createdQuizIds } });
     await QuizQuestion.destroy({ where: { quiz_id: createdQuizIds } });
-    await Quiz.destroy({ where: { id: createdQuizIds } });
+    await Quiz.scope("withDeleted").destroy({ where: { id: createdQuizIds } });
   }
   if (createdBankIds.length) {
     await QuestionBank.destroy({ where: { id: createdBankIds } });
@@ -338,15 +342,60 @@ describe("PUT /api/quizzes/:id", () => {
 });
 
 describe("DELETE /api/quizzes/:id", () => {
-  it("deletes a quiz without submissions and reports success", async () => {
+  const del = (id: number) =>
+    request(app).delete(`/api/quizzes/${id}`).set("Authorization", `Bearer ${adminToken}`);
+
+  it("soft-deletes: the row is kept as 'deleted' and hidden from every read", async () => {
     const created = await post(validQuiz);
     const id = created.body.data.id;
-    const res = await request(app)
-      .delete(`/api/quizzes/${id}`)
-      .set("Authorization", `Bearer ${adminToken}`);
+    createdQuizIds.push(id);
+    const res = await del(id);
     expect(res.status).toBe(200);
     expect(res.body.message).toBe("Quiz deleted successfully");
+
     expect(await Quiz.findByPk(id)).toBeNull();
+    expect(await Quiz.count({ where: { id } })).toBe(0);
+    const kept = await Quiz.scope("withDeleted").findByPk(id);
+    expect(kept?.status).toBe("deleted");
+    expect(kept?.deleted_at).toBeInstanceOf(Date);
+    expect(kept?.deleted_by).toBe(adminId);
+
+    const get = await request(app).get(`/api/quizzes/${id}`).set("Authorization", `Bearer ${adminToken}`);
+    expect(get.status).toBe(404);
+    const list = await request(app)
+      .get(`/api/courses/${COURSE_ID}/quizzes`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .set(MIS_HEADER);
+    expect(list.status).toBe(200);
+    expect((list.body.data as any[]).map((q) => q.id)).not.toContain(id);
+    expect((await del(id)).status).toBe(404);
+  });
+
+  it("deletes a quiz that has submissions and keeps them, out of quiz-joined reads", async () => {
+    const created = await post(validQuiz);
+    const id = created.body.data.id;
+    createdQuizIds.push(id);
+    const sub = await QuizSubmission.create({
+      quiz_id: id,
+      student_id: studentId,
+      status: "completed",
+      started_at: new Date(),
+      completed_at: new Date(),
+      total_score: 5,
+      max_score: 10,
+      percentage: 50,
+      time_taken: 60,
+      passed: false,
+      attempt_number: 1,
+    } as any);
+
+    expect((await del(id)).status).toBe(200);
+    expect(await QuizSubmission.findByPk(sub.id)).not.toBeNull();
+    const joined = await QuizSubmission.findAll({
+      where: { id: sub.id },
+      include: [{ model: Quiz, as: "quiz", attributes: ["id"] }],
+    });
+    expect(joined).toHaveLength(0);
   });
 
   it("returns 404 / 400 for unknown / malformed ids", async () => {

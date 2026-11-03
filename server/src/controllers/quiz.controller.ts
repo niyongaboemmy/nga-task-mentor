@@ -928,21 +928,12 @@ export const deleteQuiz = async (req: Request, res: Response) => {
       });
     }
 
-    // Check if there are any submissions
-    const submissionCount = await QuizSubmission.count({
-      where: { quiz_id: quiz.id },
-      transaction,
-    });
-
-    if (submissionCount > 0) {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: `Cannot delete this quiz: it already has ${submissionCount} submission${submissionCount === 1 ? "" : "s"}`,
-      });
-    }
-
-    await quiz.destroy({ transaction });
+    // Soft delete: the quiz, its questions and any submissions stay in the
+    // database for the record; the model's default scope hides it everywhere.
+    await quiz.update(
+      { status: "deleted", deleted_at: new Date(), deleted_by: req.user?.id ?? null },
+      { transaction },
+    );
     await transaction.commit();
     void cancelQuiz(quizId);
 
