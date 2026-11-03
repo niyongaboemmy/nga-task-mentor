@@ -1,3 +1,4 @@
+import { COUNTED_MARKS } from "../models/Assignment.model";
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import axios from "axios";
@@ -1191,6 +1192,7 @@ export const getStudentStanding = async (req: Request, res: Response) => {
         where: {
           course_id: { [Op.in]: courseIds },
           status: { [Op.in]: ["published", "completed"] },
+          ...COUNTED_MARKS,
           ...termWhere,
         },
         attributes: ["id", "course_id", "max_score"],

@@ -11,6 +11,11 @@ import {
 import { User } from "./User.model";
 import { Submission } from "./Submission.model";
 
+export type MarksScope = "counted" | "part_of";
+export const MARKS_SCOPES: readonly MarksScope[] = ["counted", "part_of"];
+/** Where clause for assignments whose marks count in totals, averages and reports. */
+export const COUNTED_MARKS = { marks_scope: "counted" } as const;
+
 export interface IAssignmentAttributes {
   id?: number;
   title: string;
@@ -35,6 +40,9 @@ export interface IAssignmentAttributes {
   academic_term_id?: number | null;
   created_by: number | null;
   status: "draft" | "published" | "completed" | "removed";
+  /** "part_of": its marks belong to another assessment and count nowhere else. */
+  marks_scope?: MarksScope;
+  part_of_title?: string | null;
   /** AI for students working on it (AI_USAGE_CONTROL_PLAN.md §5.6). */
   ai_mode?: "off" | "hints" | "full";
   ai_help?: AiHelpSetting | null;
@@ -266,6 +274,20 @@ export class Assignment extends Model<
     defaultValue: "draft",
   })
   public status!: "draft" | "published" | "completed" | "removed";
+
+  // Marks status: "part_of" when the marks are part of another assessment
+  // (e.g. Section C of an exam recorded as one mark), so dashboards,
+  // rankings, reports and report cards leave them out.
+  @Column({
+    type: DataType.ENUM("counted", "part_of"),
+    allowNull: false,
+    defaultValue: "counted",
+    field: "marks_scope",
+  })
+  public marks_scope!: MarksScope;
+
+  @Column({ type: DataType.STRING(255), allowNull: true, field: "part_of_title" })
+  public part_of_title!: string | null;
 
   // What AI students may use while working on it, as set by the teacher who
   // prepared it (the school-wide AI policy still comes first).

@@ -1,3 +1,4 @@
+import { COUNTED_MARKS } from "../models/Assignment.model";
 import { Request } from "express";
 import { Op } from "sequelize";
 import { Assignment, Quiz, QuizSubmission, Submission, User } from "../models";
@@ -23,6 +24,7 @@ export async function loadMarkSources(
       where: {
         course_id: { [Op.in]: courseIds },
         status: { [Op.in]: ["published", "completed"] },
+        ...COUNTED_MARKS,
         ...termWhere,
       },
       attributes: ["id", "course_id", "title", "max_score", "due_date", "status"],

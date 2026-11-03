@@ -56,6 +56,8 @@ interface RawStudentGrade {
     grade: number | string | null;
     submitted: boolean;
     max_score: number | string | null;
+    /** False when the assignment's marks are part of another assessment. */
+    counts_to_final?: boolean;
   }>;
   quizzes: Array<{
     quiz_id: number;
@@ -215,7 +217,7 @@ export const buildSubjectReport = (
       title: a.title,
       date: a.date ?? null,
       maxScore: toNumber(a.max_score) ?? 0,
-      countsToFinal: true,
+      countsToFinal: a.counts_to_final !== false,
       markOf: (s: RawStudentGrade) => {
         const row = s.assignments?.find((r) => r.assignment_id === a.id);
         const score = toNumber(row?.grade ?? null);

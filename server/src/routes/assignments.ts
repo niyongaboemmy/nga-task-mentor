@@ -6,6 +6,7 @@ import {
   createAssignment,
   updateAssignment,
   updateAssignmentStatus,
+  updateAssignmentMarksScope,
   deleteAssignment,
   publishAssignment,
   getAssignmentSubmissions,
@@ -76,6 +77,14 @@ router.put(
   authorizePermission("ASSIGNMENTS_EDIT"),
   isCourseInstructor,
   publishAssignment,
+);
+
+// Marks status: counted, or part of another assessment
+router.patch(
+  "/:id/marks-scope",
+  authorizePermission("ASSIGNMENTS_EDIT"),
+  isCourseInstructor,
+  updateAssignmentMarksScope,
 );
 
 // Update assignment status

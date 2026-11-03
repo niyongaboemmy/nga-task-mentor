@@ -102,7 +102,10 @@ export default function SubjectGradesPage() {
           id,
           name: courseRes.data.title ?? `Course #${id}`,
           quizzes: (quizzesRes.data ?? []).map((q: any) => ({ id: q.id, title: q.title })),
-          assignments: ((assignmentsRes as any).data ?? []).map((a: any) => ({ id: a.id, title: a.title })),
+          // Marks that are part of another assessment never go on a report card.
+          assignments: ((assignmentsRes as any).data ?? [])
+            .filter((a: any) => a.marks_scope !== "part_of")
+            .map((a: any) => ({ id: a.id, title: a.title })),
           manualAssessments: fetchedManuals,
         });
       } catch {

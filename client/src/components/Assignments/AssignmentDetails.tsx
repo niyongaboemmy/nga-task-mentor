@@ -1,3 +1,4 @@
+import { MarksScopeBadge, MarksScopeMenu } from "./MarksScope";
 import React, { useState, useEffect, useCallback } from "react";
 import { AiModeBadge } from "../ai/AiControls";
 import { LearningOutcomesPanel } from "../competency/LearningOutcomesPanel";
@@ -69,6 +70,8 @@ interface Assignment {
   can_grade?: boolean;
   /** AI for students working on it (AI usage control). */
   ai_mode?: "off" | "hints" | "full";
+  marks_scope?: "counted" | "part_of";
+  part_of_title?: string | null;
   attachments?: Attachment[];
   createdAt: string;
   updatedAt: string;
@@ -570,8 +573,26 @@ const AssignmentDetails = () => {
           />
 
           {(canManageAssignment || canGradeSubmissions) && (
-            <div className="px-6 pt-1">
+            <div className="flex flex-wrap items-center gap-2 px-6 pt-1">
               <AiModeBadge mode={assignment.ai_mode} />
+              {canManageAssignment ? (
+                <MarksScopeMenu
+                  align="left"
+                  assignmentId={assignment.id}
+                  scope={assignment.marks_scope}
+                  partOfTitle={assignment.part_of_title}
+                  onChanged={(scope, title) =>
+                    setAssignment((prev) => (prev ? { ...prev, marks_scope: scope, part_of_title: title } : prev))
+                  }
+                />
+              ) : (
+                <MarksScopeBadge scope={assignment.marks_scope} partOfTitle={assignment.part_of_title} />
+              )}
+            </div>
+          )}
+          {!(canManageAssignment || canGradeSubmissions) && assignment.marks_scope === "part_of" && (
+            <div className="px-6 pt-1">
+              <MarksScopeBadge scope={assignment.marks_scope} partOfTitle={assignment.part_of_title} />
             </div>
           )}
 

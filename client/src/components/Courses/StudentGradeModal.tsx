@@ -177,6 +177,14 @@ const StudentGradeModal: React.FC<StudentGradeModalProps> = ({
                             Missed / Not Submitted
                           </span>
                         )}
+                        {assignment.counts_to_final === false && (
+                          <span
+                            className="text-[10px] text-violet-700 bg-violet-50 dark:text-violet-300 dark:bg-violet-900/20 px-1.5 py-0.5 rounded"
+                            title={assignment.part_of_title ? `Part of ${assignment.part_of_title}` : "Part of another assessment"}
+                          >
+                            Not in final
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">

@@ -18,6 +18,9 @@ export type TaskState =
 
 export interface StudentTask {
   id: number;
+  /** Its marks are part of another assessment (e.g. an exam section): shown, not averaged. */
+  part_of?: boolean;
+  part_of_title?: string | null;
   kind: TaskKind;
   title: string;
   subject_id: number;

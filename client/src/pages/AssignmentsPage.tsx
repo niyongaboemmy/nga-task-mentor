@@ -1,3 +1,4 @@
+import { MarksScopeBadge, MarksScopeMenu } from "../components/Assignments/MarksScope";
 import React, {
   useState,
   useEffect,
@@ -91,10 +92,12 @@ function AssignmentRow({
   a,
   canManage,
   onStatus,
+  onMarks,
 }: {
   a: GroupedAssignment;
   canManage: boolean;
   onStatus: (id: number, s: AssignmentStatus) => void;
+  onMarks: (id: number, scope: "counted" | "part_of", title: string | null) => void;
 }) {
   const overdue =
     a.status !== "completed" &&
@@ -135,6 +138,7 @@ function AssignmentRow({
             {a.submission_type}
           </span>
           {canManage && <AiModeBadge mode={a.ai_mode} />}
+          {!canChangeStatus && <MarksScopeBadge scope={a.marks_scope} partOfTitle={a.part_of_title} />}
           {a.creator && (
             <span className="hidden sm:inline">
               by {a.creator.first_name} {a.creator.last_name}
@@ -171,6 +175,18 @@ function AssignmentRow({
           <span>
             {a.graded_count ?? 0}/{a.submission_count} graded
           </span>
+        </div>
+      )}
+
+      {/* marks status: counted, or part of another assessment */}
+      {canChangeStatus && (
+        <div className="shrink-0">
+          <MarksScopeMenu
+            assignmentId={a.id}
+            scope={a.marks_scope}
+            partOfTitle={a.part_of_title}
+            onChanged={(scope, title) => onMarks(a.id, scope, title)}
+          />
         </div>
       )}
 
@@ -213,12 +229,14 @@ function SubjectSection({
   collapsed,
   onToggle,
   onStatus,
+  onMarks,
 }: {
   subject: GroupedSubject;
   canManage: boolean;
   collapsed: boolean;
   onToggle: () => void;
   onStatus: (id: number, s: AssignmentStatus) => void;
+  onMarks: (id: number, scope: "counted" | "part_of", title: string | null) => void;
 }) {
   const hue = hueFor(subject.subject_id);
   return (
@@ -290,6 +308,7 @@ function SubjectSection({
                       a={a}
                       canManage={canManage}
                       onStatus={onStatus}
+                      onMarks={onMarks}
                     />
                   ))}
                 </AnimatePresence>
@@ -395,6 +414,15 @@ const StaffAssignments: React.FC = () => {
     });
   };
 
+  // The menu already saved it: just reflect it here.
+  const handleMarks = (id: number, scope: "counted" | "part_of", title: string | null) =>
+    setSubjects((prev) =>
+      prev.map((s) => ({
+        ...s,
+        assignments: s.assignments.map((a) => (a.id === id ? { ...a, marks_scope: scope, part_of_title: title } : a)),
+      })),
+    );
+
   const handleStatus = async (id: number, newStatus: AssignmentStatus) => {
     // optimistic
     setSubjects((prev) =>
@@ -418,6 +446,7 @@ const StaffAssignments: React.FC = () => {
     { v: "draft", l: "Draft" },
     { v: "completed", l: "Completed" },
     { v: "removed", l: "Removed" },
+    { v: "part_of", l: "Part of another assessment" },
   ];
 
   const scopeLabel =
@@ -562,6 +591,7 @@ const StaffAssignments: React.FC = () => {
                 collapsed={!!collapsed[s.subject_id]}
                 onToggle={() => toggleSection(s.subject_id)}
                 onStatus={handleStatus}
+                onMarks={handleMarks}
               />
             ))}
           </motion.div>

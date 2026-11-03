@@ -164,7 +164,7 @@ export async function buildEvidenceTask(key: TaskKey): Promise<EvidenceTask | nu
       if (!prev || pct > prev.pct) best.set(Number(s.mis), { pct, at: iso(s.at) });
     }
   } else {
-    [task] = await sequelize.query<any>("SELECT id, title, course_id, max_score FROM assignments WHERE id = :id", { replacements: { id: key.id }, type: QueryTypes.SELECT });
+    [task] = await sequelize.query<any>("SELECT id, title, course_id, max_score FROM assignments WHERE id = :id AND marks_scope = 'counted'", { replacements: { id: key.id }, type: QueryTypes.SELECT });
     if (!task) return null;
     const subs = await sequelize.query<any>(
       `SELECT u.mis_user_id AS mis, s.grade, COALESCE(s.updated_at, s.submitted_at) AS at

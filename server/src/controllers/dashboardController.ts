@@ -1,3 +1,4 @@
+import { COUNTED_MARKS } from "../models/Assignment.model";
 import { Request, Response } from "express";
 import { Op, Sequelize } from "sequelize";
 import { User } from "../models/User.model";
@@ -623,9 +624,10 @@ export const getAdminGradingSummary = async (req: Request, res: Response) => {
 
     let assignmentsFull: any[] = [];
     try {
+      // Marks that are part of another assessment stay out of the grade summary.
       assignmentsFull = await Assignment.findAll({
         attributes: ["id", "course_id"],
-        where: termWhere,
+        where: { ...termWhere, ...COUNTED_MARKS },
       });
     } catch (e) { console.error("getAdminGradingSummary: error fetching assignments:", e); }
 

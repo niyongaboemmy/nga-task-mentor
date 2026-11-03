@@ -1,3 +1,4 @@
+import { COUNTED_MARKS } from "../models/Assignment.model";
 import { Request, Response } from "express";
 import axios from "axios";
 import {
@@ -728,7 +729,7 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         status: { [Op.in]: ["published", "completed"] }, // Only show published or completed
         ...termWhere,
       },
-      attributes: ["id", "title", "max_score", "due_date"],
+      attributes: ["id", "title", "max_score", "due_date", "marks_scope", "part_of_title"],
       order: [["due_date", "ASC"]],
     });
 
@@ -1004,6 +1005,9 @@ export const getCourseGrades = async (req: Request, res: Response) => {
           submitted: !!sub,
           grade: sub?.grade !== null ? sub?.grade : null,
           status: sub?.status || "pending",
+          // Part of another assessment: shown, but left out of the totals.
+          counts_to_final: assignment.marks_scope !== "part_of",
+          part_of_title: assignment.part_of_title ?? null,
         };
       });
 
@@ -1034,7 +1038,7 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       let totalMaxPoints = 0;
 
       studentAssignments.forEach((a) => {
-        if (a.max_score) {
+        if (a.max_score && a.counts_to_final) {
           totalMaxPoints += Number(a.max_score);
           if (a.grade) {
             // Handle "15/20" string format if present
@@ -1078,7 +1082,7 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       let assignmentsPoints = 0;
       let assignmentsMaxPoints = 0;
       studentAssignments.forEach((a) => {
-        if (a.max_score) {
+        if (a.max_score && a.counts_to_final) {
           assignmentsMaxPoints += Number(a.max_score);
           if (a.grade) {
             const gradePoints = String(a.grade).includes("/")
@@ -1172,6 +1176,8 @@ export const getCourseGrades = async (req: Request, res: Response) => {
           title: a.title,
           max_score: a.max_score,
           date: a.due_date ?? null,
+          counts_to_final: a.marks_scope !== "part_of",
+          part_of_title: a.part_of_title ?? null,
         })),
         quizzes: quizzesWithMaxScore.map((q) => ({
           id: q.id,
@@ -1266,6 +1272,7 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
         course_id: {
           [Op.in]: courseIds,
         },
+        ...COUNTED_MARKS,
         ...termWhere,
       },
       attributes: ["id", "course_id", "max_score", "title", "due_date"],

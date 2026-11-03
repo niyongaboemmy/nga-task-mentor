@@ -91,7 +91,7 @@ export function computeStudentMetrics(input: StudentWorkInput): StudentMetrics {
       due++;
       if (t.state === "missed") missed++;
     }
-    if (t.score_pct == null) continue;
+    if (t.score_pct == null || t.part_of) continue;
     const gradedAt = ms(t.graded_at);
     if (gradedAt == null || gradedAt > nowMs) continue;
     if (gradedAt > curFrom) cur.push(t.score_pct);

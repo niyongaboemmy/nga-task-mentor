@@ -57,6 +57,8 @@ export interface AssignmentRow {
   due_date: Date | string | null;
   max_score: number | null;
   created_at?: Date | string | null;
+  /** "part_of": marks belong to another assessment; kept out of every average. */
+  marks_scope?: string | null;
 }
 
 export interface QuizRow {
@@ -157,6 +159,8 @@ export interface AssessmentSummary {
   late: number;
   avg_score: number | null;
   pass_rate: number | null;
+  /** Marks are part of another assessment: its own average only, never in alerts or totals. */
+  part_of?: boolean;
   url: string;
 }
 
@@ -372,6 +376,8 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
     submitters: Set<string>;
     scores: Map<string, number>; // student -> best %
     pendingDates: Date[];
+    /** Its marks are part of another assessment: graded here, averaged nowhere else. */
+    partOf?: boolean;
   }
   const accs: Acc[] = [];
   const newAcc = (
@@ -414,7 +420,10 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
   for (const a of input.assignments) {
     if (a.status === "removed") continue;
     const acc = newAcc("assignment", a, toDate(a.due_date), {});
-    if (acc) assignmentAcc.set(a.id, acc);
+    if (acc) {
+      acc.partOf = a.marks_scope === "part_of";
+      assignmentAcc.set(a.id, acc);
+    }
   }
   const quizAcc = new Map<number, Acc>();
   for (const q of input.quizzes) {
@@ -454,7 +463,7 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
         const pct = clampPct((parsed.raw_score / parsed.max_score) * 100);
         acc.scores.set(key, Math.max(acc.scores.get(key) ?? -1, pct));
         const gradedAt = toDate(s.updated_at);
-        if (gradedAt) gradedEvents.push({ at: gradedAt, pct });
+        if (gradedAt && !acc.partOf) gradedEvents.push({ at: gradedAt, pct });
       }
     } else if (PENDING_ASSIGNMENT.has(s.status)) {
       acc.summary.pending++;
@@ -491,6 +500,10 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
     s.avg_score = scores.length ? round1(mean(scores)!) : null;
     s.pass_rate = scores.length ? pctOf(scores.filter((p) => p >= PASS_MARK).length, scores.length) : null;
     s.participation = s.expected ? Math.min(100, pctOf(s.submitted, s.expected) ?? 0) : null;
+    if (acc.partOf) {
+      s.part_of = true;
+      continue;
+    }
     for (const [key, pct] of acc.scores) {
       recordScore(key, s.subject_id, pct);
       allItemScores.push(pct);
@@ -885,6 +898,7 @@ export function alertTargets(ctx: AlertContext) {
     .filter(
       (a) =>
         a.is_closed &&
+        !a.part_of &&
         a.avg_score != null &&
         a.avg_score < PASS_MARK &&
         a.graded >= LOW_SCORE_MIN_RESULTS &&

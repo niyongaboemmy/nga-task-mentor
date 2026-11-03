@@ -293,3 +293,27 @@ describe("instructor overview analytics", () => {
     });
   });
 });
+
+describe("instructor overview: marks that are part of another assessment", () => {
+  // Landing page (10) becomes Section C of an exam recorded elsewhere.
+  const input = baseInput();
+  input.assignments = input.assignments.map((a) => (a.id === 10 ? { ...a, marks_scope: "part_of" } : a));
+  const o = buildInstructorOverview(input);
+  const web = o.subjects.find((s) => s.subject_id === 1)!;
+
+  it("still shows it and its own average, flagged part_of", () => {
+    const landing = o.assessments.find((a) => a.id === 10)!;
+    expect(landing).toMatchObject({ avg_score: 60, part_of: true });
+  });
+
+  it("keeps grading work for it (it must still be graded)", () => {
+    expect(o.totals.pending_grading).toBe(2);
+    expect(o.grading_queue[0]).toMatchObject({ id: 10 });
+  });
+
+  it("leaves it out of class, overall and student averages", () => {
+    expect(web.avg_score).toBeNull(); // Landing page was Web UI's only mark
+    expect(o.totals.avg_score).toBe(90); // JS only
+    expect(o.students.at_risk.find((s) => s.mis_user_id === 102)?.reasons.join(" ") ?? "").not.toMatch(/Average 30%/);
+  });
+});
