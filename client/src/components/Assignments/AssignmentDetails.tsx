@@ -434,6 +434,15 @@ const AssignmentDetails = () => {
     [assignment, assignmentId, selectedSubmission, fetchSubmissions],
   );
 
+  // A draft the student never handed in: submit it for them, then grade.
+  const handleMarkSubmitted = useCallback(async () => {
+    const studentId = selectedSubmission?.student_id ?? (selectedSubmission as any)?.student?.id;
+    await api.post(`/assignments/${assignmentId}/students/${studentId}/mark-submitted`);
+    setSelectedSubmission((s) => (s ? ({ ...s, status: "submitted" } as typeof s) : s));
+    await fetchSubmissions();
+    setWorkspacesKey((k) => k + 1);
+  }, [assignmentId, selectedSubmission, fetchSubmissions]);
+
   useEffect(() => {
     if (lastFetchedId.current === assignmentId) return;
     
@@ -894,6 +903,7 @@ const AssignmentDetails = () => {
             canManageAssignment={canGradeSubmissions}
             showGradingLockedNotice={canViewAllSubmissions && !canGradeSubmissions}
             onGradeSubmission={handleGradeSubmission}
+            onMarkSubmitted={handleMarkSubmitted}
           />
         )}
 

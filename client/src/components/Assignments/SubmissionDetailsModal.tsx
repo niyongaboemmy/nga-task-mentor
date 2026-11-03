@@ -41,6 +41,8 @@ interface SubmissionDetailsModalProps {
     feedback: string,
   ) => void;
   assignment: AssignmentInterface;
+  /** Hand in a draft for the student (so it can be graded). */
+  onMarkSubmitted?: () => Promise<void>;
 }
 
 const safeParse = (data: any, fallback: any = []) => {
@@ -66,7 +68,21 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
   canManageAssignment,
   showGradingLockedNotice = false,
   onGradeSubmission,
+  onMarkSubmitted,
 }) => {
+  const [marking, setMarking] = React.useState(false);
+  const markSubmitted = async () => {
+    if (!onMarkSubmitted) return;
+    setMarking(true);
+    try {
+      await onMarkSubmitted();
+      toast.success("Marked as submitted. You can grade it now.");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Couldn't mark it as submitted.");
+    } finally {
+      setMarking(false);
+    }
+  };
   const [isDownloading, setIsDownloading] = React.useState<string | null>(null);
   const [selectedFile, setSelectedFile] = React.useState<{
     url: string;
@@ -453,6 +469,25 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                   onGradeSubmission={onGradeSubmission}
                   onSuccess={onClose}
                 />
+              </section>
+            )}
+
+            {canManageAssignment && submission.status === "draft" && onMarkSubmitted && (
+              <section className="pt-4" aria-label="Not submitted">
+                <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 sm:flex-row sm:items-center dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                  <p className="flex-1">
+                    The student saved this work but never submitted it. Mark it as submitted to grade it.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={markSubmitted}
+                    disabled={marking}
+                    data-testid="mark-submitted"
+                    className="inline-flex items-center justify-center rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    {marking ? "Marking…" : "Mark as submitted"}
+                  </button>
+                </div>
               </section>
             )}
 

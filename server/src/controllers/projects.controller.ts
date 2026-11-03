@@ -1342,45 +1342,21 @@ async function linkOr404(req: Request, res: Response, access: ProjectAccess) {
   return link;
 }
 
-const submitSchema = z.object({ git_commit: z.string().regex(/^[0-9a-f]{7,64}$/i).optional() });
-
-// @desc    Submit: freeze the head revision (tm) or the git commit (github)
-//          on the link. For an assignment also create/update the owner's
-//          `submissions` row (status submitted/resubmitted, is_late,
-//          project_ref = the frozen revision/commit). Re-submitting moves the
-//          freeze while the activity is open and the work isn't graded.
-// @route   POST /api/tmcode/projects/:id/links/:linkId/submit
-export const submitLink = async (req: Request, res: Response) => {
-  const access = await accessOr404(req, res);
-  if (!access) return;
-  if (!access.isOwner) return ownerOnly(res);
-  const link = await linkOr404(req, res, access);
-  if (!link) return;
-  const parsed = submitSchema.safeParse(req.body ?? {});
-  if (!parsed.success) return validation(res, parsed.error);
-  const p = access.project;
-
-  if (p.status === "removed") {
-    return tmcodeError(res, 409, "PROJECT_REMOVED", "This project was removed. Restore it to submit it.");
-  }
-  const activity = await loadActivity(link.activity_type, link.activity_id);
-  if (!activity) return tmcodeError(res, 404, "ACTIVITY_NOT_FOUND", "The activity no longer exists.");
-  if (activity.type === "assignment" && isReadOnlyStatus(activity.status)) {
-    return tmcodeError(res, 409, "ASSIGNMENT_COMPLETED", "This assignment is completed; it no longer accepts submissions.");
-  }
-  if (!activity.open) return tmcodeError(res, 409, "ACTIVITY_CLOSED", "This activity is closed.");
-
-  let revision: ProjectRevision | null = null;
-  let commit: string | null = null;
-  if (p.kind === "tm") {
-    revision = p.head_revision_id ? await ProjectRevision.findByPk(p.head_revision_id) : null;
-    if (!revision) return tmcodeError(res, 422, "NOTHING_TO_SUBMIT", "Save the project to Task Mentor first.");
-  } else {
-    commit = parsed.data.git_commit ?? p.git_state?.head_commit ?? null;
-    if (!commit) return tmcodeError(res, 422, "NO_COMMIT", "Commit and push your work first.");
-  }
-
-  const now = new Date();
+/**
+ * Hand in a project on its link: freeze the revision/commit on the link and,
+ * for an assignment, create/update the owner's `submissions` row; for a quiz
+ * practical, write the answer into the open attempt. `actorId` is who handed
+ * it in: the student, or a teacher marking it submitted for them.
+ */
+export async function freezeLinkSubmission(
+  p: Project,
+  link: ProjectActivityLink,
+  activity: { id: number; due_date?: Date | string | null },
+  actorId: number,
+  revision: ProjectRevision | null,
+  commit: string | null,
+  now = new Date(),
+): Promise<{ refused: "ALREADY_GRADED" | null; submission: { id: number; status: string; is_late: boolean } | null }> {
   let submission: { id: number; status: string; is_late: boolean } | null = null;
   const refused = await sequelize.transaction(async (transaction) => {
     if (link.activity_type === "assignment") {
@@ -1413,7 +1389,7 @@ export const submitLink = async (req: Request, res: Response) => {
         await sequelize.query(
           `UPDATE submissions SET status = ?, submitted_at = ?, submitted_by = ?, text_submission = ?,
              is_late = ?, project_ref = ?, updated_at = ? WHERE id = ?`,
-          { replacements: [status, now, req.user.id, text, isLate, ref, now, row.id], transaction },
+          { replacements: [status, now, actorId, text, isLate, ref, now, row.id], transaction },
         );
         submission = { id: row.id, status, is_late: isLate };
       } else {
@@ -1422,7 +1398,7 @@ export const submitLink = async (req: Request, res: Response) => {
              file_submissions, resubmissions, is_late, comments, project_ref, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, NULL, '[]', ?, '[]', ?, ?, ?)`,
           {
-            replacements: [activity.id, studentId, req.user.id, status, now, text, isLate, ref, now, now],
+            replacements: [activity.id, studentId, actorId, status, now, text, isLate, ref, now, now],
             type: QueryTypes.INSERT,
             transaction,
           },
@@ -1475,6 +1451,49 @@ export const submitLink = async (req: Request, res: Response) => {
     );
     return null;
   });
+  return { refused, submission };
+}
+
+const submitSchema = z.object({ git_commit: z.string().regex(/^[0-9a-f]{7,64}$/i).optional() });
+
+// @desc    Submit: freeze the head revision (tm) or the git commit (github)
+//          on the link. For an assignment also create/update the owner's
+//          `submissions` row (status submitted/resubmitted, is_late,
+//          project_ref = the frozen revision/commit). Re-submitting moves the
+//          freeze while the activity is open and the work isn't graded.
+// @route   POST /api/tmcode/projects/:id/links/:linkId/submit
+export const submitLink = async (req: Request, res: Response) => {
+  const access = await accessOr404(req, res);
+  if (!access) return;
+  if (!access.isOwner) return ownerOnly(res);
+  const link = await linkOr404(req, res, access);
+  if (!link) return;
+  const parsed = submitSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return validation(res, parsed.error);
+  const p = access.project;
+
+  if (p.status === "removed") {
+    return tmcodeError(res, 409, "PROJECT_REMOVED", "This project was removed. Restore it to submit it.");
+  }
+  const activity = await loadActivity(link.activity_type, link.activity_id);
+  if (!activity) return tmcodeError(res, 404, "ACTIVITY_NOT_FOUND", "The activity no longer exists.");
+  if (activity.type === "assignment" && isReadOnlyStatus(activity.status)) {
+    return tmcodeError(res, 409, "ASSIGNMENT_COMPLETED", "This assignment is completed; it no longer accepts submissions.");
+  }
+  if (!activity.open) return tmcodeError(res, 409, "ACTIVITY_CLOSED", "This activity is closed.");
+
+  let revision: ProjectRevision | null = null;
+  let commit: string | null = null;
+  if (p.kind === "tm") {
+    revision = p.head_revision_id ? await ProjectRevision.findByPk(p.head_revision_id) : null;
+    if (!revision) return tmcodeError(res, 422, "NOTHING_TO_SUBMIT", "Save the project to Task Mentor first.");
+  } else {
+    commit = parsed.data.git_commit ?? p.git_state?.head_commit ?? null;
+    if (!commit) return tmcodeError(res, 422, "NO_COMMIT", "Commit and push your work first.");
+  }
+
+  const now = new Date();
+  const { refused, submission } = await freezeLinkSubmission(p, link, activity, Number(req.user.id), revision, commit, now);
   if (refused === "ALREADY_GRADED") {
     return tmcodeError(
       res,

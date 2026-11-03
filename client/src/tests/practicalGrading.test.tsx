@@ -9,6 +9,7 @@ import { pickOption } from "./helpers/select";
 const practicals = {
   roster: vi.fn(),
   saveGrade: vi.fn(),
+  markSubmitted: vi.fn(),
   preview: vi.fn(),
   startQuizPractical: vi.fn(),
   runTargets: vi.fn(),
@@ -336,7 +337,7 @@ describe("PracticalGradingPage", () => {
     workspace("/grading/quiz/9?question=55");
     expect(await screen.findByTestId("grade-total")).toHaveTextContent(/^7\s*\/\s*10$/);
     expect(screen.getByPlaceholderText(/What went well/)).toHaveValue("Good");
-    expect(practicals.roster).toHaveBeenCalledWith("quiz", 9, 55);
+    expect(practicals.roster).toHaveBeenCalledWith("quiz", 9, 55, null);
 
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
@@ -642,8 +643,32 @@ describe("PracticalGradingPage", () => {
       counts: { total: 1, to_grade: 0, graded: 0 },
     });
     workspace();
-    expect(await screen.findByText(/hasn't submitted a project/)).toBeInTheDocument();
+    expect(await screen.findByText(/Not submitted yet/)).toBeInTheDocument();
     expect(screen.getByTestId("save-next")).toBeDisabled();
+  });
+
+  it("marks a working student as submitted, then grading opens", async () => {
+    const working = row(1, "Ama", { state: "in_progress", link: { id: 201, status: "linked", submitted_at: null, revision_id: null, revision_number: null, git_commit: null } });
+    practicals.roster.mockResolvedValueOnce({ ...roster(), rows: [working], counts: { total: 1, to_grade: 0, graded: 0 } });
+    practicals.roster.mockResolvedValue({ ...roster(), rows: [{ ...working, state: "submitted" }], counts: { total: 1, to_grade: 1, graded: 0 } });
+    practicals.markSubmitted.mockResolvedValue({ submission_id: 5, status: "submitted", source: "project" });
+    workspace("/grading/assignment/7?student=1");
+    await userEvent.click(await screen.findByTestId("mark-submitted"));
+    expect(practicals.markSubmitted).toHaveBeenCalledWith(7, 1);
+    expect(practicals.roster).toHaveBeenCalledWith("assignment", 7, null, 1);
+    await waitFor(() => expect(screen.queryByTestId("mark-submitted")).not.toBeInTheDocument());
+    expect(screen.getByTestId("save-next")).toBeEnabled();
+  });
+
+  it("offers no mark-submitted for a quiz practical", async () => {
+    practicals.roster.mockResolvedValue({
+      ...roster({ type: "quiz", id: 9, question: { id: 55, text: "Build it", instructions: null } }),
+      rows: [row(1, "Ama", { state: "in_progress" })],
+      counts: { total: 1, to_grade: 0, graded: 0 },
+    });
+    workspace("/grading/quiz/9");
+    expect(await screen.findByText(/hasn't submitted a project/)).toBeInTheDocument();
+    expect(screen.queryByTestId("mark-submitted")).not.toBeInTheDocument();
   });
 });
 

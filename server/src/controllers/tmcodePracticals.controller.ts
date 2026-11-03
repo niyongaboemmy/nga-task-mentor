@@ -447,15 +447,23 @@ export const gradingRoster = async (req: Request, res: Response) => {
     ? await ProjectRevision.findAll({ where: { id: frozenIds }, attributes: { exclude: ["manifest_gz"] } })
     : [];
   const revById = new Map(frozen.map((r) => [r.id, r]));
-  const users = await usersById([...projects.map((p) => p.owner_id), ...grades.keys()]);
+  // ?student_id= opens one student even before they have any work, so the
+  // teacher can mark it submitted (assignments) and grade it.
+  const asked = Number(req.query.student_id);
+  const extra = Number.isInteger(asked) && asked > 0 ? [asked] : [];
+  const users = await usersById([...projects.map((p) => p.owner_id), ...grades.keys(), ...extra]);
 
-  const studentIds = new Set<number>([...projects.map((p) => p.owner_id), ...grades.keys()]);
+  const studentIds = new Set<number>([...projects.map((p) => p.owner_id), ...grades.keys(), ...extra.filter((sid) => users.has(sid))]);
   const rows = [...studentIds].map((sid) => {
     const project = projects.find((p) => p.owner_id === sid && p.status !== "removed") ?? projects.find((p) => p.owner_id === sid) ?? null;
     const link = project ? links.find((l) => l.project_id === project.id) ?? null : null;
     const rev = link?.revision_id ? revById.get(link.revision_id) : null;
     const g = grades.get(sid) ?? null;
-    const state = g?.status === "graded" ? "graded" : link?.status === "submitted" ? "submitted" : project ? "in_progress" : g ? "submitted" : "not_started";
+    // A handed-in row (the student's, or one a teacher marked submitted for
+    // them) is gradable even when no project revision was frozen.
+    const handedIn = ctx.type === "assignment" ? !!g && ["submitted", "late", "resubmitted"].includes(g.status) : !project && !!g;
+    const state =
+      g?.status === "graded" ? "graded" : link?.status === "submitted" || handedIn ? "submitted" : project || g ? "in_progress" : "not_started";
     return {
       student: userBrief(users.get(sid), sid),
       state,
