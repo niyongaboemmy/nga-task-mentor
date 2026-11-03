@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { BarChart3, Check, ChevronDown, Loader2, Puzzle } from "lucide-react";
 import { toast } from "react-toastify";
@@ -49,12 +50,14 @@ export const MarksScopeControl: React.FC<{
   onChange: (scope: MarksScope, partOfTitle: string) => void;
   idPrefix?: string;
   disabled?: boolean;
-}> = ({ value, partOfTitle, onChange, idPrefix = "marks", disabled }) => (
+  /** "stack": one card per row (popovers); "auto": side by side from sm up. */
+  layout?: "auto" | "stack";
+}> = ({ value, partOfTitle, onChange, idPrefix = "marks", disabled, layout = "auto" }) => (
   <div data-testid="marks-scope-control">
     <div className="mb-1.5 flex items-center justify-between">
       <span className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark">Marks status</span>
     </div>
-    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2" role="radiogroup" aria-label="Marks status">
+    <div className={`grid grid-cols-1 gap-2.5 ${layout === "auto" ? "sm:grid-cols-2" : ""}`} role="radiogroup" aria-label="Marks status">
       {OPTIONS.map((o) => {
         const on = value === o.value;
         return (
@@ -178,6 +181,43 @@ export const MarksScopeMenu: React.FC<{
   const [draft, setDraft] = useState<{ scope: MarksScope; title: string }>({ scope: current, title: partOfTitle ?? "" });
   const [saving, setSaving] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  // The panel lives in a portal (cards around the button clip overflow), placed
+  // under the button and kept inside the viewport; phones get a bottom sheet.
+  const [pos, setPos] = useState<{ top: number; left: number; width: number; sheet: boolean } | null>(null);
+
+  const place = useCallback(() => {
+    const btn = ref.current?.getBoundingClientRect();
+    if (!btn) return;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    if (vw < 640) {
+      setPos({ top: 0, left: 0, width: vw, sheet: true });
+      return;
+    }
+    const width = Math.min(416, vw - 32);
+    const wanted = align === "right" ? btn.right - width : btn.left;
+    const left = Math.max(16, Math.min(wanted, vw - width - 16));
+    const height = panelRef.current?.offsetHeight ?? 360;
+    // Below the button, or above it when there's no room underneath.
+    const below = btn.bottom + 8;
+    const top = below + height > vh - 16 && btn.top - 8 - height > 16 ? btn.top - 8 - height : Math.min(below, Math.max(16, vh - height - 16));
+    setPos({ top, left, width, sheet: false });
+  }, [align]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    place();
+    // Again once the panel has its real height.
+    const raf = requestAnimationFrame(place);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, place, draft.scope]);
 
   useEffect(() => {
     if (open) setDraft({ scope: current, title: partOfTitle ?? "" });
@@ -185,7 +225,8 @@ export const MarksScopeMenu: React.FC<{
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!ref.current?.contains(t) && !panelRef.current?.contains(t)) setOpen(false);
     };
     const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     document.addEventListener("mousedown", close);
@@ -210,6 +251,8 @@ export const MarksScopeMenu: React.FC<{
     }
   };
 
+  // Known from the first render, before the panel is measured.
+  const sheet = pos ? pos.sheet : typeof window !== "undefined" && window.innerWidth < 640;
   const changed = draft.scope !== current || (draft.scope === "part_of" && draft.title.trim() !== (partOfTitle ?? ""));
   return (
     <div ref={ref} className="relative inline-block" onClick={(e) => e.stopPropagation()}>
@@ -234,27 +277,46 @@ export const MarksScopeMenu: React.FC<{
         </span>
         <ChevronDown className={`h-3 w-3 transition ${open ? "rotate-180" : ""}`} />
       </button>
-      <AnimatePresence>
-        {open && (
+      {createPortal(
+        <AnimatePresence>
+          {open && sheet && (
+            <motion.div
+              key="scrim"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[60] bg-black/40"
+              aria-hidden="true"
+            />
+          )}
+          {open && (
           <motion.div
+            key="panel"
+            ref={panelRef}
             role="dialog"
             aria-label="Marks status"
-            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            onClick={(e) => e.stopPropagation()}
+            initial={sheet ? { opacity: 1, scale: 1, y: "100%" } : { opacity: 0, y: -4, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
-            transition={{ duration: 0.12 }}
-            className={`absolute z-40 mt-2 w-[min(26rem,calc(100vw-2rem))] rounded-2xl border border-gray-200 bg-white p-4 shadow-xl dark:border-gray-700 dark:bg-gray-900 ${
-              align === "right" ? "right-0" : "left-0"
+            exit={sheet ? { opacity: 1, y: "100%" } : { opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: sheet ? 0.2 : 0.12 }}
+            style={pos && !pos.sheet ? { top: pos.top, left: pos.left, width: pos.width } : undefined}
+            className={`fixed z-[61] border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900 ${
+              sheet
+                ? "inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+                : `max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl p-4 ${pos ? "" : "invisible"}`
             }`}
           >
+            {sheet && <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-gray-300 dark:bg-gray-700" aria-hidden="true" />}
             <MarksScopeControl
+              layout="stack"
               idPrefix={`menu-${assignmentId}`}
               value={draft.scope}
               partOfTitle={draft.title}
               disabled={saving}
               onChange={(s, t) => setDraft({ scope: s, title: t })}
             />
-            <div className="mt-4 flex justify-end gap-2">
+            <div className={`mt-4 flex gap-2 ${sheet ? "[&>button]:flex-1 [&>button]:justify-center [&>button]:py-2.5" : "justify-end"}`}>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
@@ -274,8 +336,10 @@ export const MarksScopeMenu: React.FC<{
               </button>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   );
 };
