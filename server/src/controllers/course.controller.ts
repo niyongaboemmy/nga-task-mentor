@@ -1032,35 +1032,33 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         };
       });
 
-      // Calculate Totals (Mock logic - custom weighting can be added later)
-      // For now, simple sum of points earned vs total possible points
-      let totalPointsEarned = 0;
-      let totalMaxPoints = 0;
+      // Totals count marked work only: a graded assignment, a submitted quiz
+      // (its best attempt) and a recorded mark. Work not handed in or not
+      // graded yet is "no mark yet", not a zero -- counting its max score
+      // pulled a student's average far below the marks they were shown.
+      const pointsOf = (grade: unknown) =>
+        String(grade).includes("/") ? parseFloat(String(grade).split("/")[0]) : Number(grade);
 
+      let assignmentsPoints = 0;
+      let assignmentsMaxPoints = 0;
       studentAssignments.forEach((a) => {
-        if (a.max_score && a.counts_to_final) {
-          totalMaxPoints += Number(a.max_score);
-          if (a.grade) {
-            // Handle "15/20" string format if present
-            const gradePoints = String(a.grade).includes("/")
-              ? parseFloat(String(a.grade).split("/")[0])
-              : Number(a.grade);
-            if (!isNaN(gradePoints)) {
-              totalPointsEarned += gradePoints;
-            }
-          }
-        }
+        if (!a.counts_to_final || !a.submitted || a.grade === null || a.grade === undefined) return;
+        const max = Number(a.max_score);
+        const points = pointsOf(a.grade);
+        if (!(max > 0) || isNaN(points)) return;
+        assignmentsMaxPoints += max;
+        assignmentsPoints += points;
       });
 
+      let quizzesPoints = 0;
+      let quizzesMaxPoints = 0;
       studentQuizzes.forEach((q) => {
-        if (q.max_score) {
-          totalMaxPoints += Number(q.max_score);
-          if (q.score) totalPointsEarned += Number(q.score);
-        }
+        const max = Number(q.max_score);
+        if (!q.submitted || !(max > 0)) return;
+        quizzesMaxPoints += max;
+        quizzesPoints += Number(q.score) || 0;
       });
 
-      // Only assessments the teacher has actually marked count — an empty
-      // column is "not entered yet", not a zero.
       let assessmentsPoints = 0;
       let assessmentsMaxPoints = 0;
       studentAssessments.forEach((a) => {
@@ -1068,48 +1066,14 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         assessmentsMaxPoints += a.max_score;
         assessmentsPoints += Number(a.score) || 0;
       });
-      totalMaxPoints += assessmentsMaxPoints;
-      totalPointsEarned += assessmentsPoints;
-      const assessmentPercentage =
-        assessmentsMaxPoints > 0
-          ? (assessmentsPoints / assessmentsMaxPoints) * 100
-          : 0;
 
-      const totalPercentage =
-        totalMaxPoints > 0 ? (totalPointsEarned / totalMaxPoints) * 100 : 0;
-
-      // Calculate Average Grade from assignments
-      let assignmentsPoints = 0;
-      let assignmentsMaxPoints = 0;
-      studentAssignments.forEach((a) => {
-        if (a.max_score && a.counts_to_final) {
-          assignmentsMaxPoints += Number(a.max_score);
-          if (a.grade) {
-            const gradePoints = String(a.grade).includes("/")
-              ? parseFloat(String(a.grade).split("/")[0])
-              : Number(a.grade);
-            if (!isNaN(gradePoints)) {
-              assignmentsPoints += gradePoints;
-            }
-          }
-        }
-      });
-      const assignmentPercentage =
-        assignmentsMaxPoints > 0
-          ? (assignmentsPoints / assignmentsMaxPoints) * 100
-          : 0;
-
-      // Calculate Average Grade from quizzes
-      let quizzesPoints = 0;
-      let quizzesMaxPoints = 0;
-      studentQuizzes.forEach((q) => {
-        if (q.max_score) {
-          quizzesMaxPoints += Number(q.max_score);
-          if (q.score) quizzesPoints += Number(q.score);
-        }
-      });
-      const quizPercentage =
-        quizzesMaxPoints > 0 ? (quizzesPoints / quizzesMaxPoints) * 100 : 0;
+      const percentOf = (points: number, max: number) => (max > 0 ? (points / max) * 100 : 0);
+      const totalPointsEarned = assignmentsPoints + quizzesPoints + assessmentsPoints;
+      const totalMaxPoints = assignmentsMaxPoints + quizzesMaxPoints + assessmentsMaxPoints;
+      const totalPercentage = percentOf(totalPointsEarned, totalMaxPoints);
+      const assignmentPercentage = percentOf(assignmentsPoints, assignmentsMaxPoints);
+      const quizPercentage = percentOf(quizzesPoints, quizzesMaxPoints);
+      const assessmentPercentage = percentOf(assessmentsPoints, assessmentsMaxPoints);
 
       return {
         student: {

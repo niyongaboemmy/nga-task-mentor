@@ -144,6 +144,10 @@ const appCors = cors({
     "Authorization",
     "x-mis-token",
     "X-Db-Access-Token",
+    // Browser saves of a project (client codeApi.saveProjectFiles) send it
+    // with each blob; without it the preflight fails and the PUT never leaves
+    // the browser ("Network Error"), so code couldn't be saved or submitted.
+    "X-Blob-Size",
     // Safe Exam Browser adds these to every request (lockdown_browser).
     "X-SafeExamBrowser-ConfigKeyHash",
     "X-SafeExamBrowser-RequestHash",

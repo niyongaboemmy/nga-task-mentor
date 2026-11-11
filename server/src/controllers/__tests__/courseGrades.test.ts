@@ -99,6 +99,33 @@ it("gives each student their own quiz score, not the class's best", async () => 
   expect(byId[503].summary.total_percentage).toBe(30);
 });
 
+it("averages marked work only: ungraded or unsubmitted assignments aren't zeros", async () => {
+  m.Assignment.findAll.mockResolvedValue([
+    { id: 1, title: "Graded", max_score: 20 },
+    { id: 2, title: "Awaiting marking", max_score: 20 },
+    { id: 3, title: "Not handed in", max_score: 20 },
+    { id: 4, title: "Graded zero", max_score: 10 },
+  ]);
+  m.Submission.findAll.mockResolvedValue([
+    { assignment_id: 1, student_id: 10, grade: 18, status: "graded", student: { id: 10, mis_user_id: 501 } },
+    { assignment_id: 2, student_id: 10, grade: null, status: "submitted", student: { id: 10, mis_user_id: 501 } },
+    { assignment_id: 4, student_id: 10, grade: 0, status: "graded", student: { id: 10, mis_user_id: 501 } },
+  ]);
+  const data = await run();
+  const s501 = data.students.find((s: any) => s.student.id === 501);
+
+  // Assignments 18/20 + 0/10, quiz 9/10 → 27/40. Assignments 2 and 3 don't count.
+  expect(s501.summary.total_points_earned).toBe(27);
+  expect(s501.summary.total_max_points).toBe(40);
+  expect(s501.summary.total_percentage).toBe(67.5);
+  expect(s501.summary.assignment_percentage).toBe(60);
+  expect(s501.summary.quiz_percentage).toBe(90);
+
+  // Nothing marked at all → no points and no max, not a failing 0 of 70.
+  const s504 = data.students.find((s: any) => s.student.id === 504);
+  expect(s504.summary.total_max_points).toBe(0);
+});
+
 it("keeps an inactive student with marks (tagged, last) and drops one without", async () => {
   (mis.fetchEnrolledStudentsRaw as jest.Mock).mockResolvedValue([
     { ...roster[0], status: "INACTIVE" }, // has a quiz mark
