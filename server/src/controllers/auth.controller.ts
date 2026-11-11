@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { namesFromMis } from "../utils/names";
 import { noteAccessVersion } from "../access/snapshot";
 import { noteAiPolicyVersion } from "../services/aiPolicy";
 import { noteMyAiVersions } from "../services/myAiGateway";
@@ -14,15 +13,7 @@ import { Role } from "../models/Role.model";
 import { Permission } from "../models/Permission.model";
 import { applyMisAvatar, misAvatarFrom, misCoverFrom } from "../services/misAvatar";
 import { upsertMisUser } from "../services/misUserSync";
-
-// True if the given role_id points at one of the 3 seeded system roles
-// (admin/instructor/student). Used to decide whether an SSO login is
-// allowed to silently re-map a user's role_id from MIS data, vs. leaving a
-// manually-assigned custom role alone.
-async function isSystemRoleId(roleId: number): Promise<boolean> {
-  const role = await Role.findByPk(roleId);
-  return role?.is_system ?? false;
-}
+import { enterTenant, resolveTenant, sendTenantGate, tidFromMisAuth, tidOfClaims } from "../tenancy/request";
 
 // User login - forwards to NGA Central MIS
 // Security: Protected by rate limiter and input validation at route level (see routes/auth.routes.ts)
@@ -259,101 +250,17 @@ export const verifyOtp = async (req: Request, res: Response) => {
       );
     }
 
-    console.log({ dataToTest: roles });
-
-    // Function to map MIS roles to local roles
-    const mapMisRoleToLocal = (
-      misRoles: {
-        role_id: number;
-        name: string;
-        description: string;
-      }[],
-    ): "student" | "instructor" | "admin" => {
-      if (!misRoles || !Array.isArray(misRoles) || misRoles.length === 0) {
-        return "student";
-      }
-
-      let bestRole: "student" | "instructor" | "admin" = "student";
-
-      for (const role of misRoles) {
-        // Admin check
-        if (
-          role.role_id === 1 || // SUPER_ADMIN
-          role.role_id === 2 ||
-          role.role_id === 3 ||
-          role.role_id === 12 || // PROGRAM_MANAGER
-          (role.name &&
-            (role.name.toLowerCase().includes("admin") ||
-              role.name.toLowerCase().includes("super") ||
-              role.name.toLowerCase().includes("manager")))
-        ) {
-          return "admin"; // Admin is highest, can return immediately
-        }
-
-        // Instructor check
-        if (
-          role.role_id === 4 || // TEACHER
-          role.role_id === 11 || // CLASS_TEACHER
-          (role.name &&
-            (role.name.toLowerCase().includes("teacher") ||
-              role.name.toLowerCase().includes("instructor")))
-        ) {
-          bestRole = "instructor";
-        }
-      }
-
-      return bestRole;
-    };
-
-    const mappedRole = mapMisRoleToLocal(roles);
-    console.log("🎯 Final mapped role:", mappedRole);
-
-    // Keep the local RBAC role_id in sync with the deprecated `role` string
-    // whenever we (re)map it from MIS — otherwise a brand-new user would get
-    // role_id: null (zero permissions) and an existing user whose MIS role
-    // changes would silently lose permission parity with their new role.
-    const mappedRoleRecord = await Role.findOne({ where: { name: mappedRole } });
-
-    // Sync user with local database
-    let localUser = await User.findOne({
-      where: { mis_user_id: misUser.user_id },
-    });
-
-    if (!localUser) {
-      // Create new user if doesn't exist
-      console.log("👤 Creating new user with role:", mappedRole);
-      localUser = await User.create({
-        ...namesFromMis(misProfile, misUser.email),
-        email: misUser.email,
-        password: "MIS_AUTH", // Placeholder password since auth is handled by MIS
-        role: mappedRole,
-        role_id: mappedRoleRecord?.id ?? null,
-        mis_user_id: misUser.user_id,
-      });
-      console.log("✅ Created user with role:", localUser.role);
-    } else {
-      // Update existing user info
-      console.log(
-        "🔄 Updating existing user. Current role:",
-        localUser.role,
-        "New role:",
-        mappedRole,
-      );
-      const names = namesFromMis(misProfile, misUser.email);
-      localUser.first_name = names.first_name;
-      localUser.last_name = names.last_name;
-      localUser.email = misUser.email;
-      localUser.role = mappedRole;
-      // Only follow the MIS-driven remap if the user's role_id currently
-      // points at one of the 3 system roles (or is unset) — an admin who
-      // manually assigned a custom local role should not be silently
-      // overwritten back to a system role on the user's next login.
-      if (!localUser.role_id || (await isSystemRoleId(localUser.role_id))) {
-        localUser.role_id = mappedRoleRecord?.id ?? localUser.role_id;
-      }
-      await localUser.save();
-      console.log("✅ Updated user role to:", localUser.role);
-    }
+    // Tenancy: the account lives in the school the MIS token names.
+    const gate = await resolveTenant(tidFromMisAuth(token, data, misResponse.data));
+    if (!gate.ok) return sendTenantGate(res, gate);
+    return await enterTenant(req, gate.tenant, async () => {
+    // One provisioning path for every sign-in (services/misUserSync.ts):
+    // linked by mis_user_id only, roles mapped by MIS role name/code.
+    const { user: localUser } = await upsertMisUser(
+      { user_id: misUser.user_id, email: misUser.email, username: misUser.username, status: misUser.status ?? null },
+      misProfile,
+      roles,
+    );
     await applyMisAvatar(localUser, misAvatar);
 
     const effectiveRole = localUser.role_id
@@ -419,6 +326,8 @@ export const verifyOtp = async (req: Request, res: Response) => {
       currentAcademicYear,
       currentAcademicTerms,
       systems,
+      tenant: gate.tenant,
+    });
     });
   } catch (error: any) {
     console.error(
@@ -594,6 +503,11 @@ export const ssoCallback = async (req: Request, res: Response) => {
       console.warn("⚠️ Could not fetch full profile, using basic data");
     }
 
+    // Tenancy: the account lives in the school the MIS token names
+    // (CONTRACT.md §2: /sso/token returns `tenant`; the token carries `tid`).
+    const gate = await resolveTenant(tidFromMisAuth(misToken, misResponse.data.data, misResponse.data));
+    if (!gate.ok) return sendTenantGate(res, gate);
+    return await enterTenant(req, gate.tenant, async () => {
     // Create or refresh the local user (shared with the TMCode sign-in,
     // services/misUserSync.ts).
     console.log("🔍 Syncing local user for MIS user_id:", misUser.user_id);
@@ -678,6 +592,8 @@ export const ssoCallback = async (req: Request, res: Response) => {
       currentAcademicYear,
       currentAcademicTerms,
       systems: systems || [],
+      tenant: gate.tenant,
+    });
     });
   } catch (error: any) {
     console.error(
@@ -729,9 +645,14 @@ export const refreshToken = async (req: Request, res: Response) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
       id: number;
+      tid?: number;
       termId?: number;
       academicYearId?: number;
     };
+    // The refreshed token stays in the tenant the old one named.
+    const gate = await resolveTenant(tidOfClaims(decoded));
+    if (!gate.ok) return sendTenantGate(res, gate);
+    return await enterTenant(req, gate.tenant, async () => {
     const user = await User.findByPk(decoded.id);
     if (!user) return res.status(401).json({ message: "Invalid token" });
 
@@ -748,6 +669,7 @@ export const refreshToken = async (req: Request, res: Response) => {
     res.cookie("tm_auth_token", newToken, cookieOptions);
 
     res.status(200).json({ success: true, token: newToken });
+    });
   } catch (error) {
     res.status(401).json({ message: "Invalid refresh token" });
   }

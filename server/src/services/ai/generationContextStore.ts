@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { ctid } from "../../tenancy/keys";
 
 /**
  * Source text prepared for AI question generation (an extracted upload or a set
@@ -18,6 +19,8 @@ export interface GenerationSourcePart {
 
 export interface GenerationContext {
   id: string;
+  /** User and MIS course ids repeat across schools: the record is bound to its tenant too. */
+  tid: number;
   userId: number;
   courseId: number;
   text: string;
@@ -40,13 +43,14 @@ function sweep(now = Date.now()) {
 }
 
 export function saveContext(
-  input: Omit<GenerationContext, "id" | "createdAt" | "expiresAt">,
+  input: Omit<GenerationContext, "id" | "tid" | "createdAt" | "expiresAt">,
 ): GenerationContext {
   sweep();
   const now = Date.now();
   const ctx: GenerationContext = {
     ...input,
     id: crypto.randomUUID(),
+    tid: ctid(),
     createdAt: now,
     expiresAt: now + CONTEXT_TTL_MS,
   };
@@ -54,7 +58,7 @@ export function saveContext(
   return ctx;
 }
 
-/** Only the user who prepared it, for the same course, gets it back. */
+/** Only the user who prepared it, for the same course, in the same school, gets it back. */
 export function getContext(
   id: string,
   userId: number,
@@ -66,7 +70,7 @@ export function getContext(
     store.delete(id);
     return null;
   }
-  if (ctx.userId !== userId || ctx.courseId !== courseId) return null;
+  if (ctx.tid !== ctid() || ctx.userId !== userId || ctx.courseId !== courseId) return null;
   // Sliding expiry: a teacher still working through batches keeps it alive.
   ctx.expiresAt = Date.now() + CONTEXT_TTL_MS;
   return ctx;

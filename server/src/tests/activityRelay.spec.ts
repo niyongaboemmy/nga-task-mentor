@@ -218,3 +218,42 @@ describe("vendored relay", () => {
     expect(shaLine).toBe(`// sha256:${crypto.createHash("sha256").update(rest.join("\n")).digest("hex")}`);
   });
 });
+
+describe("POST /api/activity -- multi-tenancy", () => {
+  const { TenantRegistry, primaryTenantCtx, currentTenantOrNull } = require("../vendor/nga-tenancy");
+  const { setTenantRegistryForTests } = require("../tenancy/registry");
+  const school2 = { ...primaryTenantCtx(), tid: 2, slug: "school-two", name: "School Two", isPrimary: false };
+  const savedSecret = process.env.JWT_SECRET;
+
+  beforeAll(() => {
+    process.env.JWT_SECRET = SECRET;
+    setTenantRegistryForTests(new TenantRegistry({ load: async () => [primaryTenantCtx(), school2] }));
+  });
+  afterAll(() => {
+    process.env.JWT_SECRET = savedSecret;
+    setTenantRegistryForTests(null);
+  });
+
+  it("stamps each batch with the session's school and sends that school's X-NGA-Tenant", async () => {
+    const relay = createActivityRelay({
+      app: "tm",
+      misBaseUrl: "https://api.example",
+      clientId: "taskmentor_app",
+      clientSecret: "s3cret",
+      origins: [SPA],
+      getUserId,
+      currentTenant: currentTenantOrNull,
+      flushMs: 60_000,
+      fetchImpl,
+      logger: { warn: () => undefined, error: () => undefined },
+    });
+    const token = jwt.sign({ id: 7, role: "student", tid: 2 }, SECRET, { expiresIn: 3600 });
+    const res = await request(appWith(relay)).post("/api/activity").set("Authorization", `Bearer ${token}`).send(envelope());
+    expect(res.status).toBe(204);
+    await relay.flush();
+    expect(sent[0].body.batches[0].tid).toBe(2);
+    const headers = (fetchImpl as jest.Mock).mock.calls[0][1].headers;
+    expect(headers["X-NGA-Tenant"] ?? headers["x-nga-tenant"]).toBe("2");
+    await relay.stop();
+  });
+});

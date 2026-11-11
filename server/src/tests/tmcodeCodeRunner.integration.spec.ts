@@ -110,7 +110,7 @@ beforeEach(async () => {
   resetSessions();
   resetJudgeInfo();
   await refreshJudgeInfo();
-  codeRunLimiter.resetKey(`code-run:${studentId}`);
+  codeRunLimiter.resetKey(`t1:code-run:${studentId}`);
 });
 
 afterAll(async () => {

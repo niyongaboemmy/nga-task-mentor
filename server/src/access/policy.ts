@@ -12,6 +12,7 @@ import { getMisToken } from "../utils/misUtils";
 import { accessMode } from "./mode";
 import { getSnapshot } from "./snapshot";
 import { TM_MANIFEST } from "./manifest";
+import { tk } from "../tenancy/keys";
 
 /**
  * Task Mentor's side of the v2 decision (ACCESS_LEVELS_RBAC_IMPLEMENTATION_PLAN
@@ -126,7 +127,7 @@ export interface ShadowDiff {
 /** Count a legacy/v2 disagreement (throttled per key; never throws). */
 export async function recordShadowDiff(entry: ShadowDiff): Promise<void> {
   const capability = entry.capability.slice(0, 120);
-  const key = `${entry.userId}|${capability}|${entry.route}|${entry.legacyAllowed}|${entry.v2.allowed}`;
+  const key = tk(`${entry.userId}|${capability}|${entry.route}|${entry.legacyAllowed}|${entry.v2.allowed}`);
   const last = recentDiffs.get(key) ?? 0;
   if (Date.now() - last < DIFF_THROTTLE_MS || Date.now() < tableMissingUntil) return;
   if (recentDiffs.size > 5000) recentDiffs.clear();

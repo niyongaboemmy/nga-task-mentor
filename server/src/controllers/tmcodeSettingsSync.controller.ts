@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { QueryTypes } from "sequelize";
 import { z } from "zod";
 import { sequelize } from "../config/database";
+import { tk } from "../tenancy/keys";
 import { tmcodeError } from "../middleware/tmcodeAuth";
 
 /**
@@ -15,8 +16,11 @@ import { tmcodeError } from "../middleware/tmcodeAuth";
 /** The synced document's size limit (characters). */
 export const MAX_SYNC_CHARS = 512 * 1024;
 
-let ensured: Promise<void> | null = null;
+// Per tenant database: each school's DB gets its own CREATE TABLE IF NOT EXISTS.
+const ensuredByDb = new Map<string, Promise<void>>();
 export const ensureSettingsSyncTable = () => {
+  const key = tk("ensure-table");
+  let ensured = ensuredByDb.get(key);
   if (!ensured) {
     ensured = sequelize
       .query(
@@ -28,9 +32,10 @@ export const ensureSettingsSyncTable = () => {
       )
       .then(() => undefined)
       .catch((e) => {
-        ensured = null;
+        ensuredByDb.delete(key);
         throw e;
       });
+    ensuredByDb.set(key, ensured);
   }
   return ensured;
 };

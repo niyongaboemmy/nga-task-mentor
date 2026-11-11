@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 import type { Socket } from "socket.io";
+import { LiveIdentity, parseCourses, parseSessions } from "./proctorRooms";
+import { PRIMARY_TENANT_ID, parseTid } from "./vendor/nga-tenancy";
 
 /**
  * Authentication/authorization for the live proctoring socket server.
@@ -21,14 +23,23 @@ export const LIVE_TICKET_TYPE = "live-socket-ticket";
 export const liveTicketSecret = (jwtSecret: string): string =>
   `${jwtSecret}:${LIVE_TICKET_TYPE}`;
 
-/** Socket.IO room every authenticated proctor socket joins on connect. */
-export const PROCTORS_ROOM = "proctors";
-
-export interface SocketIdentity {
-  userId: number;
-  isProctor: boolean;
+export interface SocketIdentity extends LiveIdentity {
   via: "ticket" | "session";
 }
+
+/**
+ * Tenant of a token (CONTRACT.md §2): its `tid`, else -- tokens minted
+ * before tenancy -- TENANCY_LEGACY_DEFAULT_TID (default 1; "none" refuses).
+ */
+export const tenantOfClaims = (payload: jwt.JwtPayload, env: NodeJS.ProcessEnv = process.env): number => {
+  const tid = parseTid(payload.tid);
+  if (tid) return tid;
+  const legacy = String(env.TENANCY_LEGACY_DEFAULT_TID ?? "").trim().toLowerCase();
+  if (legacy === "none" || legacy === "off" || legacy === "false") {
+    throw new SocketAuthError("This sign-in does not name a school", "TENANT_REQUIRED");
+  }
+  return parseTid(legacy) ?? PRIMARY_TENANT_ID;
+};
 
 export class SocketAuthError extends Error {
   data: { code: string };
@@ -121,7 +132,15 @@ export const verifySocketToken = (
     if (payload.typ !== LIVE_TICKET_TYPE || !userId) {
       throw new SocketAuthError("Invalid live ticket");
     }
-    return { userId, isProctor: payload.proctor === true, via: "ticket" };
+    const isProctor = payload.proctor === true;
+    return {
+      userId,
+      isProctor,
+      tid: tenantOfClaims(payload),
+      courses: isProctor ? parseCourses(payload.courses) ?? [] : undefined,
+      sessions: parseSessions(payload.sessions),
+      via: "ticket",
+    };
   } catch (err) {
     if (err instanceof SocketAuthError) throw err;
     if (err instanceof jwt.TokenExpiredError) {
@@ -138,7 +157,7 @@ export const verifySocketToken = (
     const userId = toUserId(payload.id);
     if (!userId) throw new SocketAuthError("Invalid token");
     // A session JWT proves identity only; proctor rights require a ticket.
-    return { userId, isProctor: false, via: "session" };
+    return { userId, isProctor: false, tid: tenantOfClaims(payload), via: "session" };
   } catch (err) {
     if (err instanceof SocketAuthError) throw err;
     if (err instanceof jwt.TokenExpiredError) {

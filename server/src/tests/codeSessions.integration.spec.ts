@@ -83,7 +83,7 @@ beforeAll(async () => {
 beforeEach(() => {
   runnerFeatures = ["sessions"];
   resetSessions();
-  codeRunLimiter.resetKey(`code-run:${userId}`);
+  codeRunLimiter.resetKey(`t1:code-run:${userId}`);
 });
 afterAll(async () => {
   process.env = ENV;

@@ -1,6 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 import { TmcodeSession } from "../models";
 import { verifyTmcodeToken } from "../tmcode/token";
+import { legacyDefaultTid } from "../tenancy/config";
+import { enterTenant, resolveTenant } from "../tenancy/request";
 
 /** PROTOCOL.md error shape. */
 export const tmcodeError = (
@@ -35,6 +37,13 @@ export async function tmcodeAuth(req: Request, res: Response, next: NextFunction
   if (claims.sid !== req.params.sid) {
     return tmcodeError(res, 403, "SESSION_SCOPE", "This token belongs to another session.");
   }
+  // The session lives in the database of the tenant the token names.
+  const gate = await resolveTenant(claims.tid ?? legacyDefaultTid());
+  if (!gate.ok) return tmcodeError(res, gate.status, gate.code, gate.message);
+  return enterTenant(req, gate.tenant, () => checkSession(req, res, next, claims));
+}
+
+async function checkSession(req: Request, res: Response, next: NextFunction, claims: ReturnType<typeof verifyTmcodeToken>) {
   const session = await TmcodeSession.findByPk(claims.sid);
   if (!session || session.submission_id !== claims.submission_id) {
     return tmcodeError(res, 401, "TOKEN_INVALID", "Unknown TMCode session.");

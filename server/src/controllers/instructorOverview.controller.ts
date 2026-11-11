@@ -1,3 +1,4 @@
+import { tk } from "../tenancy/keys";
 import { filterActiveMisRows } from "../utils/activeUsers";
 import { Request, Response } from "express";
 import { Op } from "sequelize";
@@ -73,7 +74,7 @@ async function fetchClassGroupRoster(
   yearId: number | null,
 ): Promise<RosterStudent[] | null> {
   const key = `${classGroupId}:${yearId ?? ""}`;
-  const hit = rosterCache.get(key);
+  const hit = rosterCache.get(tk(key));
   if (hit && Date.now() - hit.at < ROSTER_TTL_MS) return hit.students;
   const token = getMisToken(req, { quiet: true });
   if (!token) return null;
@@ -93,7 +94,7 @@ async function fetchClassGroupRoster(
         class_group_name: className,
       });
     }
-    rosterCache.set(key, { at: Date.now(), students });
+    rosterCache.set(tk(key), { at: Date.now(), students });
     return students;
   } catch (e: any) {
     console.warn(`instructorOverview: roster for class group ${classGroupId} failed:`, e.message);
@@ -138,7 +139,7 @@ export async function computeOverview(
     opts.includeAllStudents ? "all-students" : "",
     scoped.map((s) => s.id).join(","),
   ].join(":");
-  const cached = overviewCache.get(cacheKey);
+  const cached = overviewCache.get(tk(cacheKey));
   if (!opts.fresh && cached && Date.now() - cached.at < OVERVIEW_TTL_MS) return cached.body as OverviewResult;
 
   const inScope = subjectIdParam != null ? scoped.filter((s) => s.id === subjectIdParam) : scoped;
@@ -301,7 +302,7 @@ export async function computeOverview(
     const oldest = overviewCache.keys().next().value;
     if (oldest !== undefined) overviewCache.delete(oldest);
   }
-  overviewCache.set(cacheKey, { at: Date.now(), body: result });
+  overviewCache.set(tk(cacheKey), { at: Date.now(), body: result });
   return result;
 }
 

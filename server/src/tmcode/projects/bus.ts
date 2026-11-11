@@ -1,4 +1,6 @@
 import { Request, Response } from "express";
+import { ctid } from "../../tenancy/keys";
+import { tenantKeyFor } from "../../vendor/nga-tenancy";
 import { sseHeartbeatMs } from "./limits";
 
 /**
@@ -6,8 +8,10 @@ import { sseHeartbeatMs } from "./limits";
  * "Live updates"). Task Mentor runs as a single pm2 process, so a Map of
  * listeners is enough; nothing leaves the process.
  *
- * Topics: `project:<id>` (GET /projects/:id/live) and `monitor`
- * (GET /monitor/live, filtered per subscriber by course scope).
+ * Topics: `t<tid>:project:<id>` (GET /projects/:id/live) and `t<tid>:monitor`
+ * (GET /monitor/live, filtered per subscriber by course scope). Project ids
+ * repeat across school databases, so every topic carries the tenant id: a
+ * school's stream never hears another school's project with the same id.
  */
 
 export type BusListener = (event: string, data: any) => void;
@@ -58,8 +62,10 @@ export class ProjectsBus {
 }
 
 export const projectsBus = new ProjectsBus();
-export const projectTopic = (projectId: number) => `project:${projectId}`;
-export const MONITOR_TOPIC = "monitor";
+/** The tenant a topic is built for: explicit, else the current context, else the primary tenant. */
+export const busTid = (tid?: number | null): number => tid ?? ctid();
+export const projectTopic = (projectId: number, tid?: number | null) => tenantKeyFor(busTid(tid), "project", projectId);
+export const monitorTopic = (tid?: number | null) => tenantKeyFor(busTid(tid), "monitor");
 
 export interface SseStream {
   send(event: string, data: unknown): void;

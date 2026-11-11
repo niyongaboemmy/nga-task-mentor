@@ -1,3 +1,4 @@
+import { tk } from "../tenancy/keys";
 import { Request } from "express";
 import axios from "axios";
 import { getMisToken } from "../utils/misUtils";
@@ -99,7 +100,7 @@ export async function loadSchoolDirectory(
   opts: { fresh?: boolean } = {},
 ): Promise<SchoolDirectory> {
   const key = `${req.user?.id ?? "anon"}:${yearId ?? ""}`;
-  const hit = cache.get(key);
+  const hit = cache.get(tk(key));
   if (!opts.fresh && hit && Date.now() - hit.at < TTL_MS) return hit.value;
 
   const token = getMisToken(req, { quiet: true });
@@ -249,6 +250,6 @@ export async function loadSchoolDirectory(
     rosters,
     assignments_available: assignmentsRes != null,
   };
-  cache.set(key, { at: Date.now(), value });
+  cache.set(tk(key), { at: Date.now(), value });
   return value;
 }

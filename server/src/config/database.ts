@@ -1,4 +1,6 @@
 import { Sequelize } from "sequelize-typescript";
+import { installTenantRouter } from "../tenancy/dbRouter";
+import { primaryTenantCtx, runWithTenant } from "../vendor/nga-tenancy";
 
 const sequelize = new Sequelize({
   database: process.env.DB_NAME!,
@@ -33,10 +35,14 @@ const sequelize = new Sequelize({
   models: [], // Initialize with empty array, models will be added later
 });
 
+// Database per tenant: every query is routed to the current tenant's
+// database (tenant 1 = DB_NAME). See tenancy/dbRouter.ts.
+installTenantRouter(sequelize);
+
 // Test the database connection
 const testConnection = async (): Promise<void> => {
   try {
-    await sequelize.authenticate();
+    await runWithTenant(primaryTenantCtx(), () => sequelize.authenticate());
     console.log("Database connection has been established successfully.");
   } catch (error) {
     console.error("Unable to connect to the database:", error);

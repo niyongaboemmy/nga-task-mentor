@@ -10,6 +10,7 @@ import {
 } from "../controllers/rolePermission.controller";
 import { protect, authorizePermission } from "../middleware/auth";
 import { publishAiChange } from "../services/aiLive";
+import { ctid } from "../tenancy/keys";
 import { validate } from "../middleware/validation.middleware";
 import {
   createRoleSchema,
@@ -25,8 +26,10 @@ router.use(protect);
 // their AI status again (GET /api/tmcode/ai/events).
 router.use((req, res, next) => {
   if (req.method !== "GET") {
+    // "finish" may fire outside the request's tenant context: name the tenant now.
+    const tid = ctid();
     res.on("finish", () => {
-      if (res.statusCode >= 200 && res.statusCode < 300) publishAiChange({ cause: "access" });
+      if (res.statusCode >= 200 && res.statusCode < 300) publishAiChange({ cause: "access" }, tid);
     });
   }
   next();

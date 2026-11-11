@@ -12,6 +12,16 @@ import {
   denyResponse,
   shadowCompareGuard,
 } from "../access/policy";
+import "../tenancy/expressContext";
+import "../tenancy/misHttp";
+import {
+  enterTenant,
+  misTokenMismatch,
+  resolveTenant,
+  sendTenantGate,
+  sendTenantMismatch,
+  tidOfClaims,
+} from "../tenancy/request";
 
 declare global {
   namespace Express {
@@ -24,6 +34,8 @@ declare global {
 interface JwtPayload {
   id: number;
   role: string;
+  /** Tenant (school) id, copied from the MIS SSO token at sign-in. Absent on legacy tokens. */
+  tid?: number;
   termId?: number; // Add termId to payload interface
   academicYearId?: number;
   iat: number;
@@ -67,11 +79,32 @@ export const protect = async (
       });
     }
 
+    let decoded: JwtPayload;
     try {
       // Verify token
       console.log("✅ Verifying token...");
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+      decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
       console.log("✅ Token verified successfully for user ID:", decoded.id);
+    } catch (error: any) {
+      console.error(
+        `❌ Token verification error for token: "${token.substring(0, 10)}..."`,
+        error.message,
+      );
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized to access this route",
+      });
+    }
+
+    // Tenancy (CONTRACT.md §6): the session's tenant gates the request, and
+    // an MIS token from another tenant ends it. Everything below -- the user
+    // lookup included -- runs in that tenant's database.
+    const gate = await resolveTenant(tidOfClaims(decoded));
+    if (!gate.ok) return sendTenantGate(res, gate);
+    if (misTokenMismatch(req, gate.tenant.tid)) return sendTenantMismatch(res);
+
+    return enterTenant(req, gate.tenant, async () => {
+    try {
 
       // Get user from the token, along with its role's resolved permissions
       const user = await User.findByPk(decoded.id, {
@@ -108,6 +141,7 @@ export const protect = async (
         roleName: user.roleRecord?.name,
         permissions: new Set(permissionKeys),
         mis_user_id: user.mis_user_id,
+        tid: gate.tenant.tid,
         termId: decoded.termId, // Attach termId from token to req.user
         academicYearId: decoded.academicYearId,
       };
@@ -118,15 +152,12 @@ export const protect = async (
 
       next();
     } catch (error: any) {
-      console.error(
-        `❌ Token verification error for token: "${token.substring(0, 10)}..."`,
-        error.message,
-      );
-      return res.status(401).json({
-        success: false,
-        message: "Not authorized to access this route",
-      });
+      console.error("Authentication error:", error?.message ?? error);
+      return res
+        .status(500)
+        .json({ success: false, message: "Server error during authentication" });
     }
+    });
   } catch (error) {
     console.error("Authentication error:", error);
     return res

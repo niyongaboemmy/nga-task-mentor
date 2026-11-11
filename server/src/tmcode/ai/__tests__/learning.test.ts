@@ -116,6 +116,16 @@ describe("the question allowance (hearts)", () => {
     // Per user and scope.
     expect(allowanceOf(2, "p", help, t0).left).toBe(3);
   });
+
+  it("is per school: user 1 of school 2 has their own allowance", () => {
+    const { primaryTenantCtx, runWithTenant } = require("../../../vendor/nga-tenancy");
+    const T2 = { ...primaryTenantCtx(), tid: 2, slug: "two", isPrimary: false };
+    const t0 = 1_000_000;
+    for (let i = 0; i < 3; i++) takeQuestion(1, "p", help, t0);
+    expect(takeQuestion(1, "p", help, t0).ok).toBe(false);
+    expect(runWithTenant(T2, () => allowanceOf(1, "p", help, t0)).left).toBe(3);
+    expect(runWithTenant(T2, () => takeQuestion(1, "p", help, t0)).ok).toBe(true);
+  });
 });
 
 describe("the sticky signed layer (A9)", () => {

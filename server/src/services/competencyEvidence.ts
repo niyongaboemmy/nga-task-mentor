@@ -1,3 +1,6 @@
+import { allTenants } from "../tenancy/jobs";
+import { tk } from "../tenancy/keys";
+import { currentTenantOrNull, primaryTenantCtx, runWithTenant, type TenantCtx } from "../vendor/nga-tenancy";
 import { QueryTypes } from "sequelize";
 import { sequelize } from "../config/database";
 import { clientBasicAuth } from "../access/misClient";
@@ -68,11 +71,11 @@ export function competencyPushDisabledReason(env: NodeJS.ProcessEnv = process.en
 // ── Curriculum (from MIS) ────────────────────────────────────────────────
 
 const CURRICULUM_TTL_MS = 5 * 60 * 1000;
-const curriculumCache = new Map<number, { at: number; outcomes: Outcome[] }>();
+const curriculumCache = new Map<string, { at: number; outcomes: Outcome[] }>();
 export const clearCurriculumCache = () => curriculumCache.clear();
 
 export async function curriculum(subjectId: number): Promise<Outcome[]> {
-  const hit = curriculumCache.get(subjectId);
+  const hit = curriculumCache.get(tk(subjectId));
   if (hit && Date.now() - hit.at < CURRICULUM_TTL_MS) return hit.outcomes;
   if (!misBase(process.env) || !clientBasicAuth(process.env)) throw new CompetencyError("MIS isn't connected, so learning outcomes can't be loaded", 503);
   let res;
@@ -83,7 +86,7 @@ export async function curriculum(subjectId: number): Promise<Outcome[]> {
   }
   if (res.status !== 200 || !Array.isArray(res.body?.data?.outcomes)) throw new CompetencyError("MIS didn't return the learning outcomes. Try again.", 502);
   const outcomes: Outcome[] = res.body.data.outcomes;
-  curriculumCache.set(subjectId, { at: Date.now(), outcomes });
+  curriculumCache.set(tk(subjectId), { at: Date.now(), outcomes });
   return outcomes;
 }
 
@@ -224,23 +227,47 @@ export async function taggedTasks(): Promise<TaskKey[]> {
 // ── Background ───────────────────────────────────────────────────────────
 
 const DEBOUNCE_MS = 3000;
-const pending = new Map<string, TaskKey>();
-let timer: NodeJS.Timeout | null = null;
+// Per school: task ids repeat across tenant databases, and a flush must run
+// in the school whose tasks it pushes (its DB, its X-NGA-Tenant). A timer
+// keeps the context it was armed in, so each school arms its own.
+interface TenantQueue {
+  tenant: TenantCtx;
+  pending: Map<string, TaskKey>;
+  timer: NodeJS.Timeout | null;
+}
+const queues = new Map<number, TenantQueue>();
+
+function queueOf(): TenantQueue {
+  const tenant = currentTenantOrNull() ?? primaryTenantCtx();
+  let q = queues.get(tenant.tid);
+  if (!q) queues.set(tenant.tid, (q = { tenant, pending: new Map(), timer: null }));
+  return q;
+}
 
 /** Push this task soon (coalesced). Cheap no-op when pushing is off. */
 export function queueCompetencyPush(key: TaskKey) {
   if (competencyPushDisabledReason()) return;
-  pending.set(`${key.type}:${key.id}`, key);
-  if (timer) return;
-  timer = setTimeout(() => void flushCompetencyQueue(), DEBOUNCE_MS);
-  timer.unref?.();
+  const q = queueOf();
+  q.pending.set(`${key.type}:${key.id}`, key);
+  if (q.timer) return;
+  q.timer = setTimeout(() => void runWithTenant(q.tenant, () => flushCompetencyQueue()), DEBOUNCE_MS);
+  q.timer.unref?.();
 }
 
+/** Tests only: the current school's queued task keys / drop every queue. */
+export const pendingCompetencyKeys = () => [...(queues.get((currentTenantOrNull() ?? primaryTenantCtx()).tid)?.pending.keys() ?? [])];
+export function resetCompetencyQueuesForTests() {
+  for (const q of queues.values()) if (q.timer) clearTimeout(q.timer);
+  queues.clear();
+}
+
+/** Push the current school's queued tasks now. */
 export async function flushCompetencyQueue() {
-  if (timer) clearTimeout(timer);
-  timer = null;
-  const keys = [...pending.values()];
-  pending.clear();
+  const q = queueOf();
+  if (q.timer) clearTimeout(q.timer);
+  q.timer = null;
+  const keys = [...q.pending.values()];
+  q.pending.clear();
   if (!keys.length) return { sent: 0, failed: 0 };
   // Only tasks that are tagged now, or were just untagged (then MIS clears them).
   try {
@@ -251,18 +278,23 @@ export async function flushCompetencyQueue() {
   }
 }
 
-/** Submissions of tagged tasks are pushed when they change. */
-const taggedIds = { quiz: new Set<number>(), assignment: new Set<number>(), loadedAt: 0 };
+/** Submissions of tagged tasks are pushed when they change (per school: ids repeat). */
+const taggedByTenant = new Map<string, { quiz: Set<number>; assignment: Set<number>; loadedAt: number }>();
 async function isTagged(key: TaskKey) {
+  const k = tk("tagged-tasks");
+  let taggedIds = taggedByTenant.get(k);
+  if (!taggedIds) taggedByTenant.set(k, (taggedIds = { quiz: new Set<number>(), assignment: new Set<number>(), loadedAt: 0 }));
   if (Date.now() - taggedIds.loadedAt > 60_000) {
-    taggedIds.quiz.clear();
-    taggedIds.assignment.clear();
-    for (const t of await taggedTasks()) taggedIds[t.type].add(t.id);
+    const quiz = new Set<number>();
+    const assignment = new Set<number>();
+    for (const t of await taggedTasks()) (t.type === "quiz" ? quiz : assignment).add(t.id);
+    taggedIds.quiz = quiz;
+    taggedIds.assignment = assignment;
     taggedIds.loadedAt = Date.now();
   }
   return taggedIds[key.type].has(key.id);
 }
-export const forgetTaggedCache = () => (taggedIds.loadedAt = 0);
+export const forgetTaggedCache = () => taggedByTenant.clear();
 
 export function onSubmissionSaved(type: TaskType, taskId: unknown) {
   const id = Math.trunc(Number(taskId));
@@ -297,6 +329,6 @@ export function startCompetencyPush() {
       warn("sweep failed", e);
     }
   };
-  setTimeout(() => void sweep(), BOOT_DELAY_MS).unref?.();
-  setInterval(() => void sweep(), SWEEP_EVERY_MS).unref?.();
+  setTimeout(() => void allTenants("competency", sweep), BOOT_DELAY_MS).unref?.();
+  setInterval(() => void allTenants("competency", sweep), SWEEP_EVERY_MS).unref?.();
 }

@@ -58,8 +58,8 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  codeRunLimiter.resetKey(`code-run:${studentId}`);
-  codeRunLimiter.resetKey(`code-run:${adminId}`);
+  codeRunLimiter.resetKey(`t1:code-run:${studentId}`);
+  codeRunLimiter.resetKey(`t1:code-run:${adminId}`);
 });
 
 afterEach(() => jest.restoreAllMocks());

@@ -1,4 +1,5 @@
 import { Request } from "express";
+import { tk } from "../tenancy/keys";
 import { AiEntitlement, AppSetting } from "../models";
 import {
   isPaidProvider,
@@ -51,7 +52,8 @@ export async function premiumEntitlement(req: Request): Promise<PremiumEntitleme
 
 export const BYOK_SETTING = "ai.byok_allowed";
 
-let byokCache: { at: number; value: boolean } | null = null;
+// Per school: the setting lives in each tenant database.
+const byokCache = new Map<string, { at: number; value: boolean }>();
 
 export async function getSetting<T>(key: string, fallback: T): Promise<T> {
   const row = await AppSetting.findByPk(key).catch(() => null);
@@ -65,18 +67,19 @@ export async function getSetting<T>(key: string, fallback: T): Promise<T> {
 
 export async function setSetting(key: string, value: unknown, by: number | null) {
   await AppSetting.upsert({ key, value: JSON.stringify(value), updated_by: by, updated_at: new Date() } as any);
-  if (key === BYOK_SETTING) byokCache = null;
+  if (key === BYOK_SETTING) byokCache.delete(tk("byok"));
 }
 
 /** "Allow own API keys (BYOK)": on unless the school switched it off. Cached for 10 s. */
 export async function byokAllowed(): Promise<boolean> {
-  if (byokCache && Date.now() - byokCache.at < 10_000) return byokCache.value;
+  const hit = byokCache.get(tk("byok"));
+  if (hit && Date.now() - hit.at < 10_000) return hit.value;
   const value = (await getSetting<boolean>(BYOK_SETTING, true)) !== false;
-  byokCache = { at: Date.now(), value };
+  byokCache.set(tk("byok"), { at: Date.now(), value });
   return value;
 }
 
-export const resetByokCacheForTests = () => (byokCache = null);
+export const resetByokCacheForTests = () => byokCache.clear();
 
 // ── a request's paid access ──
 

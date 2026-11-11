@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { currentTenantOrNull, parseTid, PRIMARY_TENANT_ID } from "../vendor/nga-tenancy";
 
 /**
  * The attempt-scoped TMCode token (PROTOCOL.md §1): HS256 with
@@ -11,13 +12,15 @@ export interface TmcodeClaims {
   /** Local Task Mentor user id (string, as JWT `sub` requires). */
   sub: string;
   submission_id: number;
+  /** Tenant (school) id; null on tokens minted before tenancy (legacy default applies). */
+  tid?: number | null;
 }
 
 const secret = () => `${process.env.JWT_SECRET}:tmcode`;
 
 export function signTmcodeToken(claims: TmcodeClaims, expiresAt: Date): string {
   return jwt.sign(
-    { sid: claims.sid, submission_id: claims.submission_id },
+    { sid: claims.sid, submission_id: claims.submission_id, tid: claims.tid ?? currentTenantOrNull()?.tid ?? PRIMARY_TENANT_ID },
     secret(),
     {
       algorithm: "HS256",
@@ -31,5 +34,10 @@ export function signTmcodeToken(claims: TmcodeClaims, expiresAt: Date): string {
 /** Throws on a bad signature, wrong audience or expiry. */
 export function verifyTmcodeToken(token: string): TmcodeClaims {
   const p = jwt.verify(token, secret(), { algorithms: ["HS256"], audience: "tmcode" }) as any;
-  return { sid: String(p.sid), sub: String(p.sub), submission_id: Number(p.submission_id) };
+  return {
+    sid: String(p.sid),
+    sub: String(p.sub),
+    submission_id: Number(p.submission_id),
+    tid: parseTid(p.tid),
+  };
 }

@@ -237,12 +237,51 @@ export interface ReportCardPreviewData extends Omit<ReportCardData, "report_card
 
 // ─── Helper: letter grade from total score ───────────────────────────────────
 
-export function scoreToLetterGrade(score: number): { letter: string; remark: string } {
-  if (score >= 90) return { letter: "A", remark: "Distinction" };
-  if (score >= 75) return { letter: "B", remark: "Merit" };
-  if (score >= 60) return { letter: "C", remark: "Credit" };
-  if (score >= 45) return { letter: "D", remark: "Pass" };
-  return { letter: "F", remark: "Fail" };
+export interface GradeBand {
+  min: number;
+  letter: string;
+  remark: string;
+}
+
+/** The scale NGA has always used; a school can set its own (GET /api/settings/grading). */
+export const DEFAULT_GRADING_BANDS: GradeBand[] = [
+  { min: 90, letter: "A", remark: "Distinction" },
+  { min: 75, letter: "B", remark: "Merit" },
+  { min: 60, letter: "C", remark: "Credit" },
+  { min: 45, letter: "D", remark: "Pass" },
+  { min: 0, letter: "F", remark: "Fail" },
+];
+
+let gradingBands: GradeBand[] = DEFAULT_GRADING_BANDS;
+let bandsLoad: Promise<GradeBand[]> | null = null;
+
+/** Load this school's scale once per page (the default stays on any failure). */
+export function loadGradingBands(): Promise<GradeBand[]> {
+  if (!bandsLoad) {
+    bandsLoad = axios
+      .get("/settings/grading")
+      .then((res) => {
+        const bands = res.data?.bands;
+        if (Array.isArray(bands) && bands.length) {
+          gradingBands = [...bands].sort((a: GradeBand, b: GradeBand) => b.min - a.min);
+        }
+        return gradingBands;
+      })
+      .catch(() => gradingBands);
+  }
+  return bandsLoad;
+}
+
+/** Tests only. */
+export function setGradingBandsForTests(bands: GradeBand[] | null) {
+  gradingBands = bands ?? DEFAULT_GRADING_BANDS;
+  bandsLoad = bands ? Promise.resolve(gradingBands) : null;
+}
+
+export function scoreToLetterGrade(score: number, bands: GradeBand[] = gradingBands): { letter: string; remark: string } {
+  for (const b of bands) if (score >= b.min) return { letter: b.letter, remark: b.remark };
+  const last = bands[bands.length - 1] ?? DEFAULT_GRADING_BANDS[DEFAULT_GRADING_BANDS.length - 1];
+  return { letter: last.letter, remark: last.remark };
 }
 
 // ─── Status display helpers ──────────────────────────────────────────────────
@@ -385,6 +424,7 @@ export class ReportCardApiService {
     academic_year: string;
     student_ids: number[];
   }): Promise<CourseOverviewResponse> {
+    await loadGradingBands(); // letters below use the school's own scale
     const response = await axios.get("/report-cards/overview", {
       params: {
         term: params.term,
@@ -402,6 +442,7 @@ export class ReportCardApiService {
     academic_year: string;
     student_ids: number[];
   }): Promise<SubjectOverviewResponse> {
+    await loadGradingBands(); // letters below use the school's own scale
     const response = await axios.get("/report-cards/subject-overview", {
       params: {
         subject_id: params.subject_id,
@@ -449,6 +490,7 @@ export class ReportCardApiService {
     studentId: number,
     params?: { term?: string; academic_year?: string },
   ): Promise<ReportCardResponse> {
+    await loadGradingBands(); // letters below use the school's own scale
     const response = await axios.get(`/report-cards/student/${studentId}`, { params });
     return response.data;
   }
@@ -458,6 +500,7 @@ export class ReportCardApiService {
     studentId: number,
     params?: { term?: string; academic_year?: string },
   ): Promise<{ success: boolean; data: ReportCardPreviewData }> {
+    await loadGradingBands(); // letters below use the school's own scale
     const response = await axios.get(`/report-cards/preview/${studentId}`, { params });
     return response.data;
   }
@@ -475,6 +518,7 @@ export class ReportCardApiService {
     studentId: number,
     params: { academic_year: string; academic_year_id?: number },
   ): Promise<AnnualReportCardResponse> {
+    await loadGradingBands(); // letters below use the school's own scale
     const response = await axios.get(`/report-cards/annual/${studentId}`, { params });
     return response.data;
   }

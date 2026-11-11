@@ -5,9 +5,14 @@ import { validateBody } from "../middleware/validation.middleware";
 import { importEditorImageSchema } from "../validations/assignmentAi.validation";
 import { importEditorImage, uploadEditorImage } from "../controllers/media.controller";
 import { EDITOR_IMAGE_MAX_BYTES } from "../services/editorImages";
+import { signedUploadUrl } from "./uploads";
 
 const router = Router();
 router.use(protect);
+
+// A short-lived signed URL for a stored file the caller may open (iframes,
+// the document viewer and the desktop app can't send the session header).
+router.get("/upload-url", (req, res, next) => signedUploadUrl(req, res).catch(next));
 
 // Anyone who writes rich content (assignments, quizzes, question bank) can put
 // images in it. The file type is checked from the bytes in storeEditorImage.

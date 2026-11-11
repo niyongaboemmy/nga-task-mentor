@@ -8,6 +8,8 @@ import { getRevokedAt } from "../services/sessionRevocation";
 import { issuedBeforeRevocation } from "../utils/ssoLogout";
 import { verifyTmcodeUserToken } from "../tmcode/userToken";
 import { tmcodeError } from "./tmcodeAuth";
+import { legacyDefaultTid } from "../tenancy/config";
+import { enterTenant, misTokenMismatch, resolveTenant, tidOfClaims } from "../tenancy/request";
 
 /**
  * Auth for the TMCode Projects API (PROJECTS_PLAN.md §3): either
@@ -47,9 +49,11 @@ export async function tmcodeUserAuth(req: Request, res: Response, next: NextFunc
   let kind: TmcodeTokenKind;
   let termId: number | undefined;
   let academicYearId: number | undefined;
+  let tid: number | null;
   try {
     const claims = verifyTmcodeUserToken(token);
     userId = claims.sub;
+    tid = claims.tid ?? legacyDefaultTid();
     iat = claims.iat;
     exp = claims.exp;
     kind = "tmcode-user";
@@ -66,6 +70,7 @@ export async function tmcodeUserAuth(req: Request, res: Response, next: NextFunc
       kind = "web";
       termId = decoded.termId;
       academicYearId = decoded.academicYearId;
+      tid = tidOfClaims(decoded);
     } catch (e: any) {
       return tmcodeError(
         res,
@@ -76,6 +81,13 @@ export async function tmcodeUserAuth(req: Request, res: Response, next: NextFunc
     }
   }
 
+  const gate = await resolveTenant(tid);
+  if (!gate.ok) return tmcodeError(res, gate.status, gate.code, gate.message);
+  if (misTokenMismatch(req, gate.tenant.tid)) {
+    return tmcodeError(res, 401, "TENANT_MISMATCH", "Your NGA session belongs to another school. Sign in again.");
+  }
+
+  return enterTenant(req, gate.tenant, async () => {
   try {
     const user = await User.findByPk(userId, { include: [{ model: Role, include: [Permission] }] });
     if (!user) return tmcodeError(res, 401, "TOKEN_INVALID", "This account no longer exists.");
@@ -90,6 +102,7 @@ export async function tmcodeUserAuth(req: Request, res: Response, next: NextFunc
       roleName: user.roleRecord?.name,
       permissions: new Set((user.roleRecord?.permissions ?? []).map((p) => p.key)),
       mis_user_id: user.mis_user_id,
+      tid: gate.tenant.tid,
       termId,
       academicYearId,
     };
@@ -102,6 +115,7 @@ export async function tmcodeUserAuth(req: Request, res: Response, next: NextFunc
     console.error("tmcodeUserAuth error:", error);
     return tmcodeError(res, 500, "SERVER_ERROR", "Something went wrong on Task Mentor.");
   }
+  });
 }
 
 /** Any-of permission gate with the TMCode error shape. */

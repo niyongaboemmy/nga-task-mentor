@@ -47,7 +47,7 @@ const wrap =
 const serverRunLimiter = rateLimit({
   windowMs: 60_000,
   max: Number(process.env.CODE_RUN_RATE_LIMIT_PER_MIN) || 10,
-  keyGenerator: (req) => `tmcode-run:${(req as any).tmcodeSession?.user_id ?? req.ip}`,
+  keyGenerator: (req) => `t${req.tenant?.tid ?? 1}:tmcode-run:${(req as any).tmcodeSession?.user_id ?? req.ip}`,
   handler: (_req, res) =>
     tmcodeError(res, 429, "RATE_LIMITED", "Too many server runs — wait a minute and try again."),
   standardHeaders: true,
@@ -166,7 +166,7 @@ router.post(`${p}/preview`, read, wrap(practicals.createPreview));
 const projectRunLimiter = rateLimit({
   windowMs: 60_000,
   max: Number(process.env.CODE_RUN_RATE_LIMIT_PER_MIN) || 10,
-  keyGenerator: (req) => `tmcode-project-run:${(req as any).user?.id ?? req.ip}`,
+  keyGenerator: (req) => `t${req.tenant?.tid ?? 1}:tmcode-project-run:${(req as any).user?.id ?? req.ip}`,
   handler: (_req, res) => tmcodeError(res, 429, "RATE_LIMITED", "Too many runs — wait a minute and try again."),
   standardHeaders: true,
   legacyHeaders: false,
@@ -190,7 +190,7 @@ router.get("/preview/:token/*", wrap(practicals.servePreview));
 const aiLimiter = rateLimit({
   windowMs: 60_000,
   max: Number(process.env.TMCODE_AI_RATE_LIMIT_PER_MIN) || 30,
-  keyGenerator: (req) => `tmcode-ai:${(req as any).user?.id ?? req.ip}`,
+  keyGenerator: (req) => `t${req.tenant?.tid ?? 1}:tmcode-ai:${(req as any).user?.id ?? req.ip}`,
   handler: (_req, res) => tmcodeError(res, 429, "RATE_LIMITED", "Too many AI requests — wait a minute."),
   standardHeaders: true,
   legacyHeaders: false,

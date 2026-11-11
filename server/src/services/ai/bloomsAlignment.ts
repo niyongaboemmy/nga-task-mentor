@@ -1,4 +1,5 @@
 import BloomsTaxonomyLevel from "../../models/BloomsTaxonomyLevel.model";
+import { tk } from "../../tenancy/keys";
 import type { AIDifficulty } from "./types";
 
 /**
@@ -84,12 +85,14 @@ export interface BloomLevelRow {
   level_order: number;
 }
 
-let cache: { at: number; rows: BloomLevelRow[] } | null = null;
+// Per school: the levels live in each tenant database.
+const cache = new Map<string, { at: number; rows: BloomLevelRow[] }>();
 const CACHE_MS = 5 * 60 * 1000;
 
 /** The school's Bloom levels, one per level_order (lowest id wins), cached briefly. */
 export async function loadBloomLevels(): Promise<BloomLevelRow[]> {
-  if (cache && Date.now() - cache.at < CACHE_MS) return cache.rows;
+  const hit = cache.get(tk("bloom-levels"));
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.rows;
   const rows = (await BloomsTaxonomyLevel.findAll({
     attributes: ["id", "name", "level_order"],
     order: [
@@ -101,10 +104,10 @@ export async function loadBloomLevels(): Promise<BloomLevelRow[]> {
   const byOrder = new Map<number, BloomLevelRow>();
   for (const r of rows) if (!byOrder.has(r.level_order)) byOrder.set(r.level_order, r);
   const out = [...byOrder.values()];
-  cache = { at: Date.now(), rows: out };
+  cache.set(tk("bloom-levels"), { at: Date.now(), rows: out });
   return out;
 }
 
 export function clearBloomCacheForTests() {
-  cache = null;
+  cache.clear();
 }

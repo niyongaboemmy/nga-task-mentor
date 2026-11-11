@@ -1,5 +1,6 @@
 import { EventEmitter } from "events";
-import { MONITOR_TOPIC, openSse, ProjectsBus, projectsBus, projectTopic } from "../bus";
+import { monitorTopic, openSse, ProjectsBus, projectsBus, projectTopic } from "../bus";
+import { primaryTenantCtx, runWithTenant } from "../../../vendor/nga-tenancy";
 import { publishPresence, resetPresenceTracking, sweepPresence } from "../presence";
 
 /** A minimal Express-like response that records what was written. */
@@ -132,7 +133,7 @@ describe("presence fan-out", () => {
     const onProject = jest.fn();
     const onMonitor = jest.fn();
     projectsBus.subscribe(projectTopic(77), onProject);
-    projectsBus.subscribe(MONITOR_TOPIC, onMonitor);
+    projectsBus.subscribe(monitorTopic(), onMonitor);
     publishPresence(project, [12, 13], entry(true, new Date()));
     expect(onProject).toHaveBeenCalledWith("presence", expect.objectContaining({ online: true, device_id: "dev-1" }));
     expect(onMonitor).toHaveBeenCalledWith(
@@ -154,6 +155,46 @@ describe("presence fan-out", () => {
     expect(onProject).toHaveBeenCalledWith("presence", expect.objectContaining({ online: false }));
     // Only once.
     expect(sweepPresence(seen.getTime() + 120_000)).toBe(0);
+  });
+
+  describe("tenant isolation (project ids repeat across schools)", () => {
+    const T2 = { ...primaryTenantCtx(), tid: 2, slug: "two", name: "Two", isPrimary: false };
+
+    it("keys topics by tenant", () => {
+      expect(projectTopic(77, 1)).toBe("t1:project:77");
+      expect(projectTopic(77, 2)).toBe("t2:project:77");
+      expect(runWithTenant(T2, () => monitorTopic())).toBe("t2:monitor");
+      expect(monitorTopic()).toBe("t1:monitor");
+    });
+
+    it("a heartbeat in school 2 never reaches school 1's project 77 or monitor", () => {
+      const p1 = jest.fn();
+      const m1 = jest.fn();
+      const p2 = jest.fn();
+      const m2 = jest.fn();
+      projectsBus.subscribe(projectTopic(77, 1), p1);
+      projectsBus.subscribe(monitorTopic(1), m1);
+      projectsBus.subscribe(projectTopic(77, 2), p2);
+      projectsBus.subscribe(monitorTopic(2), m2);
+      runWithTenant(T2, () => publishPresence(project, [12], entry(true, new Date())));
+      expect(p1).not.toHaveBeenCalled();
+      expect(m1).not.toHaveBeenCalled();
+      expect(p2).toHaveBeenCalled();
+      expect(m2).toHaveBeenCalledWith("presence", expect.objectContaining({ tid: 2 }));
+    });
+
+    it("tracks the same project/user/device separately per school and sweeps into the right school", () => {
+      const seen = new Date();
+      publishPresence(project, [], entry(true, seen));
+      runWithTenant(T2, () => publishPresence(project, [], entry(true, seen)));
+      const p1 = jest.fn();
+      const p2 = jest.fn();
+      projectsBus.subscribe(projectTopic(77, 1), p1);
+      projectsBus.subscribe(projectTopic(77, 2), p2);
+      expect(sweepPresence(seen.getTime() + 61_000)).toBe(2);
+      expect(p1).toHaveBeenCalledTimes(1);
+      expect(p2).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("does not track a device that closed the project", () => {

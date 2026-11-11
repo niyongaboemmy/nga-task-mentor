@@ -1,3 +1,4 @@
+import { allTenants } from "../tenancy/jobs";
 import { Op, QueryTypes } from "sequelize";
 import { sequelize } from "../config/database";
 import { User } from "../models/User.model";
@@ -205,17 +206,17 @@ export function startMisStatusSweepSchedule(): void {
   const at = parseRunAt(process.env.MIS_STATUS_SWEEP_AT || "02:30");
 
   const boot = setTimeout(() => {
-    void (async () => {
+    void allTenants("mis-status", async () => {
       const last = await getLastSuccess(JOB_NAME);
       if (last == null || Date.now() - last > STALE_AFTER_MS) await runMisStatusSweep();
-    })().catch((err) => warn("boot run failed", err));
+    }).catch((err) => warn("boot run failed", err));
   }, BOOT_DELAY_MS);
   boot.unref?.();
 
   const scheduleDaily = () => {
     const wait = Math.max(1000, nextRunAt(new Date(), at).getTime() - Date.now());
     const t = setTimeout(() => {
-      void runMisStatusSweep()
+      void allTenants("mis-status", () => runMisStatusSweep())
         .catch((err) => warn("daily run failed", err))
         .finally(scheduleDaily);
     }, wait);

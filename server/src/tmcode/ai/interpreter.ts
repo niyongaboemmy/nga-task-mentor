@@ -16,6 +16,7 @@ import {
 } from "./intent";
 import { AiError, configured, jsonCompletion, PROVIDERS, type ChatMessage, type PaidAccess, type ProviderId } from "./service";
 import { permittedForStudents } from "./privacy";
+import { tk } from "../../tenancy/keys";
 
 /**
  * The request interpreter (nga-tmcode reports/TMCode prompt interpreter layer.md): a separate,
@@ -131,17 +132,18 @@ function roll() {
 }
 export function interpretUsed(userId: number, kind: "card" | "coach") {
   roll();
-  return used.get(`${userId}|${kind}`) ?? 0;
+  // Tenant-keyed: local user ids repeat across schools.
+  return used.get(tk("interpret", userId, kind)) ?? 0;
 }
 export function takeInterpret(userId: number, kind: "card" | "coach"): boolean {
   if (interpretUsed(userId, kind) >= interpretLimit(kind)) return false;
-  used.set(`${userId}|${kind}`, interpretUsed(userId, kind) + 1);
+  used.set(tk("interpret", userId, kind), interpretUsed(userId, kind) + 1);
   return true;
 }
 /** QD2: the first coach pass on a draft is free; each further pass on it spends a question. */
 export function coachPassIsFree(userId: number, draft: string): boolean {
   roll();
-  const k = `${userId}|${draft}`;
+  const k = tk("coach", userId, draft);
   const n = coachDrafts.get(k) ?? 0;
   coachDrafts.set(k, n + 1);
   if (coachDrafts.size > 20_000) coachDrafts.clear();

@@ -6,14 +6,40 @@
 // it can never collide with nga_central_mis's files in the shared storage
 // root.
 
+import { currentTenantOrNull, PRIMARY_TENANT_ID, tenantPathFor } from "../vendor/nga-tenancy";
+
 const FILE_SERVER_URL =
   process.env.FILE_SERVER_URL || "http://127.0.0.1:5004";
 const FILE_SERVER_API_KEY = process.env.FILE_SERVER_API_KEY || "";
 const NAMESPACE = "nga-task-mentor";
 
-function namespaced(remotePath: string): string {
+/**
+ * Tenancy (CONTRACT.md §8): new files are written under
+ * `nga-task-mentor/t/<tid>/<path>`; the stored path (DB rows, /uploads URLs)
+ * stays tenant-less and the tenant comes from the request context. Files
+ * written before tenancy live at `nga-task-mentor/<path>` and stay readable
+ * as they are -- by the primary tenant only, so another school can never
+ * reach them.
+ */
+function tenantId(): number {
+  return currentTenantOrNull()?.tid ?? PRIMARY_TENANT_ID;
+}
+
+function namespaced(remotePath: string, tid: number = tenantId()): string {
+  return tenantPathFor(tid, NAMESPACE, remotePath);
+}
+
+function legacyNamespaced(remotePath: string): string {
   return `${NAMESPACE}/${remotePath}`;
 }
+
+/** Where to look for a stored path, newest layout first. */
+function readCandidates(remotePath: string): string[] {
+  const tid = tenantId();
+  return tid === PRIMARY_TENANT_ID ? [namespaced(remotePath, tid), legacyNamespaced(remotePath)] : [namespaced(remotePath, tid)];
+}
+
+export const __fileServerPaths = { namespaced, legacyNamespaced, readCandidates };
 
 async function request(
   urlPath: string,
@@ -51,14 +77,14 @@ class FileServerService {
   }
 
   async downloadToBuffer(remotePath: string): Promise<Buffer> {
-    const res = await request(
-      `/files?path=${encodeURIComponent(namespaced(remotePath))}`,
-    );
-    if (!res.ok) {
-      throw new Error(`Failed to download file: ${res.status}`);
+    let status = 404;
+    for (const candidate of readCandidates(remotePath)) {
+      const res = await request(`/files?path=${encodeURIComponent(candidate)}`);
+      if (res.ok) return Buffer.from(await res.arrayBuffer());
+      status = res.status;
+      if (res.status !== 404) break;
     }
-    const arrayBuffer = await res.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    throw new Error(`Failed to download file: ${status}`);
   }
 
   /** Streams the file straight into an Express response without buffering
@@ -67,11 +93,17 @@ class FileServerService {
   async streamTo(
     remotePath: string,
     res: import("express").Response,
+    candidates: string[] = readCandidates(remotePath),
   ): Promise<boolean> {
-    const upstream = await request(
-      `/files?path=${encodeURIComponent(namespaced(remotePath))}`,
-    );
-    if (!upstream.ok || !upstream.body) return false;
+    let upstream: Response | null = null;
+    for (const candidate of candidates) {
+      const r = await request(`/files?path=${encodeURIComponent(candidate)}`);
+      if (r.ok && r.body) {
+        upstream = r;
+        break;
+      }
+    }
+    if (!upstream || !upstream.body) return false;
 
     const contentType = upstream.headers.get("content-type");
     if (contentType) res.setHeader("Content-Type", contentType);
@@ -88,25 +120,30 @@ class FileServerService {
     return true;
   }
 
+  /** Only the pre-tenancy location (public legacy editor images). */
+  async streamLegacyTo(remotePath: string, res: import("express").Response): Promise<boolean> {
+    return this.streamTo(remotePath, res, [legacyNamespaced(remotePath)]);
+  }
+
   async deleteFile(remotePath: string): Promise<void> {
-    const res = await request(
-      `/files?path=${encodeURIComponent(namespaced(remotePath))}`,
-      { method: "DELETE" },
-    );
-    if (!res.ok && res.status !== 404) {
-      throw new Error(`Failed to delete file: ${res.status}`);
+    for (const candidate of readCandidates(remotePath)) {
+      const res = await request(`/files?path=${encodeURIComponent(candidate)}`, { method: "DELETE" });
+      if (!res.ok && res.status !== 404) {
+        throw new Error(`Failed to delete file: ${res.status}`);
+      }
     }
     console.log(`File deleted: ${remotePath}`);
   }
 
   async fileExists(remotePath: string): Promise<boolean> {
     try {
-      const res = await request(
-        `/files/exists?path=${encodeURIComponent(namespaced(remotePath))}`,
-      );
-      if (!res.ok) return false;
-      const data = (await res.json()) as { exists: boolean };
-      return data.exists;
+      for (const candidate of readCandidates(remotePath)) {
+        const res = await request(`/files/exists?path=${encodeURIComponent(candidate)}`);
+        if (!res.ok) continue;
+        const data = (await res.json()) as { exists: boolean };
+        if (data.exists) return true;
+      }
+      return false;
     } catch (error) {
       console.error(`file-server exists check failed: ${error}`);
       return false;

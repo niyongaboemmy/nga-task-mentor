@@ -1,3 +1,5 @@
+import { allTenants } from "../tenancy/jobs";
+import { tk } from "../tenancy/keys";
 import axios from "axios";
 import { Op } from "sequelize";
 import { User } from "../models/User.model";
@@ -73,7 +75,7 @@ export function misCoverFrom(data: any): string | null | undefined {
 
 const CACHE_TTL_MS = 5 * 60_000;
 const MIS_BATCH = 1000;
-const avatarCache = new Map<number, { url: string | null; at: number }>();
+const avatarCache = new Map<string, { url: string | null; at: number }>();
 
 type MediaTransport = (misIds: number[]) => Promise<Array<{ user_id: number; avatar?: { md?: string } | null }>>;
 
@@ -104,7 +106,7 @@ export async function misAvatarsFor(misIds: number[], opts: { fresh?: boolean; n
   const out = new Map<number, string | null>();
   const missing: number[] = [];
   for (const id of new Set(misIds.filter((n) => Number.isSafeInteger(n) && n > 0))) {
-    const hit = avatarCache.get(id);
+    const hit = avatarCache.get(tk(id));
     if (!opts.fresh && hit && now - hit.at < CACHE_TTL_MS) out.set(id, hit.url);
     else missing.push(id);
   }
@@ -113,7 +115,7 @@ export async function misAvatarsFor(misIds: number[], opts: { fresh?: boolean; n
     const users = await mediaTransport(chunk);
     for (const u of users) {
       const url = u.avatar ? httpUrl(u.avatar.md) : null;
-      avatarCache.set(Number(u.user_id), { url, at: now });
+      avatarCache.set(tk(Number(u.user_id)), { url, at: now });
       out.set(Number(u.user_id), url);
     }
   }
@@ -192,6 +194,6 @@ export function startAvatarSync() {
       console.warn("[avatars] sync failed:", err?.message);
     }
   };
-  setTimeout(() => void run(), SYNC_BOOT_DELAY_MS).unref?.();
-  setInterval(() => void run(), SYNC_EVERY_MS).unref?.();
+  setTimeout(() => void allTenants("avatars", run), SYNC_BOOT_DELAY_MS).unref?.();
+  setInterval(() => void allTenants("avatars", run), SYNC_EVERY_MS).unref?.();
 }

@@ -1,3 +1,5 @@
+import { tk } from "../tenancy/keys";
+import { currentTenantOrNull, parseTid } from "../vendor/nga-tenancy";
 import type { AccessSnapshot } from "../vendor/nga-access";
 import { fetchSnapshotFromMis, SnapshotFetchError } from "./misClient";
 
@@ -34,8 +36,9 @@ interface Entry {
   retryMs: number;
 }
 
-const cache = new Map<number, Entry>();
-const inflight = new Map<number, Promise<AccessSnapshot | null>>();
+// Keyed t<tid>:<misUserId> (tenancy/keys.ts): MIS user ids repeat across schools.
+const cache = new Map<string, Entry>();
+const inflight = new Map<string, Promise<AccessSnapshot | null>>();
 
 /** Injection point for tests (and nothing else). */
 let fetcher: (misToken: string) => Promise<AccessSnapshot> = fetchSnapshotFromMis;
@@ -51,7 +54,7 @@ export function clearSnapshotCache() {
 /** Called with MIS /auth/verify's data.access_version. */
 export function noteAccessVersion(misUserId: number | null | undefined, version: unknown) {
   if (!misUserId || typeof version !== "number") return;
-  const entry = cache.get(misUserId);
+  const entry = cache.get(tk(misUserId));
   if (entry?.snapshot && entry.snapshot.v !== version) entry.stale = true;
 }
 
@@ -72,7 +75,8 @@ export async function getSnapshot(opts: GetSnapshotOptions): Promise<AccessSnaps
   const misUserId = Number(opts.misUserId);
   if (!Number.isInteger(misUserId) || misUserId <= 0) return null;
   const now = opts.now ?? Date.now();
-  const entry = cache.get(misUserId);
+  const key = tk(misUserId);
+  const entry = cache.get(key);
 
   const fresh = entry && entry.snapshot && !entry.stale && now - entry.fetchedAt < REFRESH_MS;
   if (fresh) return entry!.snapshot;
@@ -83,7 +87,7 @@ export async function getSnapshot(opts: GetSnapshotOptions): Promise<AccessSnaps
   }
   if (!opts.misToken) return entry && usable(entry, now) ? entry.snapshot : null;
 
-  const pending = inflight.get(misUserId);
+  const pending = inflight.get(key);
   if (pending) return pending;
 
   const p = (async () => {
@@ -93,12 +97,18 @@ export async function getSnapshot(opts: GetSnapshotOptions): Promise<AccessSnaps
         // The MIS token belongs to someone else than this session's user.
         throw new SnapshotFetchError("snapshot user does not match the session", null);
       }
-      if (cache.size >= MAX_ENTRIES && !cache.has(misUserId)) cache.clear();
-      cache.set(misUserId, { snapshot: snap, fetchedAt: now, stale: false, failedAt: 0, retryMs: 0 });
+      // A snapshot of another school (contract: top-level tenant / user.school_id = tid).
+      const snapTid = parseTid((snap as any).tenant?.tid ?? (snap as any).user?.school_id);
+      const ctxTid = currentTenantOrNull()?.tid;
+      if (snapTid && ctxTid && (snap as any).tenant?.tid != null && snapTid !== ctxTid) {
+        throw new SnapshotFetchError("snapshot belongs to another tenant", null);
+      }
+      if (cache.size >= MAX_ENTRIES && !cache.has(key)) cache.clear();
+      cache.set(key, { snapshot: snap, fetchedAt: now, stale: false, failedAt: 0, retryMs: 0 });
       return snap;
     } catch (err: any) {
-      const prev = cache.get(misUserId);
-      cache.set(misUserId, {
+      const prev = cache.get(key);
+      cache.set(key, {
         snapshot: prev?.snapshot ?? null,
         fetchedAt: prev?.fetchedAt ?? 0,
         stale: prev?.stale ?? false,
@@ -108,12 +118,12 @@ export async function getSnapshot(opts: GetSnapshotOptions): Promise<AccessSnaps
       if (process.env.NODE_ENV !== "test") {
         console.warn(`[access] snapshot unavailable for MIS user ${misUserId}: ${err?.message ?? err}`);
       }
-      const e = cache.get(misUserId)!;
+      const e = cache.get(key)!;
       return usable(e, now) ? e.snapshot : null;
     } finally {
-      inflight.delete(misUserId);
+      inflight.delete(key);
     }
   })();
-  inflight.set(misUserId, p);
+  inflight.set(key, p);
   return p;
 }

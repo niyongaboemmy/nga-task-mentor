@@ -4,6 +4,7 @@ import {
   type RelayOptions,
 } from "../vendor/nga-activity-relay/relay";
 import { misUserIdFromSession } from "./session";
+import { currentTenantOrNull } from "../vendor/nga-tenancy";
 
 /**
  * Platform usage analytics (nga_central_mis USAGE_ANALYTICS_IMPLEMENTATION_PLAN.md §5.2):
@@ -67,6 +68,8 @@ export const buildActivityRelay = (
       .map((o) => o.trim())
       .filter(Boolean),
     getUserId: misUserIdFromSession,
+    // Each event carries the school it happened in (MIS files it there).
+    currentTenant: currentTenantOrNull,
     ...overrides,
   });
 };

@@ -156,7 +156,7 @@ beforeEach(() => {
   mockedGet.mockReset();
   mockedGet.mockImplementation(async (url: string, cfg: any) => misRouter(url, cfg));
   clearMisBearerCache();
-  for (const id of Object.values(MIS)) integrationLimiter.resetKey(`mis:${id}`);
+  for (const id of Object.values(MIS)) integrationLimiter.resetKey(`t1:mis:${id}`);
 });
 
 afterAll(async () => {

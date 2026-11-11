@@ -3,6 +3,7 @@ import { TmJudgeRunner } from "./tmJudgeRunner";
 import { CodeRunner, RunFile, RunRequest, RunResult } from "./types";
 import { JudgeUnavailableError, QuotaExceededError } from "../Judge0Service";
 import { recordRun } from "./stats";
+import { tk } from "../../tenancy/keys";
 import { profileById, profileIdForLanguage } from "../../tmcode/profiles";
 
 export * from "./types";
@@ -74,6 +75,32 @@ export class RoutedRunner implements CodeRunner {
   }
 }
 
+// ── Per-school daily cap (TM-15): CODE_RUNS_TENANT_PER_DAY, 0/unset = none ──
+const tenantRuns = new Map<string, number>();
+let runsDay = "";
+
+export function tenantRunsToday(): number {
+  const d = new Date().toISOString().slice(0, 10);
+  if (d !== runsDay) {
+    runsDay = d;
+    tenantRuns.clear();
+  }
+  return tenantRuns.get(tk("code-runs")) ?? 0;
+}
+
+export function tenantRunLimit(): number {
+  const n = Number(process.env.CODE_RUNS_TENANT_PER_DAY);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** Throws QuotaExceededError when the school has used today's runs; counts the run otherwise. */
+export function takeTenantRun(): void {
+  const used = tenantRunsToday();
+  const limit = tenantRunLimit();
+  if (limit > 0 && used >= limit) throw new QuotaExceededError(429);
+  tenantRuns.set(tk("code-runs"), used + 1);
+}
+
 /** Records each run's engine, language, duration and outcome (no code, no output). */
 class RecordedRunner implements CodeRunner {
   constructor(private inner: CodeRunner) {}
@@ -91,6 +118,7 @@ class RecordedRunner implements CodeRunner {
     return this.inner.languages();
   }
   async run(req: RunRequest): Promise<RunResult> {
+    takeTenantRun();
     const started = Date.now();
     const base = { at: new Date().toISOString(), language: String(req.language), tests: req.tests.length };
     try {

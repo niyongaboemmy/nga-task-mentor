@@ -20,8 +20,8 @@ const openSockets: ClientSocket[] = [];
 
 const sessionJwt = (id: number, role = "student") =>
   jwt.sign({ id, role }, SECRET, { expiresIn: "1h" });
-const liveTicket = (id: number, proctor: boolean) =>
-  jwt.sign({ typ: LIVE_TICKET_TYPE, id, proctor }, liveTicketSecret(SECRET), {
+const liveTicket = (id: number, proctor: boolean, extra: Record<string, unknown> = proctor ? { courses: "all" } : {}) =>
+  jwt.sign({ typ: LIVE_TICKET_TYPE, id, proctor, ...extra }, liveTicketSecret(SECRET), {
     expiresIn: 120,
   });
 
@@ -141,7 +141,7 @@ describe("socket handshake authentication", () => {
       quizInfo: { id: 1, title: "Q" },
     });
     await started;
-    expect(live.activeProctoringStreams.get("sess-id").studentUserId).toBe(55);
+    expect(live.activeProctoringStreams.get("t1:sess-id").studentUserId).toBe(55);
   });
 });
 
@@ -241,5 +241,90 @@ describe("HTTP endpoints", () => {
     expect(ok.headers.get("access-control-allow-origin")).toBe("http://localhost:5174");
     const bad = await fetch(`${url}/health`, { headers: { Origin: "https://evil.example" } });
     expect(bad.headers.get("access-control-allow-origin")).toBeNull();
+  });
+});
+
+describe("tenant and course isolation of the proctoring rooms (TM-9)", () => {
+  const studentTicket = (id: number, tid: number, sessions: Record<string, number | null>) =>
+    liveTicket(id, false, { tid, sessions });
+  const proctorTicket = (id: number, tid: number, courses: "all" | number[]) =>
+    liveTicket(id, true, { tid, courses });
+  const start = (s: ClientSocket, sessionToken: string) =>
+    s.emit("student-stream-started", { sessionToken, studentInfo: { first_name: "S" }, quizInfo: { title: "Q" } });
+
+  it("a proctor of another school receives nothing, even school-wide", async () => {
+    const otherSchool = await connected(connect({ token: proctorTicket(1, 2, "all") }));
+    const ownSchool = await connected(connect({ token: proctorTicket(1, 1, "all") }));
+    const student = await connected(connect({ token: studentTicket(55, 1, { "iso-1": 10 }) }));
+    const leaked = receives(otherSchool, "stream-started");
+    const got = waitFor(ownSchool, "stream-started");
+    start(student, "iso-1");
+    await expect(got).resolves.toMatchObject({ sessionToken: "iso-1" });
+    expect(await leaked).toBe(false);
+    for (const event of ["student-camera-screenshot", "global-proctoring-violation"]) {
+      const leak = receives(otherSchool, event);
+      const own = waitFor(ownSchool, event);
+      student.emit(event === "global-proctoring-violation" ? "proctoring-violation" : event, {
+        sessionToken: "iso-1",
+        screenshot: "data:x",
+        violation: { type: "tab" },
+      });
+      await expect(own).resolves.toMatchObject({ sessionToken: "iso-1" });
+      expect(await leak).toBe(false);
+    }
+  });
+
+  it("a course-scoped proctor receives only their course's streams and lists", async () => {
+    const teacher10 = await connected(connect({ token: proctorTicket(2, 1, [10]) }));
+    const teacher20 = await connected(connect({ token: proctorTicket(3, 1, [20]) }));
+    const student = await connected(connect({ token: studentTicket(56, 1, { "iso-2": 10 }) }));
+    const got = waitFor(teacher10, "stream-started");
+    const leaked = receives(teacher20, "stream-started");
+    start(student, "iso-2");
+    await expect(got).resolves.toMatchObject({ sessionToken: "iso-2" });
+    expect(await leaked).toBe(false);
+
+    const list20 = waitFor<any[]>(teacher20, "active-streams");
+    teacher20.emit("get-active-streams");
+    expect((await list20).map((s) => s.sessionToken)).not.toContain("iso-2");
+    const list10 = waitFor<any[]>(teacher10, "active-streams");
+    teacher10.emit("get-active-streams");
+    expect((await list10).map((s) => s.sessionToken)).toContain("iso-2");
+
+    // A proctor of another course can neither watch nor command the session.
+    const denied = waitFor<any>(teacher20, "proctoring-auth-error");
+    teacher20.emit("join-proctoring-session", { sessionToken: "iso-2", role: "dashboard" });
+    expect((await denied).event).toBe("join-proctoring-session");
+    const blocked = waitFor<any>(teacher20, "proctoring-auth-error");
+    const paused = receives(student, "pause-student-exam");
+    teacher20.emit("pause-student-exam", { sessionToken: "iso-2", reason: "x" });
+    expect((await blocked).event).toBe("pause-student-exam");
+    expect(await paused).toBe(false);
+  });
+
+  it("a stream of an unknown course reaches school-wide proctors only", async () => {
+    const teacher = await connected(connect({ token: proctorTicket(4, 1, [10]) }));
+    const head = await connected(connect({ token: proctorTicket(5, 1, "all") }));
+    const student = await connected(connect({ token: sessionJwt(57) }));
+    const leaked = receives(teacher, "stream-started");
+    const got = waitFor(head, "stream-started");
+    start(student, "iso-3");
+    await expect(got).resolves.toMatchObject({ sessionToken: "iso-3" });
+    expect(await leaked).toBe(false);
+  });
+
+  it("GET /proctoring/streams lists only the caller's school and courses", async () => {
+    const student = await connected(connect({ token: studentTicket(58, 3, { "iso-4": 30 }) }));
+    const head = await connected(connect({ token: proctorTicket(6, 3, "all") }));
+    const got = waitFor(head, "stream-started");
+    start(student, "iso-4");
+    await got;
+    const list = async (token: string) =>
+      ((await (await fetch(`${url}/proctoring/streams`, { headers: { Authorization: `Bearer ${token}` } })).json()) as any[]).map(
+        (s) => s.sessionToken,
+      );
+    expect(await list(proctorTicket(6, 3, "all"))).toContain("iso-4");
+    expect(await list(proctorTicket(6, 3, [31]))).not.toContain("iso-4");
+    expect(await list(proctorTicket(6, 1, "all"))).not.toContain("iso-4");
   });
 });

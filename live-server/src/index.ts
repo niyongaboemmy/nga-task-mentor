@@ -26,12 +26,21 @@ import {
   getIdentity,
   isProctorSocket,
   PROCTOR_ONLY_EVENTS,
-  PROCTORS_ROOM,
   resolveAllowedOrigins,
   resolveProctoringRole,
   SocketAuthError,
   verifySocketToken,
 } from "./socketAuth";
+import {
+  canControlSession,
+  canWatch,
+  courseOfSession,
+  generalRoom,
+  proctorRoomsFor,
+  sessionRoom,
+  streamKey,
+  streamTargets,
+} from "./proctorRooms";
 
 // Environment variables with defaults
 const PORT = process.env.PORT || 5002;
@@ -110,6 +119,7 @@ const requireAuth =
       if (requireProctor && !identity.isProctor) {
         return res.status(403).json({ error: "Forbidden" });
       }
+      res.locals.identity = identity;
       return next();
     } catch (err) {
       const message =
@@ -120,10 +130,12 @@ const requireAuth =
   };
 app.use(express.json());
 
-// Store rooms in memory (for general WebRTC room functionality)
-const rooms: Map<string, Room> = new Map();
+// Store rooms in memory (for general WebRTC room functionality). Each room
+// records its tenant; sockets of another school can't see or join it.
+const rooms: Map<string, Room & { tid?: number }> = new Map();
 
-// Store active proctoring streams (from original socket-server.js)
+// Active proctoring streams, keyed `t<tid>:<sessionToken>` (streamKey); each
+// entry records its tenant and course so lists and broadcasts can be scoped.
 const activeProctoringStreams = new Map<string, any>();
 
 // Store client information by socket ID
@@ -185,7 +197,8 @@ app.get("/turn-credentials", requireAuth(), async (_req, res) => {
 
 // Get all rooms
 app.get("/rooms", requireAuth(true), (_req, res) => {
-  const roomList = Array.from(rooms.values()).map((room) => ({
+  const tid = res.locals.identity?.tid;
+  const roomList = Array.from(rooms.values()).filter((room) => room.tid === tid).map((room) => ({
     id: room.id,
     name: room.name,
     clientCount: room.clients.size,
@@ -197,7 +210,7 @@ app.get("/rooms", requireAuth(true), (_req, res) => {
 // Get specific room info
 app.get("/rooms/:roomId", requireAuth(true), (req, res) => {
   const room = rooms.get(req.params.roomId);
-  if (!room) {
+  if (!room || room.tid !== res.locals.identity?.tid) {
     return res.status(404).json({ error: "Room not found" });
   }
   res.json({
@@ -217,7 +230,7 @@ app.get("/rooms/:roomId", requireAuth(true), (req, res) => {
 
 // Get active proctoring streams
 app.get("/proctoring/streams", requireAuth(true), (_req, res) => {
-  const streams = Array.from(activeProctoringStreams.values());
+  const streams = Array.from(activeProctoringStreams.values()).filter((st) => canWatch(res.locals.identity, st));
   res.json(streams);
 });
 
@@ -233,13 +246,33 @@ io.on("connection", (socket: Socket) => {
     }, via ${identity?.via})`,
   );
 
-  // Proctors receive the global stream/status/screenshot broadcasts; students
-  // no longer do (those used to go to every connected socket via io.emit).
-  if (identity?.isProctor) socket.join(PROCTORS_ROOM);
+  // Proctors receive stream/status/screenshot broadcasts for the courses they
+  // may watch, within their own school (proctorRooms.ts); students never do.
+  for (const room of proctorRoomsFor(identity)) socket.join(room);
+  const tid = identity?.tid ?? 1;
+  const sRoom = (sessionToken: string) => sessionRoom(tid, sessionToken);
+  const sKey = (sessionToken: string) => streamKey(tid, sessionToken);
+  /** Proctor rooms for a session's events: its course's proctors and school-wide staff. */
+  const toProctors = (sessionToken: string) =>
+    io.to(streamTargets(tid, courseOfSession(identity, sessionToken, activeProctoringStreams.get(sKey(sessionToken)))));
 
   // Drop proctor-only commands (pause/end exam, warnings, screenshot
   // requests, WebRTC offers to students, stream listing) from non-proctors.
-  socket.use(([event], next) => {
+  socket.use(([event, ...packetArgs], next) => {
+    const target = (packetArgs as any[])?.[0];
+    const targetToken = typeof target === "string" ? target : target?.sessionToken;
+    if (
+      PROCTOR_ONLY_EVENTS.has(event) &&
+      isProctorSocket(socket) &&
+      typeof targetToken === "string" &&
+      !canControlSession(identity, activeProctoringStreams.get(sKey(targetToken)))
+    ) {
+      console.warn(
+        `[live-server] Blocked "${event}" from proctor ${identity?.userId}: session of a course they don't proctor`,
+      );
+      socket.emit("proctoring-auth-error", { event, message: "Not authorized for this session" });
+      return;
+    }
     if (PROCTOR_ONLY_EVENTS.has(event) && !isProctorSocket(socket)) {
       console.warn(
         `[live-server] Blocked proctor-only event "${event}" from non-proctor socket ${socket.id} (user ${identity?.userId})`,
@@ -269,11 +302,12 @@ io.on("connection", (socket: Socket) => {
     "create-room",
     (data: { roomName: string; username: string }, callback) => {
       const roomId = uuidv4();
-      const room: Room = {
+      const room: Room & { tid?: number } = {
         id: roomId,
         name: data.roomName,
         clients: new Map(),
         createdAt: new Date(),
+        tid,
       };
 
       const clientId = uuidv4();
@@ -291,7 +325,7 @@ io.on("connection", (socket: Socket) => {
       rooms.set(roomId, room);
       clients.set(socket.id, { roomId, userId: clientId });
 
-      socket.join(roomId);
+      socket.join(generalRoom(tid, roomId));
 
       console.log(`Room created: ${roomId} by ${data.username}`);
 
@@ -312,7 +346,7 @@ io.on("connection", (socket: Socket) => {
   socket.on("join-room", (payload: JoinRoomPayload, callback) => {
     const room = rooms.get(payload.roomId);
 
-    if (!room) {
+    if (!room || room.tid !== tid) {
       return callback({ success: false, error: "Room not found" });
     }
 
@@ -335,10 +369,10 @@ io.on("connection", (socket: Socket) => {
 
     room.clients.set(clientId, client);
     clients.set(socket.id, { roomId: payload.roomId, userId: clientId });
-    socket.join(payload.roomId);
+    socket.join(generalRoom(tid, payload.roomId));
 
     // Notify other clients in the room
-    socket.to(payload.roomId).emit("user-joined", {
+    socket.to(generalRoom(tid, payload.roomId)).emit("user-joined", {
       userId: clientId,
       username: payload.username,
       role: payload.role,
@@ -365,7 +399,7 @@ io.on("connection", (socket: Socket) => {
   // WebRTC Offer - sent from caller to callee
   socket.on("offer", (payload: OfferPayload) => {
     const room = rooms.get(payload.roomId);
-    if (!room) return;
+    if (!room || room.tid !== tid) return;
 
     const receiver = room.clients.get(payload.receiverId);
     if (receiver) {
@@ -379,7 +413,7 @@ io.on("connection", (socket: Socket) => {
   // WebRTC Answer - sent from callee to caller
   socket.on("answer", (payload: AnswerPayload) => {
     const room = rooms.get(payload.roomId);
-    if (!room) return;
+    if (!room || room.tid !== tid) return;
 
     const receiver = room.clients.get(payload.receiverId);
     if (receiver) {
@@ -393,7 +427,7 @@ io.on("connection", (socket: Socket) => {
   // ICE Candidate exchange
   socket.on("ice-candidate", (payload: IceCandidatePayload) => {
     const room = rooms.get(payload.roomId);
-    if (!room) return;
+    if (!room || room.tid !== tid) return;
 
     const receiver = room.clients.get(payload.receiverId);
     if (receiver) {
@@ -409,12 +443,12 @@ io.on("connection", (socket: Socket) => {
     "toggle-audio",
     (data: { roomId: string; userId: string; enabled: boolean }) => {
       const room = rooms.get(data.roomId);
-      if (!room) return;
+      if (!room || room.tid !== tid) return;
 
       const client = room.clients.get(data.userId);
       if (client) {
         client.isAudioEnabled = data.enabled;
-        socket.to(data.roomId).emit("user-toggled-audio", {
+        socket.to(generalRoom(tid, data.roomId)).emit("user-toggled-audio", {
           userId: data.userId,
           enabled: data.enabled,
         });
@@ -427,12 +461,12 @@ io.on("connection", (socket: Socket) => {
     "toggle-video",
     (data: { roomId: string; userId: string; enabled: boolean }) => {
       const room = rooms.get(data.roomId);
-      if (!room) return;
+      if (!room || room.tid !== tid) return;
 
       const client = room.clients.get(data.userId);
       if (client) {
         client.isVideoEnabled = data.enabled;
-        socket.to(data.roomId).emit("user-toggled-video", {
+        socket.to(generalRoom(tid, data.roomId)).emit("user-toggled-video", {
           userId: data.userId,
           enabled: data.enabled,
         });
@@ -443,7 +477,7 @@ io.on("connection", (socket: Socket) => {
   // Get room state
   socket.on("get-room-state", (roomId: string, callback) => {
     const room = rooms.get(roomId);
-    if (!room) {
+    if (!room || room.tid !== tid) {
       return callback({ error: "Room not found" });
     }
 
@@ -480,7 +514,15 @@ io.on("connection", (socket: Socket) => {
         return;
       }
       const role = decision.role;
-      socket.join("proctoring-" + sessionToken);
+      if (role === "dashboard" && !canControlSession(identity, activeProctoringStreams.get(sKey(sessionToken)))) {
+        socket.emit("proctoring-auth-error", {
+          event: "join-proctoring-session",
+          sessionToken,
+          message: "Not authorized to watch this session",
+        });
+        return;
+      }
+      socket.join(sRoom(sessionToken));
       console.log(
         `Client ${socket.id} (user ${identity?.userId}) joined proctoring session: ${sessionToken} as ${role}`,
       );
@@ -492,9 +534,11 @@ io.on("connection", (socket: Socket) => {
           sessionToken,
         );
 
-        const existingStream = activeProctoringStreams.get(sessionToken);
+        const existingStream = activeProctoringStreams.get(sKey(sessionToken));
         if (!existingStream) {
-          activeProctoringStreams.set(sessionToken, {
+          activeProctoringStreams.set(sKey(sessionToken), {
+            tid,
+            courseId: courseOfSession(identity, sessionToken, activeProctoringStreams.get(sKey(sessionToken))),
             sessionToken,
             student: { first_name: "Student", last_name: "" },
             studentUserId: identity?.userId,
@@ -505,7 +549,7 @@ io.on("connection", (socket: Socket) => {
             lastReconnection: null,
           });
 
-          io.to(PROCTORS_ROOM).emit("stream-started", {
+          toProctors(sessionToken).emit("stream-started", {
             sessionToken,
             student: { first_name: "Student", last_name: "" },
             quiz: { title: "Quiz" },
@@ -525,7 +569,7 @@ io.on("connection", (socket: Socket) => {
         console.log(
           `Dashboard joined session ${sessionToken}, notifying student to reset connection`,
         );
-        socket.to("proctoring-" + sessionToken).emit("dashboard-reconnected", {
+        socket.to(sRoom(sessionToken)).emit("dashboard-reconnected", {
           sessionToken,
           message:
             "Dashboard has reconnected, please reset your WebRTC connection",
@@ -535,7 +579,7 @@ io.on("connection", (socket: Socket) => {
   );
 
   socket.on("leave-proctoring-session", (sessionToken: string) => {
-    socket.leave("proctoring-" + sessionToken);
+    socket.leave(sRoom(sessionToken));
     console.log(`Client ${socket.id} left proctoring session: ${sessionToken}`);
   });
 
@@ -552,10 +596,12 @@ io.on("connection", (socket: Socket) => {
         return;
       }
 
-      const existingStream = activeProctoringStreams.get(sessionToken);
+      const existingStream = activeProctoringStreams.get(sKey(sessionToken));
       const isReconnection = !!existingStream;
 
-      activeProctoringStreams.set(sessionToken, {
+      activeProctoringStreams.set(sKey(sessionToken), {
+            tid,
+            courseId: courseOfSession(identity, sessionToken, activeProctoringStreams.get(sKey(sessionToken))),
         sessionToken,
         student: studentInfo,
         // Verified user id of the streaming socket (studentInfo is client-supplied).
@@ -573,7 +619,7 @@ io.on("connection", (socket: Socket) => {
         sessionToken,
       );
 
-      io.to(PROCTORS_ROOM).emit("stream-started", {
+      toProctors(sessionToken).emit("stream-started", {
         sessionToken,
         student: studentInfo,
         quiz: quizInfo,
@@ -583,7 +629,7 @@ io.on("connection", (socket: Socket) => {
         cameraHidden: cameraHidden ?? false,
       });
 
-      io.to("proctoring-" + sessionToken).emit("stream-started", {
+      io.to(sRoom(sessionToken)).emit("stream-started", {
         sessionToken,
         student: studentInfo,
         quiz: quizInfo,
@@ -606,9 +652,10 @@ io.on("connection", (socket: Socket) => {
   socket.on("student-stream-ended", (sessionToken: string) => {
     console.log("Student stream ended:", sessionToken);
 
-    if (activeProctoringStreams.has(sessionToken)) {
-      activeProctoringStreams.delete(sessionToken);
-      io.to(PROCTORS_ROOM).emit("stream-ended", { sessionToken });
+    if (activeProctoringStreams.has(sKey(sessionToken))) {
+      const proctors = toProctors(sessionToken);
+      activeProctoringStreams.delete(sKey(sessionToken));
+      proctors.emit("stream-ended", { sessionToken });
       console.log(
         "Active proctoring streams count:",
         activeProctoringStreams.size,
@@ -619,9 +666,11 @@ io.on("connection", (socket: Socket) => {
   socket.on("resume-stream", (sessionToken: string) => {
     console.log("Student attempting to resume stream:", sessionToken);
 
-    const existingStream = activeProctoringStreams.get(sessionToken);
+    const existingStream = activeProctoringStreams.get(sKey(sessionToken));
     if (existingStream && !existingStream.socketId) {
-      activeProctoringStreams.set(sessionToken, {
+      activeProctoringStreams.set(sKey(sessionToken), {
+            tid,
+            courseId: courseOfSession(identity, sessionToken, activeProctoringStreams.get(sKey(sessionToken))),
         ...existingStream,
         socketId: socket.id,
         isLive: true,
@@ -629,7 +678,7 @@ io.on("connection", (socket: Socket) => {
         disconnectedAt: null,
       });
 
-      io.to(PROCTORS_ROOM).emit("stream-resumed", {
+      toProctors(sessionToken).emit("stream-resumed", {
         sessionToken,
         resumedAt: new Date(),
         wasDisconnected: true,
@@ -643,7 +692,7 @@ io.on("connection", (socket: Socket) => {
 
   socket.on("get-active-streams", async () => {
     try {
-      const streams = Array.from(activeProctoringStreams.values());
+      const streams = Array.from(activeProctoringStreams.values()).filter((st) => canWatch(identity, st));
       socket.emit("active-streams", streams);
     } catch (error) {
       console.error("Error getting active streams:", error);
@@ -653,7 +702,7 @@ io.on("connection", (socket: Socket) => {
 
   socket.on("student-webrtc-ready", (data: any) => {
     console.log("Student signaled WebRTC readiness:", data);
-    socket.to("proctoring-" + data.sessionToken).emit("student-webrtc-ready", {
+    socket.to(sRoom(data.sessionToken)).emit("student-webrtc-ready", {
       sessionToken: data.sessionToken,
       message: data.message,
       from: socket.id,
@@ -681,7 +730,7 @@ io.on("connection", (socket: Socket) => {
       sessionToken: data.sessionToken,
     };
 
-    const room = "proctoring-" + data.sessionToken;
+    const room = sRoom(data.sessionToken);
     socket.to(room).emit("webrtc-offer", emitData);
   });
 
@@ -691,7 +740,7 @@ io.on("connection", (socket: Socket) => {
       return;
     }
 
-    const room = "proctoring-" + data.sessionToken;
+    const room = sRoom(data.sessionToken);
     socket.to(room).emit("webrtc-answer", {
       answer: data.answer,
       from: socket.id,
@@ -707,7 +756,7 @@ io.on("connection", (socket: Socket) => {
       return;
     }
 
-    socket.to("proctoring-" + data.sessionToken).emit("webrtc-ice-candidate", {
+    socket.to(sRoom(data.sessionToken)).emit("webrtc-ice-candidate", {
       candidate: data.candidate,
       from: socket.id,
       sessionToken: data.sessionToken,
@@ -717,7 +766,7 @@ io.on("connection", (socket: Socket) => {
   socket.on("request-student-audio-confirmation", (data: any) => {
     console.log("Received request for student audio confirmation:", data);
     socket
-      .to("proctoring-" + data.sessionToken)
+      .to(sRoom(data.sessionToken))
       .emit("request-student-audio-confirmation", {
         sessionToken: data.sessionToken,
         volume: data.volume || 0.5,
@@ -729,7 +778,7 @@ io.on("connection", (socket: Socket) => {
   socket.on("student-audio-confirmation", (data: any) => {
     console.log("Received student audio confirmation:", data);
     socket
-      .to("proctoring-" + data.sessionToken)
+      .to(sRoom(data.sessionToken))
       .emit("student-audio-confirmation", {
         sessionToken: data.sessionToken,
         confirmed: data.confirmed,
@@ -739,7 +788,7 @@ io.on("connection", (socket: Socket) => {
 
   socket.on("force-student-audio", (data: any) => {
     console.log("Received force student audio command:", data);
-    socket.to("proctoring-" + data.sessionToken).emit("force-student-audio", {
+    socket.to(sRoom(data.sessionToken)).emit("force-student-audio", {
       sessionToken: data.sessionToken,
       volume: data.volume || 0.5,
       micGain: data.micGain || 0.6,
@@ -752,7 +801,7 @@ io.on("connection", (socket: Socket) => {
     const { sessionToken, message } = data;
 
     // Forward the warning to the student in the proctoring session
-    socket.to("proctoring-" + sessionToken).emit("send-warning-to-student", {
+    socket.to(sRoom(sessionToken)).emit("send-warning-to-student", {
       sessionToken,
       message,
     });
@@ -764,7 +813,7 @@ io.on("connection", (socket: Socket) => {
     const { sessionToken, message } = data;
 
     // Forward the note to the student in the proctoring session
-    socket.to("proctoring-" + sessionToken).emit("send-note-to-student", {
+    socket.to(sRoom(sessionToken)).emit("send-note-to-student", {
       sessionToken,
       message,
     });
@@ -776,7 +825,7 @@ io.on("connection", (socket: Socket) => {
     const { sessionToken, reason } = data;
 
     // Forward the pause command to the student
-    socket.to("proctoring-" + sessionToken).emit("pause-student-exam", {
+    socket.to(sRoom(sessionToken)).emit("pause-student-exam", {
       sessionToken,
       reason: reason || "Exam paused by instructor",
     });
@@ -788,7 +837,7 @@ io.on("connection", (socket: Socket) => {
     const { sessionToken } = data;
 
     // Forward the resume command to the student
-    socket.to("proctoring-" + sessionToken).emit("resume-student-exam", {
+    socket.to(sRoom(sessionToken)).emit("resume-student-exam", {
       sessionToken,
     });
   });
@@ -799,12 +848,12 @@ io.on("connection", (socket: Socket) => {
     const { sessionToken, status } = data;
 
     // Broadcast the status change to all clients in the room and globally
-    socket.to("proctoring-" + sessionToken).emit("exam-status-changed", {
+    socket.to(sRoom(sessionToken)).emit("exam-status-changed", {
       sessionToken,
       status,
     });
 
-    io.to(PROCTORS_ROOM).emit("exam-status-changed", {
+    toProctors(sessionToken).emit("exam-status-changed", {
       sessionToken,
       status,
     });
@@ -816,7 +865,7 @@ io.on("connection", (socket: Socket) => {
     const { sessionToken } = data;
 
     // Forward the restart command to the student
-    socket.to("proctoring-" + sessionToken).emit("restart-student-quiz", {
+    socket.to(sRoom(sessionToken)).emit("restart-student-quiz", {
       sessionToken,
     });
   });
@@ -828,7 +877,7 @@ io.on("connection", (socket: Socket) => {
 
     // Forward the request to the student
     socket
-      .to("proctoring-" + sessionToken)
+      .to(sRoom(sessionToken))
       .emit("request-student-camera-screenshot", {
         sessionToken,
       });
@@ -840,7 +889,7 @@ io.on("connection", (socket: Socket) => {
     const { sessionToken, screenshot } = data;
 
     // Broadcast to instructor dashboard
-    io.to(PROCTORS_ROOM).emit("student-camera-screenshot", {
+    toProctors(sessionToken).emit("student-camera-screenshot", {
       sessionToken,
       screenshot,
       timestamp: new Date(),
@@ -854,7 +903,7 @@ io.on("connection", (socket: Socket) => {
 
     // Forward the request to the student
     socket
-      .to("proctoring-" + sessionToken)
+      .to(sRoom(sessionToken))
       .emit("request-student-interface-screenshot", {
         sessionToken,
       });
@@ -866,7 +915,7 @@ io.on("connection", (socket: Socket) => {
     const { sessionToken, screenshot } = data;
 
     // Broadcast to instructor dashboard
-    io.to(PROCTORS_ROOM).emit("student-interface-screenshot", {
+    toProctors(sessionToken).emit("student-interface-screenshot", {
       sessionToken,
       screenshot,
       timestamp: new Date(),
@@ -877,14 +926,14 @@ io.on("connection", (socket: Socket) => {
     console.log("Received proctoring violation:", data);
     const { sessionToken, quizId, violation } = data;
 
-    socket.to("proctoring-" + sessionToken).emit("proctoring-violation", {
+    socket.to(sRoom(sessionToken)).emit("proctoring-violation", {
       sessionToken,
       quizId,
       violation,
       timestamp: new Date(),
     });
 
-    io.to(PROCTORS_ROOM).emit("global-proctoring-violation", {
+    toProctors(sessionToken).emit("global-proctoring-violation", {
       sessionToken,
       quizId,
       violation,
@@ -896,7 +945,7 @@ io.on("connection", (socket: Socket) => {
     console.log("Received end student quiz command:", data);
     const { sessionToken, reason } = data;
 
-    socket.to("proctoring-" + sessionToken).emit("quiz-terminated", {
+    socket.to(sRoom(sessionToken)).emit("quiz-terminated", {
       sessionToken,
       reason,
       terminatedAt: new Date(),
@@ -910,25 +959,22 @@ io.on("connection", (socket: Socket) => {
     console.log("Client disconnected:", socket.id);
 
     // Handle proctoring stream disconnection
-    for (const [
-      sessionToken,
-      streamData,
-    ] of activeProctoringStreams.entries()) {
+    for (const [key, streamData] of activeProctoringStreams.entries()) {
       if (streamData.socketId === socket.id) {
-        activeProctoringStreams.set(sessionToken, {
+        activeProctoringStreams.set(key, {
           ...streamData,
           socketId: null,
           isLive: false,
           disconnectedAt: new Date(),
         });
 
-        io.to(PROCTORS_ROOM).emit("stream-paused", {
-          sessionToken,
+        io.to(streamTargets(streamData.tid, streamData.courseId)).emit("stream-paused", {
+          sessionToken: streamData.sessionToken,
           reason: "student_disconnected",
           disconnectedAt: new Date(),
         });
 
-        console.log("Marked stream as temporarily disconnected:", sessionToken);
+        console.log("Marked stream as temporarily disconnected:", streamData.sessionToken);
       }
     }
 
@@ -942,16 +988,17 @@ io.on("connection", (socket: Socket) => {
 
 // Helper function to handle leaving a room
 function handleLeaveRoom(socket: Socket, roomId: string, userId: string): void {
+  const tid = getIdentity(socket)?.tid ?? 1;
   const room = rooms.get(roomId);
-  if (!room) return;
+  if (!room || room.tid !== tid) return;
 
   const client = room.clients.get(userId);
   if (!client) return;
 
-  socket.to(roomId).emit("user-left", { userId });
+  socket.to(generalRoom(tid, roomId)).emit("user-left", { userId });
   room.clients.delete(userId);
   clients.delete(socket.id);
-  socket.leave(roomId);
+  socket.leave(generalRoom(tid, roomId));
 
   if (room.clients.size === 0) {
     rooms.delete(roomId);

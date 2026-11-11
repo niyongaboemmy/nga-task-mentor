@@ -1,3 +1,4 @@
+import { tk } from "../../tenancy/keys";
 import OpenAI from "openai";
 import { isFreeModel, freeModels } from "../../services/aiProviders/openrouterProvider";
 import { assertAiApp } from "../../services/aiPolicy";
@@ -209,8 +210,10 @@ const day = () => new Date().toISOString().slice(0, 10);
 let today = day();
 const providerUse = new Map<ProviderId, number>();
 const userUse = new Map<string, number>();
+/** Requests per school today, by kind (TM-14): t<tid>:<kind>. */
+const tenantUse = new Map<string, number>();
 /** Premium questions per user today (agent steps after the first don't count; see streamChat). */
-const premiumUse = new Map<number, number>();
+const premiumUse = new Map<string, number>();
 const cooldown = new Map<ProviderId, number>();
 
 function roll() {
@@ -220,15 +223,34 @@ function roll() {
   providerUse.clear();
   userUse.clear();
   premiumUse.clear();
+  tenantUse.clear();
+}
+
+/**
+ * Per-school daily cap (TM-14): TMCODE_AI_TENANT_{CHAT,AGENT,COMPLETE}_PER_DAY,
+ * 0/unset = no cap. Env for now; package entitlements later.
+ */
+export function tenantLimit(kind: Kind): number {
+  const env = { chat: "TMCODE_AI_TENANT_CHAT_PER_DAY", agent: "TMCODE_AI_TENANT_AGENT_PER_DAY", complete: "TMCODE_AI_TENANT_COMPLETE_PER_DAY" }[kind];
+  return num(process.env[env], 0);
+}
+export function tenantUsed(kind: Kind): number {
+  roll();
+  return tenantUse.get(tk(kind)) ?? 0;
+}
+function assertTenantQuota(kind: Kind) {
+  const limit = tenantLimit(kind);
+  if (limit > 0 && tenantUsed(kind) >= limit)
+    throw new AiError(429, "TENANT_QUOTA", "Your school has used today's TMCode AI allowance. It comes back tomorrow.");
 }
 
 export function premiumUsed(userId: number) {
   roll();
-  return premiumUse.get(userId) ?? 0;
+  return premiumUse.get(tk(userId)) ?? 0;
 }
 function countPremium(userId: number) {
   roll();
-  premiumUse.set(userId, premiumUsed(userId) + 1);
+  premiumUse.set(tk(userId), premiumUsed(userId) + 1);
 }
 
 export function userLimit(kind: Kind) {
@@ -238,11 +260,12 @@ export function userLimit(kind: Kind) {
 }
 export function userUsed(userId: number, kind: Kind) {
   roll();
-  return userUse.get(`${userId}|${kind}`) ?? 0;
+  return userUse.get(tk(`${userId}|${kind}`)) ?? 0;
 }
 function countUse(userId: number, kind: Kind, provider: ProviderId) {
   roll();
-  userUse.set(`${userId}|${kind}`, userUsed(userId, kind) + 1);
+  userUse.set(tk(`${userId}|${kind}`), userUsed(userId, kind) + 1);
+  tenantUse.set(tk(kind), tenantUsed(kind) + 1);
   providerUse.set(provider, (providerUse.get(provider) ?? 0) + 1);
 }
 
@@ -574,6 +597,7 @@ async function streamPaid(
   const step = paidStep(mode, opts.access);
   if (hasImages(messages) && !canSeeImages(step.provider, step.model)) throw new AiError(400, "NO_VISION", NO_VISION);
   const kind: Kind = agent && agent.step > 0 ? "agent" : "chat";
+  assertTenantQuota(kind);
   if (step.tier === "premium" && opts.access?.tier === "premium") {
     // A question counts against the premium allowance; an agent's next steps against the agent allowance.
     if (kind === "chat" && premiumUsed(userId) >= opts.access.limit)
@@ -605,7 +629,7 @@ async function streamPaid(
     if (kind === "chat") countPremium(userId);
     else {
       roll();
-      userUse.set(`${userId}|agent`, userUsed(userId, "agent") + 1);
+      userUse.set(tk(`${userId}|agent`), userUsed(userId, "agent") + 1);
     }
   }
   return { provider: step.provider, model: r.served, tier: step.tier, ...(r.tool_calls ? { tool_calls: r.tool_calls } : {}) };
@@ -632,6 +656,7 @@ export async function streamChat(
   if (parseMode(mode).tier !== "free") return streamPaid(userId, mode, messages, onMeta, onDelta, signal, agent, opts);
   // An agent's first step is the student's question; its next steps (tool results) have their own allowance.
   const kind: Kind = agent && agent.step > 0 ? "agent" : "chat";
+  assertTenantQuota(kind);
   if (userUsed(userId, kind) >= userLimit(kind))
     throw new AiError(429, "USER_QUOTA", kind === "chat" ? `You've used today's ${userLimit("chat")} AI questions. They come back tomorrow.` : `TMCode AI has done today's ${userLimit("agent")} agent steps for you. They come back tomorrow.`);
   let steps = await plan(agent ? "agent" : "chat", mode);
@@ -784,6 +809,7 @@ export async function complete(
     }
   }
   if (parsed.tier === "premium") paidStep(mode, opts.access); // still only for the entitled
+  assertTenantQuota("complete");
   if (userUsed(userId, "complete") >= userLimit("complete")) throw new AiError(429, "USER_QUOTA", "You've used today's AI suggestions. They come back tomorrow.");
   const steps = await plan("complete", parsed.tier === "premium" ? "auto" : mode);
   if (!steps.length) throw new AiError(429, "POOL_EXHAUSTED", "No free AI is left for suggestions today.");

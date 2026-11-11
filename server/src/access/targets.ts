@@ -1,3 +1,4 @@
+import { tk } from "../tenancy/keys";
 import { Request } from "express";
 import { Op } from "sequelize";
 import { AccessSnapshot, scopeFor, Target, Depth } from "../vendor/nga-access";
@@ -15,9 +16,9 @@ import { depthFor } from "./policy";
  */
 
 const TTL_MS = 10 * 60 * 1000;
-const localToMis = new Map<number, { mis: number | null; at: number }>();
-const placements = new Map<number, { t: Target; at: number }>();
-const rosters = new Map<number, { ids: number[]; at: number }>();
+const localToMis = new Map<string, { mis: number | null; at: number }>();
+const placements = new Map<string, { t: Target; at: number }>();
+const rosters = new Map<string, { ids: number[]; at: number }>();
 
 export function clearTargetCaches() {
   localToMis.clear();
@@ -31,7 +32,7 @@ export async function misIdsForLocalUsers(localIds: number[]): Promise<Map<numbe
   const now = Date.now();
   const missing: number[] = [];
   for (const id of new Set(localIds.filter((n) => Number.isInteger(n) && n > 0))) {
-    const c = localToMis.get(id);
+    const c = localToMis.get(tk(id));
     if (c && now - c.at < TTL_MS) {
       if (c.mis) out.set(id, c.mis);
     } else missing.push(id);
@@ -41,7 +42,7 @@ export async function misIdsForLocalUsers(localIds: number[]): Promise<Map<numbe
     const found = new Map(rows.map((u) => [u.id, u.mis_user_id ?? null]));
     for (const id of missing) {
       const mis = found.has(id) ? found.get(id)! : null;
-      localToMis.set(id, { mis, at: now });
+      localToMis.set(tk(id), { mis, at: now });
       if (mis) out.set(id, mis);
     }
   }
@@ -69,14 +70,14 @@ export async function reportCardStudentMisIds(studentIds: number[]): Promise<Map
 export async function studentTarget(req: Request, misStudentId: number, extra: Target = {}): Promise<Target> {
   const base: Target = { studentId: misStudentId, ...extra };
   const now = Date.now();
-  const cached = placements.get(misStudentId);
+  const cached = placements.get(tk(misStudentId));
   if (cached && now - cached.at < TTL_MS) return { ...cached.t, ...base };
   const token = getMisToken(req, { quiet: true });
   if (!token) return base;
   try {
     const p = await fetchStudentPlacement(token, misStudentId);
     const t: Target = p ? { classGroupId: p.classGroupId, gradeId: p.gradeId, programId: p.programId } : {};
-    placements.set(misStudentId, { t, at: now });
+    placements.set(tk(misStudentId), { t, at: now });
     return { ...t, ...base };
   } catch {
     return base; // only student/self scopes can then cover it -- fails narrow
@@ -85,13 +86,13 @@ export async function studentTarget(req: Request, misStudentId: number, extra: T
 
 async function roster(req: Request, classGroupId: number): Promise<number[]> {
   const now = Date.now();
-  const cached = rosters.get(classGroupId);
+  const cached = rosters.get(tk(classGroupId));
   if (cached && now - cached.at < TTL_MS) return cached.ids;
   const token = getMisToken(req, { quiet: true });
   if (!token) return [];
   try {
     const ids = await fetchClassGroupRoster(token, classGroupId);
-    rosters.set(classGroupId, { ids, at: now });
+    rosters.set(tk(classGroupId), { ids, at: now });
     return ids;
   } catch {
     return [];

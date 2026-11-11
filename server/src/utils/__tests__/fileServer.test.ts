@@ -23,6 +23,7 @@ describe("fileServer.uploadFile", () => {
 
     const keys = [...body!.keys()];
     expect(keys).toEqual(["path", "file"]);
-    expect(body!.get("path")).toBe("nga-task-mentor/editor-images/img-1.png");
+    // New writes go under the tenant (CONTRACT.md §8); no context = tenant 1.
+    expect(body!.get("path")).toBe("nga-task-mentor/t/1/editor-images/img-1.png");
   });
 });
