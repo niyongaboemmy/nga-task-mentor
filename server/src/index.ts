@@ -144,6 +144,10 @@ const appCors = cors({
     "Authorization",
     "x-mis-token",
     "X-Db-Access-Token",
+    // Browser saves of a project (client codeApi.saveProjectFiles) send it
+    // with each blob; without it the preflight fails and the PUT never leaves
+    // the browser ("Network Error"), so code couldn't be saved or submitted.
+    "X-Blob-Size",
     // Safe Exam Browser adds these to every request (lockdown_browser).
     "X-SafeExamBrowser-ConfigKeyHash",
     "X-SafeExamBrowser-RequestHash",
@@ -175,6 +179,10 @@ app.use("/api/tmcode", express.json({ limit: "8mb" }), tmcodeRoutes);
 // Practice runs carry whole projects (up to 1 MB of files).
 app.use("/api/code", express.json({ limit: "2mb" }));
 app.use("/api/integration/code", express.json({ limit: "2mb" }));
+// Quiz answers carry coding answers too (a project-mode answer is every file,
+// and the final submit sends all answers at once): past the default 100 kB
+// they were refused with 413.
+app.use("/api/quizzes", express.json({ limit: "2mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
