@@ -86,7 +86,7 @@ beforeEach(() => {
   runnerFeatures = ["sessions"];
   resetSessions();
   clearMisBearerCache();
-  for (const u of [ALICE, BOB]) lessonCodeRunLimiter.resetKey(`lesson-code-run:${u}`);
+  for (const u of [ALICE, BOB]) lessonCodeRunLimiter.resetKey(`t1:lesson-code-run:${u}`);
   mockedGet.mockReset();
   mockedGet.mockImplementation(async (url: string, opts: any) => {
     const auth = opts?.headers?.Authorization;

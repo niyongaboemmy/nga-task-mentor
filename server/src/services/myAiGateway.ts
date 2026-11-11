@@ -1,3 +1,5 @@
+import { tk } from "../tenancy/keys";
+import { tenantHeaders } from "../tenancy/misHttp";
 import { AiDisabledError, getAiPolicy } from "./aiPolicy";
 import { clientBasicAuth } from "../access/misClient";
 import type { AiReason, AiTask } from "../vendor/nga-access";
@@ -138,7 +140,7 @@ async function call(
   try {
     res = await fetch(`${base}/integrations/ai${path}`, {
       method,
-      headers: headersFor(misUserId, method === "POST"),
+      headers: { ...tenantHeaders(), ...headersFor(misUserId, method === "POST") },
       body: method === "POST" ? JSON.stringify(body ?? {}) : undefined,
       signal: AbortSignal.timeout(timeoutMs),
     });
@@ -202,29 +204,30 @@ interface CachedRoutes {
   routes: MyAiRoutes;
   at: number;
 }
-const routesCache = new Map<number, CachedRoutes>();
+const routesCache = new Map<string, CachedRoutes>();
 const MAX_CACHED = 5000;
 /** The last ai_routes_v reported per person by /auth/verify. */
-const routesVersions = new Map<number, number>();
-let lastPolicyV: number | null = null;
+const routesVersions = new Map<string, number>();
+/** The last ai_policy_v per school (policies, and their versions, are per tenant). */
+const lastPolicyV = new Map<string, number>();
 
 /** The person's resolved route map (no secrets) -- 60 s cache. Throws when the MIS can't answer. */
 export async function getRoutes(misUserId: number): Promise<MyAiRoutes> {
-  const hit = routesCache.get(misUserId);
+  const hit = routesCache.get(tk(misUserId));
   if (hit && Date.now() - hit.at < ROUTES_TTL_MS) return hit.routes;
   const out = await call("GET", "/routes", misUserId, undefined, envMs("MY_AI_ROUTES_TIMEOUT_MS", ROUTES_TIMEOUT_MS));
   const routes: MyAiRoutes = out?.data && typeof out.data === "object" ? out.data : { enabled: false };
-  if (routesCache.size >= MAX_CACHED && !routesCache.has(misUserId)) {
+  if (routesCache.size >= MAX_CACHED && !routesCache.has(tk(misUserId))) {
     const oldest = routesCache.keys().next().value;
     if (oldest !== undefined) routesCache.delete(oldest);
   }
-  routesCache.set(misUserId, { routes, at: Date.now() });
+  routesCache.set(tk(misUserId), { routes, at: Date.now() });
   return routes;
 }
 
 /** A fresh cached copy, without asking the MIS. */
 function cachedRoutes(misUserId: number): MyAiRoutes | null {
-  const hit = routesCache.get(misUserId);
+  const hit = routesCache.get(tk(misUserId));
   return hit && Date.now() - hit.at < ROUTES_TTL_MS ? hit.routes : null;
 }
 
@@ -236,19 +239,25 @@ export function noteAiRoutesVersion(misUserId: unknown, v: unknown) {
   const id = Number(misUserId);
   const n = Number(v);
   if (!validMisId(id) || v === null || v === undefined || !Number.isFinite(n)) return;
-  const prev = routesVersions.get(id);
-  routesVersions.set(id, n);
-  const hit = routesCache.get(id);
-  if (prev !== undefined && prev !== n) routesCache.delete(id);
-  else if (hit && hit.routes.v != null && Number(hit.routes.v) !== n) routesCache.delete(id);
+  const prev = routesVersions.get(tk(id));
+  routesVersions.set(tk(id), n);
+  const hit = routesCache.get(tk(id));
+  if (prev !== undefined && prev !== n) routesCache.delete(tk(id));
+  else if (hit && hit.routes.v != null && Number(hit.routes.v) !== n) routesCache.delete(tk(id));
 }
 
 /** Called with /auth/verify's `data.ai_policy_v`: a new school policy can change every route. */
 export function noteMyAiPolicyVersion(v: unknown) {
   const n = Number(v);
   if (v === null || v === undefined || !Number.isFinite(n)) return;
-  if (lastPolicyV !== null && lastPolicyV !== n) routesCache.clear();
-  lastPolicyV = n;
+  const key = tk("ai-policy-v");
+  const prev = lastPolicyV.get(key);
+  if (prev !== undefined && prev !== n) {
+    // Only this school's routes: tk keys are "t<tid>:…".
+    const prefix = tk("");
+    for (const k of [...routesCache.keys()]) if (k.startsWith(prefix)) routesCache.delete(k);
+  }
+  lastPolicyV.set(key, n);
 }
 
 /** Both versions from one /auth/verify answer. */
@@ -261,7 +270,7 @@ export function noteMyAiVersions(misUserId: unknown, data: any) {
 export function resetMyAiCache() {
   routesCache.clear();
   routesVersions.clear();
-  lastPolicyV = null;
+  lastPolicyV.clear();
 }
 
 // ─── The policy gate ─────────────────────────────────────────────────────────

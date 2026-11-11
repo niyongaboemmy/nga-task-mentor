@@ -8,6 +8,7 @@ import { applyEnforcedPermissions } from "../access/policy";
 import { noteAccessVersion } from "../access/snapshot";
 import { noteAiPolicyVersion } from "../services/aiPolicy";
 import { noteMyAiVersions } from "../services/myAiGateway";
+import { enterTenant, headerTid, resolveTenant, sendTenantGate, sendTenantMismatch, tidFromMisAuth } from "../tenancy/request";
 
 /**
  * Authentication for /api/integration/* only: the caller (the MIS backend,
@@ -34,6 +35,8 @@ const MAX_CACHED = 1000;
 
 interface Verified {
   misUserId: number;
+  /** Tenant the MIS token belongs to (null = legacy token, legacy default refused). */
+  tid: number | null;
   at: number;
 }
 
@@ -49,13 +52,13 @@ export const misBearerCacheSize = () => verified.size;
 
 const tokenKey = (token: string) => crypto.createHash("sha256").update(token).digest("hex");
 
-function remember(key: string, misUserId: number) {
+function remember(key: string, misUserId: number, tid: number | null) {
   if (verified.size >= MAX_CACHED && !verified.has(key)) {
     // Drop the oldest entry (Map keeps insertion order).
     const oldest = verified.keys().next().value;
     if (oldest !== undefined) verified.delete(oldest);
   }
-  verified.set(key, { misUserId, at: Date.now() });
+  verified.set(key, { misUserId, tid, at: Date.now() });
 }
 
 const invalid = (res: Response) =>
@@ -68,9 +71,11 @@ export const misBearerAuth = async (req: Request, res: Response, next: NextFunct
 
   const key = tokenKey(token);
   let misUserId: number | null = null;
+  let tid: number | null = null;
   const cached = verified.get(key);
   if (cached && Date.now() - cached.at < VERIFY_TTL_MS) {
     misUserId = cached.misUserId;
+    tid = cached.tid;
   } else {
     if (cached) verified.delete(key);
     try {
@@ -82,7 +87,8 @@ export const misBearerAuth = async (req: Request, res: Response, next: NextFunct
       const id = Number(data.userId);
       if (!Number.isInteger(id) || id <= 0) return invalid(res);
       misUserId = id;
-      remember(key, id);
+      tid = tidFromMisAuth(token, data, response.data);
+      remember(key, id, tid);
       // A changed access_version invalidates the cached access snapshot.
       noteAccessVersion(id, data.access_version);
       // A changed ai_policy_v means the super admin changed the AI policy.
@@ -97,6 +103,15 @@ export const misBearerAuth = async (req: Request, res: Response, next: NextFunct
     }
   }
 
+  // Tenancy: the MIS token names the school; a relayed X-NGA-Tenant must agree.
+  const gate = await resolveTenant(tid);
+  if (!gate.ok) return sendTenantGate(res, gate);
+  const claimed = headerTid(req);
+  if (claimed !== null && claimed !== gate.tenant.tid) return sendTenantMismatch(res);
+  return enterTenant(req, gate.tenant, () => provisionedUser(req, res, next, misUserId!, token));
+};
+
+async function provisionedUser(req: Request, res: Response, next: NextFunction, misUserId: number, token: string) {
   try {
     (req as any).misUserId = misUserId;
     // The bearer is authoritative for this request: getMisToken() prefers a
@@ -123,6 +138,7 @@ export const misBearerAuth = async (req: Request, res: Response, next: NextFunct
       roleName: user.roleRecord?.name,
       permissions: new Set(permissionKeys),
       mis_user_id: user.mis_user_id,
+      tid: req.tenant?.tid,
       termId: undefined,
       academicYearId: undefined,
     };
@@ -134,4 +150,4 @@ export const misBearerAuth = async (req: Request, res: Response, next: NextFunct
     console.error("misBearerAuth error:", error);
     return res.status(500).json({ success: false, message: "Server error during authentication" });
   }
-};
+}

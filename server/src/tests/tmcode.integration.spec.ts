@@ -59,7 +59,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   jest.spyOn(aiService, "gradeCoding").mockRejectedValue(new Error("no AI in tests"));
-  tmcodeServerRunLimiter.resetKey(`tmcode-run:${studentId}`);
+  tmcodeServerRunLimiter.resetKey(`t1:tmcode-run:${studentId}`);
 });
 afterEach(() => jest.restoreAllMocks());
 
@@ -214,9 +214,10 @@ describe("launch and sessions (PROTOCOL.md §1)", () => {
     const { quiz } = await makeQuiz();
     const l = await launch(quiz.id);
     expect(l.status).toBe(200);
-    expect(l.body.ticket).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    // `t<tid>.` names the school so the unauthenticated redeem opens its database.
+    expect(l.body.ticket).toMatch(/^t1\.[A-Za-z0-9_-]{43}$/);
     expect(l.body.deeplink).toMatch(
-      new RegExp(`^tmcode://launch\\?t=${l.body.ticket}&api=http%3A%2F%2F127\\.0\\.0\\.1%3A\\d+$`),
+      new RegExp(`^tmcode://launch\\?t=${l.body.ticket.replace(".", "\\.")}&api=http%3A%2F%2F127\\.0\\.0\\.1%3A\\d+$`),
     );
     expect(new Date(l.body.expires_at).getTime() - Date.now()).toBeLessThanOrEqual(120_000);
     // stored hashed only

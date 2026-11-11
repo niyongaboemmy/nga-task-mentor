@@ -1,4 +1,4 @@
-import { MONITOR_TOPIC, projectsBus, projectTopic } from "./bus";
+import { busTid, monitorTopic, projectsBus, projectTopic } from "./bus";
 import { presenceStaleMs } from "./limits";
 import { PresenceJson, UserBrief } from "./serialize";
 
@@ -19,6 +19,8 @@ export interface MonitorProject {
 }
 
 export interface MonitorEntry {
+  /** The school the project belongs to; monitor subscribers drop any other tid. */
+  tid?: number;
   project: MonitorProject;
   course_ids: number[];
   presence: PresenceJson;
@@ -29,7 +31,10 @@ export interface MonitorEntry {
 const tracked = new Map<string, MonitorEntry>();
 let sweeper: NodeJS.Timeout | null = null;
 
-const keyOf = (e: PresenceJson) => `${e.project_id}:${e.user_id}:${e.device_id}`;
+// Project/user ids repeat across schools: the tracked key carries the tenant,
+// and the stale sweep (a timer, outside any request) publishes to the entry's
+// own tenant's topics.
+const keyOf = (tid: number, e: PresenceJson) => `t${tid}:${e.project_id}:${e.user_id}:${e.device_id}`;
 
 /**
  * `shared` false (the owner turned "Share live status" off): the heartbeat
@@ -37,15 +42,16 @@ const keyOf = (e: PresenceJson) => `${e.project_id}:${e.user_id}:${e.device_id}`
  * stream itself hides it from teachers) but never the monitor.
  */
 export function publishPresence(project: MonitorProject, courseIds: number[], entry: PresenceJson, shared = true) {
-  projectsBus.publish(projectTopic(project.id), "presence", entry);
+  const tid = busTid();
+  projectsBus.publish(projectTopic(project.id, tid), "presence", entry);
   if (!shared) {
-    withdrawPresence(project.id);
+    withdrawPresence(project.id, tid);
     return;
   }
-  const monitorEntry: MonitorEntry = { project, course_ids: courseIds, presence: entry };
-  projectsBus.publish(MONITOR_TOPIC, "presence", monitorEntry);
-  if (entry.online) tracked.set(keyOf(entry), monitorEntry);
-  else tracked.delete(keyOf(entry));
+  const monitorEntry: MonitorEntry = { tid, project, course_ids: courseIds, presence: entry };
+  projectsBus.publish(monitorTopic(tid), "presence", monitorEntry);
+  if (entry.online) tracked.set(keyOf(tid, entry), monitorEntry);
+  else tracked.delete(keyOf(tid, entry));
   if (tracked.size > 0 && !sweeper) {
     sweeper = setInterval(() => sweepPresence(), 10_000);
     (sweeper as any).unref?.();
@@ -56,12 +62,12 @@ export function publishPresence(project: MonitorProject, courseIds: number[], en
  * Take a project off the monitors (sharing turned off): every device still
  * tracked as online is announced offline on the monitor stream only.
  */
-export function withdrawPresence(projectId: number): number {
+export function withdrawPresence(projectId: number, tid: number = busTid()): number {
   let n = 0;
   for (const [key, e] of tracked) {
-    if (e.project.id !== projectId) continue;
+    if (e.project.id !== projectId || e.tid !== tid) continue;
     tracked.delete(key);
-    projectsBus.publish(MONITOR_TOPIC, "presence", { ...e, presence: { ...e.presence, online: false }, withdrawn: true });
+    projectsBus.publish(monitorTopic(tid), "presence", { ...e, presence: { ...e.presence, online: false }, withdrawn: true });
     n++;
   }
   return n;
@@ -75,8 +81,8 @@ export function sweepPresence(now = Date.now()): number {
     if (now - seen < presenceStaleMs()) continue;
     tracked.delete(key);
     const offline = { ...e.presence, online: false };
-    projectsBus.publish(projectTopic(e.project.id), "presence", offline);
-    projectsBus.publish(MONITOR_TOPIC, "presence", { ...e, presence: offline });
+    projectsBus.publish(projectTopic(e.project.id, e.tid), "presence", offline);
+    projectsBus.publish(monitorTopic(e.tid), "presence", { ...e, presence: offline });
     n++;
   }
   if (tracked.size === 0 && sweeper) {

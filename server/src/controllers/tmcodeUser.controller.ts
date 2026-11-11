@@ -9,6 +9,7 @@ import { noteAccessVersion } from "../access/snapshot";
 import { noteAiPolicyVersion } from "../services/aiPolicy";
 import { upsertMisUser } from "../services/misUserSync";
 import { signTmcodeUserToken } from "../tmcode/userToken";
+import { enterTenant, resolveTenant, tidFromMisAuth } from "../tenancy/request";
 
 /**
  * TMCode sign-in (PROJECTS_PLAN.md §1). TMCode signs in with MIS (desktop
@@ -61,10 +62,12 @@ export const exchange = async (req: Request, res: Response) => {
   const headers = { Authorization: `Bearer ${misToken}` };
 
   let misUserId: number;
+  let tid: number | null;
   try {
     const verify = await axios.get(`${base}/auth/verify`, { headers, timeout: 10_000 });
     const data = verify.data?.data ?? {};
     misUserId = Number(data.userId);
+    tid = tidFromMisAuth(misToken, data, verify.data);
     if (!Number.isInteger(misUserId) || misUserId <= 0) {
       return tmcodeError(res, 401, "MIS_TOKEN_INVALID", "Your NGA session is invalid. Sign in again.");
     }
@@ -79,6 +82,15 @@ export const exchange = async (req: Request, res: Response) => {
     return tmcodeError(res, 503, "MIS_UNAVAILABLE", "Could not reach NGA to check your sign-in. Try again shortly.");
   }
 
+  // Tenancy: the account is created/looked up in the MIS user's own school.
+  const gate = await resolveTenant(tid);
+  if (!gate.ok) return tmcodeError(res, gate.status, gate.code, gate.message);
+  return enterTenant(req, gate.tenant, () => finishExchange(req, res, misToken, misUserId));
+};
+
+async function finishExchange(req: Request, res: Response, misToken: string, misUserId: number) {
+  const base = process.env.NGA_MIS_BASE_URL;
+  const headers = { Authorization: `Bearer ${misToken}` };
   let user: User | null = null;
   try {
     const me = await axios.get(`${base}/users/me`, { headers, timeout: 15_000 });
@@ -110,7 +122,7 @@ export const exchange = async (req: Request, res: Response) => {
     expires_at: expiresAt.toISOString(),
     user: userJson(user, permissions),
   });
-};
+}
 
 // @desc    The signed-in user and their permissions (TMCode polls it every
 //          10 minutes; 401 SESSION_ENDED after an MIS sign-out).

@@ -101,7 +101,7 @@ beforeEach(async () => {
   sent.length = 0;
   resetJudgeInfo();
   await refreshJudgeInfo();
-  codeRunLimiter.resetKey(`code-run:${userId}`);
+  codeRunLimiter.resetKey(`t1:code-run:${userId}`);
 });
 afterAll(async () => {
   process.env = ENV;

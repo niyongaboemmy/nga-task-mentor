@@ -6,6 +6,8 @@
  * pipe it to a response or write it to disk without blocking the event loop.
  */
 
+import { getBranding, getGradingBands } from "./tenantSettings";
+import { currentTenantOrNull } from "../vendor/nga-tenancy";
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
 import fileServer from "../utils/fileServer";
@@ -152,7 +154,15 @@ function drawTable(
 // ─── PDF generator ────────────────────────────────────────────────────────────
 
 export async function generateReportCardPdf(data: ReportCardPdfData): Promise<Buffer> {
-  const verificationUrl = `${data.verification_base_url}/api/public/verify/report-card/${data.uuid}`;
+  // The school's own header and grade scale (TM-12); loads the band cache
+  // percentageToLetter/Remark read below.
+  const brand = await getBranding();
+  await getGradingBands();
+  // The public verify route needs the school for any tenant but the primary.
+  const tenant = currentTenantOrNull();
+  const verificationUrl = `${data.verification_base_url}/api/public/verify/report-card/${data.uuid}${
+    tenant && !tenant.isPrimary ? `?tid=${tenant.tid}` : ""
+  }`;
 
   // Generate QR code as a PNG Buffer
   const qrBuffer: Buffer = await QRCode.toBuffer(verificationUrl, {
@@ -190,7 +200,7 @@ export async function generateReportCardPdf(data: ReportCardPdfData): Promise<Bu
       .font(FONTS.bold)
       .fontSize(16)
       .fillColor(COLORS.white)
-      .text("NATIONAL GRAMMAR ACADEMY", margin, y + 10, {
+      .text(brand.name, margin, y + 10, {
         width: contentWidth,
         align: "center",
         lineBreak: false,
@@ -200,7 +210,7 @@ export async function generateReportCardPdf(data: ReportCardPdfData): Promise<Bu
       .font(FONTS.normal)
       .fontSize(9)
       .fillColor("#AAD4FF")
-      .text("P.O. Box 1234, Kigali, Rwanda  |  www.nga.ac.rw", margin, y + 31, {
+      .text(brand.address_line, margin, y + 31, {
         width: contentWidth,
         align: "center",
         lineBreak: false,
@@ -448,6 +458,8 @@ export interface AnnualReportCardPdfData {
 export async function generateAnnualReportCardPdf(
   data: AnnualReportCardPdfData,
 ): Promise<Buffer> {
+  const brand = await getBranding();
+  await getGradingBands();
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: "A4",
@@ -472,9 +484,9 @@ export async function generateAnnualReportCardPdf(
     // ── Header band ────────────────────────────────────────────────────────
     doc.rect(margin, y, contentWidth, 70).fill(COLORS.primary);
     doc.font(FONTS.bold).fontSize(16).fillColor(COLORS.white)
-      .text("NATIONAL GRAMMAR ACADEMY", margin, y + 10, { width: contentWidth, align: "center", lineBreak: false });
+      .text(brand.name, margin, y + 10, { width: contentWidth, align: "center", lineBreak: false });
     doc.font(FONTS.normal).fontSize(9).fillColor("#AAD4FF")
-      .text("P.O. Box 1234, Kigali, Rwanda  |  www.nga.ac.rw", margin, y + 31, { width: contentWidth, align: "center", lineBreak: false });
+      .text(brand.address_line, margin, y + 31, { width: contentWidth, align: "center", lineBreak: false });
     doc.font(FONTS.bold).fontSize(11).fillColor(COLORS.white)
       .text("ANNUAL ACADEMIC SUMMARY", margin, y + 47, { width: contentWidth, align: "center", lineBreak: false });
     y += 78;

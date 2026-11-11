@@ -1,3 +1,4 @@
+import { tk } from "../tenancy/keys";
 import { dropInactiveKeyed } from "../utils/activeUsers";
 import { Request, Response } from "express";
 import { Op, fn, col } from "sequelize";
@@ -75,7 +76,7 @@ async function loadAdminData(req: Request, fresh: boolean): Promise<AdminData> {
   if (scope !== "all") throw new NotSchoolWideError("These reports need school-wide access");
 
   const key = [req.user?.id, term_id ?? "", names.term ?? "", names.academicYear ?? ""].join(":");
-  const hit = cache.get(key);
+  const hit = cache.get(tk(key));
   if (!fresh && hit && Date.now() - hit.at < TTL_MS) return hit;
 
   const ids = scoped.map((s) => s.id);
@@ -163,7 +164,7 @@ async function loadAdminData(req: Request, fresh: boolean): Promise<AdminData> {
     const oldest = cache.keys().next().value;
     if (oldest !== undefined) cache.delete(oldest);
   }
-  cache.set(key, data);
+  cache.set(tk(key), data);
   return data;
 }
 

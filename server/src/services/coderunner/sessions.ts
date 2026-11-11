@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { ctid } from "../../tenancy/keys";
 import { judgeHas } from "./judgeInfo";
 
 /**
@@ -20,6 +21,8 @@ import { judgeHas } from "./judgeInfo";
 export interface SessionRecord {
   id: string;
   runnerId: string;
+  /** Local user ids repeat across schools: a record is someone's only within its tenant. */
+  tid: number;
   userId: number;
   createdAt: number;
   closed: boolean;
@@ -92,9 +95,10 @@ export async function startSession(
   userId: number,
   body: { language?: string | null; kind?: string | null; files: { path: string; content: string }[]; entry?: string | null; pty?: boolean },
 ): Promise<SessionRecord> {
+  const tid = ctid();
   if (!(await sessionsReady())) throw new SessionError(409, "INTERACTIVE_UNAVAILABLE", "Interactive runs aren't available here yet: use Run with input.");
   sweep();
-  for (const s of byId.values()) if (s.userId === userId && !s.closed) void stopSession(s);
+  for (const s of byId.values()) if (s.tid === tid && s.userId === userId && !s.closed) void stopSession(s);
   // A real terminal only where the runner has one (containers).
   const { pty, ...given } = body;
   // Absent, not null: the runner takes a missing language/kind/entry as "detect it".
@@ -112,14 +116,14 @@ export async function startSession(
     throw new SessionError(422, data?.error_code ?? data?.code ?? "RUNNER_REJECTED", data?.message ?? data?.error ?? "The code runner refused to start this program.");
   }
   const data: any = await res.json();
-  const record: SessionRecord = { id: crypto.randomBytes(12).toString("hex"), runnerId: String(data.id), userId, createdAt: Date.now(), closed: false };
+  const record: SessionRecord = { id: crypto.randomBytes(12).toString("hex"), runnerId: String(data.id), tid, userId, createdAt: Date.now(), closed: false };
   byId.set(record.id, record);
   return record;
 }
 
 export function getSession(id: string, userId: number): SessionRecord {
   const s = byId.get(id);
-  if (!s || s.userId !== userId) throw new SessionError(404, "SESSION_NOT_FOUND", "This run has ended. Run your program again.");
+  if (!s || s.userId !== userId || s.tid !== ctid()) throw new SessionError(404, "SESSION_NOT_FOUND", "This run has ended. Run your program again.");
   return s;
 }
 

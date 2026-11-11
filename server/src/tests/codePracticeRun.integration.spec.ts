@@ -24,7 +24,7 @@ beforeAll(async () => {
   token = signTokenFor(student.id);
   delete process.env.CODERUNNER_ENGINE; // Judge0, stubbed
 });
-beforeEach(() => codeRunLimiter.resetKey(`code-run:${studentId}`));
+beforeEach(() => codeRunLimiter.resetKey(`t1:code-run:${studentId}`));
 afterEach(() => jest.restoreAllMocks());
 afterAll(async () => {
   process.env = ENV;

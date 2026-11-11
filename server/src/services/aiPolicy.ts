@@ -9,6 +9,7 @@ import {
   type AiReason,
 } from "../vendor/nga-access";
 import { clientBasicAuth } from "../access/misClient";
+import { tk } from "../tenancy/keys";
 
 /**
  * The school-wide AI policy, owned by NGA MIS (AI_USAGE_CONTROL_PLAN.md §4-5):
@@ -41,9 +42,19 @@ interface Cached {
   fresh: boolean;
 }
 
-let cached: Cached | null = null;
-let inflight: Promise<AiPolicy | null> | null = null;
-let lastFailureAt = 0;
+// One policy per school (MIS answers for the X-NGA-Tenant the request runs in).
+interface PolicyState {
+  cached: Cached | null;
+  inflight: Promise<AiPolicy | null> | null;
+  lastFailureAt: number;
+}
+const states = new Map<string, PolicyState>();
+function st(): PolicyState {
+  const key = tk("ai-policy");
+  let s = states.get(key);
+  if (!s) states.set(key, (s = { cached: null, inflight: null, lastFailureAt: 0 }));
+  return s;
+}
 let warnedAt = 0;
 /** undefined: no override; null or a policy: what tests asked for. */
 let override: AiPolicy | null | undefined;
@@ -64,18 +75,19 @@ export async function fetchAiPolicyFromMis(): Promise<AiPolicy> {
 }
 
 function staleCopy(now: number): AiPolicy | null {
+  const cached = st().cached;
   return cached && now - cached.fetchedAt < STALE_GRACE_MS ? cached.policy : null;
 }
 
 async function refresh(): Promise<AiPolicy | null> {
   try {
     const policy = await fetchAiPolicyFromMis();
-    cached = { policy, fetchedAt: Date.now(), fresh: true };
-    lastFailureAt = 0;
+    st().cached = { policy, fetchedAt: Date.now(), fresh: true };
+    st().lastFailureAt = 0;
     return policy;
   } catch (err: any) {
     const now = Date.now();
-    lastFailureAt = now;
+    st().lastFailureAt = now;
     if (now - warnedAt > 60_000) {
       warnedAt = now;
       console.warn(`[ai-policy] MIS fetch failed (${err?.message ?? err}); ${staleCopy(now) ? "using the last good copy" : "AI is off until MIS answers"}`);
@@ -88,10 +100,11 @@ async function refresh(): Promise<AiPolicy | null> {
 export async function getAiPolicy(): Promise<AiPolicy | null> {
   if (override !== undefined) return override;
   const now = Date.now();
+  const cached = st().cached;
   if (cached?.fresh && now - cached.fetchedAt < TTL_MS) return cached.policy;
-  if (lastFailureAt && now - lastFailureAt < RETRY_AFTER_FAILURE_MS) return staleCopy(now);
-  if (!inflight) inflight = refresh().finally(() => (inflight = null));
-  return inflight;
+  if (st().lastFailureAt && now - st().lastFailureAt < RETRY_AFTER_FAILURE_MS) return staleCopy(now);
+  if (!st().inflight) st().inflight = refresh().finally(() => (st().inflight = null));
+  return st().inflight;
 }
 
 /**
@@ -100,8 +113,8 @@ export async function getAiPolicy(): Promise<AiPolicy | null> {
  */
 export async function refreshAiPolicyNow(): Promise<AiPolicy | null> {
   if (override !== undefined) return override;
-  if (!inflight) inflight = refresh().finally(() => (inflight = null));
-  return inflight;
+  if (!st().inflight) st().inflight = refresh().finally(() => (st().inflight = null));
+  return st().inflight;
 }
 
 /**
@@ -110,6 +123,7 @@ export async function refreshAiPolicyNow(): Promise<AiPolicy | null> {
  */
 export function noteAiPolicyVersion(v: unknown) {
   const n = Number(v);
+  const cached = st().cached;
   if (v === null || v === undefined || !Number.isFinite(n) || !cached) return;
   if (cached.policy.v !== n) cached.fresh = false;
 }
@@ -170,9 +184,7 @@ export function setAiPolicyForTests(
 
 /** Forget the cache, the failure back-off and any override. */
 export function resetAiPolicyCache() {
-  cached = null;
-  inflight = null;
-  lastFailureAt = 0;
+  states.clear();
   warnedAt = 0;
   override = undefined;
 }

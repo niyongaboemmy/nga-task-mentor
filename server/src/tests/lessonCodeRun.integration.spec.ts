@@ -36,7 +36,7 @@ beforeAll(async () => {
 });
 beforeEach(() => {
   clearMisBearerCache();
-  lessonCodeRunLimiter.resetKey(`lesson-code-run:${MIS_USER}`);
+  lessonCodeRunLimiter.resetKey(`t1:lesson-code-run:${MIS_USER}`);
   mockedGet.mockReset();
   mockedGet.mockImplementation(async (url: string, opts: any) => {
     if (String(url).endsWith("/auth/verify") && opts?.headers?.Authorization === `Bearer ${TOKEN}`) {

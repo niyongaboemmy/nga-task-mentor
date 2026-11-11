@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { ctid } from "../../tenancy/keys";
 import { judgeHas } from "./judgeInfo";
 
 /**
@@ -20,6 +21,8 @@ import { judgeHas } from "./judgeInfo";
 export interface PreviewRecord {
   id: string;
   runnerId: string;
+  /** Local user ids repeat across schools: a record is someone's only within its tenant. */
+  tid: number;
   userId: number;
   createdAt: number;
   closed: boolean;
@@ -80,10 +83,11 @@ export async function startPreview(
   userId: number,
   body: { language?: string | null; kind?: string | null; files: { path: string; content: string }[]; entry?: string | null },
 ): Promise<PreviewRecord> {
+  const tid = ctid();
   if (!previewsAvailable()) throw new PreviewError(409, "PREVIEWS_UNAVAILABLE", "Running web servers isn't available here yet.");
   sweep();
   // One preview per person: a new one replaces the old.
-  for (const p of byId.values()) if (p.userId === userId && !p.closed) void stopPreview(p);
+  for (const p of byId.values()) if (p.tid === tid && p.userId === userId && !p.closed) void stopPreview(p);
   const res = await runner("/v1/previews", { method: "POST", headers: headers(), body: JSON.stringify(body), timeoutMs: 30_000 });
   if (res.status === 429 || res.status === 503) throw new PreviewError(503, "RUNNER_BUSY", "Lots of servers are running right now. Try again in a moment.");
   if (!res.ok) {
@@ -91,14 +95,14 @@ export async function startPreview(
     throw new PreviewError(422, data?.code ?? "RUNNER_REJECTED", data?.message ?? data?.error ?? "The code runner couldn't start this server.");
   }
   const data: any = await res.json();
-  const record: PreviewRecord = { id: crypto.randomBytes(12).toString("hex"), runnerId: String(data.id), userId, createdAt: Date.now(), closed: false };
+  const record: PreviewRecord = { id: crypto.randomBytes(12).toString("hex"), runnerId: String(data.id), tid, userId, createdAt: Date.now(), closed: false };
   byId.set(record.id, record);
   return record;
 }
 
 export function getPreview(id: string, userId: number): PreviewRecord {
   const p = byId.get(id);
-  if (!p || p.userId !== userId) throw new PreviewError(404, "PREVIEW_NOT_FOUND", "This server has stopped. Start it again.");
+  if (!p || p.userId !== userId || p.tid !== ctid()) throw new PreviewError(404, "PREVIEW_NOT_FOUND", "This server has stopped. Start it again.");
   return p;
 }
 

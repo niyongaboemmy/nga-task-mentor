@@ -7,9 +7,11 @@ import {
   User,
 } from "../models";
 import { sequelize } from "../config/database";
+import { tk } from "../tenancy/keys";
 import { Op } from "sequelize";
 import { getCurrentTermId } from "../utils/misUtils";
-import { signLiveSocketTicket } from "../utils/liveSocketTicket";
+import { isLiveProctor, ProctorScope, signLiveSocketTicket } from "../utils/liveSocketTicket";
+import { getScopedSubjects } from "../utils/scopedSubjects";
 import type { Target } from "../vendor/nga-access";
 import { accessMode } from "../access/mode";
 import { denyResponse, depthAtTarget, once, scopedAllow, scopedFilter } from "../access/policy";
@@ -47,7 +49,7 @@ const maySuperviseSession = (req: Request, session: ProctoringSession) =>
     legacy: true,
   });
 
-// Store active WebRTC connections for live streaming
+// Store active WebRTC connections for live streaming (tk-keyed: tokens embed repeating quiz/user ids)
 const activeStreams = new Map<
   string,
   { instructorSocketId?: string; studentSocketId?: string }
@@ -1139,8 +1141,8 @@ export const joinLiveStream = async (req: Request, res: Response) => {
     }
 
     // Store instructor connection for this session
-    activeStreams.set(sessionToken, {
-      ...activeStreams.get(sessionToken),
+    activeStreams.set(tk(sessionToken), {
+      ...activeStreams.get(tk(sessionToken)),
       instructorSocketId: req.body.socketId,
     });
 
@@ -1198,13 +1200,13 @@ export const leaveLiveStream = async (req: Request, res: Response) => {
   try {
     const { sessionToken } = req.params;
 
-    const streamData = activeStreams.get(sessionToken);
+    const streamData = activeStreams.get(tk(sessionToken));
     if (streamData) {
       delete streamData.instructorSocketId;
       if (!streamData.studentSocketId) {
-        activeStreams.delete(sessionToken);
+        activeStreams.delete(tk(sessionToken));
       } else {
-        activeStreams.set(sessionToken, streamData);
+        activeStreams.set(tk(sessionToken), streamData);
       }
     }
 
@@ -1621,6 +1623,36 @@ const emptyAnalytics = () => ({
   sessionDetails: [],
 });
 
+/**
+ * TM-9: the courses whose live streams a proctor may watch. School-wide staff
+ * (subject scope "all", or QUIZZES_MANAGE_ANY) watch every course; a teacher
+ * only their MIS-assigned subjects. A failed MIS lookup yields no courses.
+ */
+export async function proctorScope(req: Request): Promise<ProctorScope> {
+  const perms: Set<string> = req.user?.permissions ?? new Set();
+  if (perms.has("QUIZZES_MANAGE_ANY")) return "all";
+  try {
+    const { scope, subjects } = await getScopedSubjects(req);
+    if (scope === "all") return "all";
+    return subjects.map((s) => s.id);
+  } catch {
+    return [];
+  }
+}
+
+/** The caller's own open proctoring sessions -> the course of each one's quiz. */
+export async function ownLiveSessions(userId: number): Promise<Record<string, number | null>> {
+  const rows = await ProctoringSession.findAll({
+    where: { student_id: userId, status: { [Op.in]: ["setup", "active", "paused", "flagged"] } } as any,
+    include: [{ model: Quiz, as: "quiz", attributes: ["id", "course_id"] }],
+    order: [["id", "DESC"]],
+    limit: 20,
+  });
+  const out: Record<string, number | null> = {};
+  for (const r of rows as any[]) out[r.session_token] = r.quiz?.course_id ?? null;
+  return out;
+}
+
 // @desc    Issue a short-lived ticket for authenticating to the live
 //          proctoring socket server (live-server/). The ticket carries the
 //          verified user id and whether they may act as a proctor, so the
@@ -1629,9 +1661,11 @@ const emptyAnalytics = () => ({
 // @access  Private (any authenticated user)
 export const getLiveSocketTicket = async (req: Request, res: Response) => {
   try {
-    const { ticket, proctor, expiresIn } = signLiveSocketTicket({
-      id: req.user.id,
-      permissions: req.user.permissions,
+    const user = { id: req.user.id, permissions: req.user.permissions };
+    const { ticket, proctor, expiresIn } = signLiveSocketTicket(user, undefined, {
+      tid: req.tenant?.tid,
+      courses: isLiveProctor(user.permissions) ? await proctorScope(req) : undefined,
+      sessions: await ownLiveSessions(req.user.id),
     });
     return res.status(200).json({ success: true, ticket, proctor, expiresIn });
   } catch (error) {

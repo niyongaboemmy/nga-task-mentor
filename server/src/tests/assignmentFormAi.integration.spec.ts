@@ -155,7 +155,8 @@ describe("POST /api/media/editor-images", () => {
       { filename: "Screenshot 2026-10-06.png", contentType: "image/png" },
     );
     expect(res.status).toBe(201);
-    expect(res.body.data.url).toMatch(/^\/uploads\/editor-images\/img-\d+-\d+-screenshot_2026_10_06\.png$/);
+    // The media key (?t=&k=) lets <img> load it without a session (routes/uploads.ts).
+    expect(res.body.data.url).toMatch(/^\/uploads\/editor-images\/img-\d+-\d+-screenshot_2026_10_06\.png\?t=1&k=[\w-]+$/);
     expect(res.body.data.type).toBe("image/png");
     expect(uploadSpy).toHaveBeenCalledWith(expect.any(Buffer), expect.stringMatching(/^editor-images\//));
   });

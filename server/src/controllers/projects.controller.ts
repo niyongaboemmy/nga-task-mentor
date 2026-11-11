@@ -34,7 +34,7 @@ import {
   teacherCanSeeActivity,
   userMayUseActivity,
 } from "../tmcode/projects/access";
-import { MONITOR_TOPIC, openSse, projectsBus, projectTopic } from "../tmcode/projects/bus";
+import { busTid, monitorTopic, openSse, projectsBus, projectTopic } from "../tmcode/projects/bus";
 import { projectLimits, presenceStaleMs } from "../tmcode/projects/limits";
 import { invalidPathReason } from "../tmcode/projects/paths";
 import { MonitorEntry, MonitorProject, publishPresence, withdrawPresence } from "../tmcode/projects/presence";
@@ -1057,8 +1057,14 @@ export const monitorLive = async (req: Request, res: Response) => {
     course_ids: scope === null ? null : [...scope].sort((a, b) => a - b),
     online: entries,
   });
-  const unsubscribe = projectsBus.subscribe(MONITOR_TOPIC, (event, data: MonitorEntry) => {
-    if (visible(data?.course_ids ?? [])) stream.send(event, data);
+  // Course ids repeat across schools: the topic is tenant-keyed, and an entry
+  // stamped with another school's tid is dropped as a second guard.
+  const tid = busTid();
+  const unsubscribe = projectsBus.subscribe(monitorTopic(tid), (event, data: MonitorEntry) => {
+    if (data?.tid !== undefined && data.tid !== tid) return;
+    if (!visible(data?.course_ids ?? [])) return;
+    const { tid: _tid, ...rest } = data ?? ({} as MonitorEntry);
+    stream.send(event, rest);
   });
   stream.onClose(unsubscribe);
 };

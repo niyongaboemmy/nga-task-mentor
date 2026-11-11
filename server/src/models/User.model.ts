@@ -1,3 +1,4 @@
+import { currentTenantOrNull, PRIMARY_TENANT_ID } from "../vendor/nga-tenancy";
 import {
   Table,
   Column,
@@ -198,7 +199,10 @@ export class User extends Model<IUserAttributes, UserCreationAttributes> {
     if (!process.env.JWT_SECRET) {
       throw new Error("JWT_SECRET is not defined");
     }
-    const payload: any = { id: this.id, role: this.role };
+    // Tenancy: every session names its school (CONTRACT.md §6). Sign-in runs
+    // inside the tenant the MIS SSO token named; outside one (scripts) it is
+    // the primary tenant.
+    const payload: any = { id: this.id, role: this.role, tid: currentTenantOrNull()?.tid ?? PRIMARY_TENANT_ID };
     if (termId) {
       payload.termId = termId;
     }

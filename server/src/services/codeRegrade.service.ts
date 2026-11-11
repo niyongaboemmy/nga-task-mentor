@@ -1,3 +1,4 @@
+import { allTenants } from "../tenancy/jobs";
 import { judge0Configured } from "./coderunner";
 import { literal } from "sequelize";
 import { Quiz, QuizAttempt, QuizQuestion, QuizSubmission } from "../models";
@@ -171,11 +172,13 @@ export function startJudgeMaintenance(): void {
   const queueMs = Number(process.env.CODE_GRADE_QUEUE_INTERVAL_MS ?? 3000);
   if (Number.isFinite(queueMs) && queueMs > 0) {
     const queue = setInterval(() => {
-      gradeQueuedCodeAttempts()
-        .then((r) => {
-          if (r.regraded || r.still_unavailable) console.log("[grading] queued code answers:", JSON.stringify(r));
-        })
-        .catch((e) => console.error("[grading] queued code pass failed:", e?.message));
+      void allTenants("grading-queue", () =>
+        gradeQueuedCodeAttempts()
+          .then((r) => {
+            if (r.regraded || r.still_unavailable) console.log("[grading] queued code answers:", JSON.stringify(r));
+          })
+          .catch((e) => console.error("[grading] queued code pass failed:", e?.message)),
+      );
     }, queueMs);
     queue.unref?.();
     judgeTimers.push(queue);
@@ -184,11 +187,13 @@ export function startJudgeMaintenance(): void {
   const minutes = Number(process.env.CODE_REGRADE_INTERVAL_MIN ?? 10);
   if (Number.isFinite(minutes) && minutes > 0) {
     const regrade = setInterval(() => {
-      regradePendingCodeAttempts()
-        .then((r) => {
-          if (r.found) console.log("[judge0] re-grade pass:", JSON.stringify(r));
-        })
-        .catch((e) => console.error("[judge0] re-grade pass failed:", e?.message));
+      void allTenants("regrade", () =>
+        regradePendingCodeAttempts()
+          .then((r) => {
+            if (r.found) console.log("[judge0] re-grade pass:", JSON.stringify(r));
+          })
+          .catch((e) => console.error("[judge0] re-grade pass failed:", e?.message)),
+      );
     }, minutes * 60_000);
     regrade.unref?.();
     judgeTimers.push(regrade);

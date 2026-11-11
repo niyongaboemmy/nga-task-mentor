@@ -58,7 +58,7 @@ export const apiLimiter = rateLimit({
 export const integrationLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
-  keyGenerator: (req) => `mis:${(req as any).misUserId ?? req.ip}`,
+  keyGenerator: (req) => `t${req.tenant?.tid ?? 1}:mis:${(req as any).misUserId ?? req.ip}`,
   message: {
     success: false,
     code: "RATE_LIMITED",
@@ -73,7 +73,7 @@ export const integrationLimiter = rateLimit({
 export const lessonCodeRunLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: Number(process.env.LESSON_CODE_RUN_RATE_LIMIT_PER_MIN) || 12,
-  keyGenerator: (req) => `lesson-code-run:${(req as any).misUserId ?? req.ip}`,
+  keyGenerator: (req) => `t${req.tenant?.tid ?? 1}:lesson-code-run:${(req as any).misUserId ?? req.ip}`,
   message: {
     success: false,
     code: "RATE_LIMITED",
@@ -90,7 +90,7 @@ export const lessonCodeRunLimiter = rateLimit({
 export const codeRunLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: Number(process.env.CODE_RUN_RATE_LIMIT_PER_MIN) || 10,
-  keyGenerator: (req) => `code-run:${(req as any).user?.id ?? req.ip}`,
+  keyGenerator: (req) => `t${req.tenant?.tid ?? 1}:code-run:${(req as any).user?.id ?? req.ip}`,
   message: {
     success: false,
     code: "RATE_LIMITED",

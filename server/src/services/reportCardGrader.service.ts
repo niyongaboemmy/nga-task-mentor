@@ -1,3 +1,4 @@
+import { cachedGradingBands, GradeBand, letterFor } from "./tenantSettings";
 /**
  * Pure grade-calculation logic for the Report Card module.
  * No database access — all inputs are plain data objects so this is
@@ -124,12 +125,13 @@ export function calculateSubjectGrade(
  * (reportCardPdf.service.ts) — previously each hardcoded its own scale
  * (A>=90 vs A>=80, etc.), so a student's preview and PDF could disagree.
  */
-export function scoreToLetterGrade(score: number): { letter: string; remark: string } {
-  if (score >= 90) return { letter: "A", remark: "Distinction" };
-  if (score >= 75) return { letter: "B", remark: "Merit" };
-  if (score >= 60) return { letter: "C", remark: "Credit" };
-  if (score >= 45) return { letter: "D", remark: "Pass" };
-  return { letter: "F", remark: "Fail" };
+export function scoreToLetterGrade(
+  score: number,
+  bands: readonly GradeBand[] = cachedGradingBands(),
+): { letter: string; remark: string } {
+  // The scale is a per-school setting (app_settings "grading.bands", TM-12);
+  // the default is the scale above, A>=90 B>=75 C>=60 D>=45, else F.
+  return letterFor(score, bands);
 }
 
 export interface AnnualTermContribution {

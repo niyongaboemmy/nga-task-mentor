@@ -1,3 +1,4 @@
+import { ctid, tk } from "../tenancy/keys";
 import { randomUUID } from "node:crypto";
 import { Request, Response } from "express";
 import { z } from "zod";
@@ -103,7 +104,7 @@ function refuse(req: Request, res: Response, feature: AiFeature, v: Pick<AiVerdi
 /** Open /ai/events lines per user (an app reconnecting quickly may briefly hold two). */
 const EVENT_LINES_PER_USER = 4;
 const HEARTBEAT_MS = 20_000;
-const eventLines = new Map<number, number>();
+const eventLines = new Map<string, number>();
 
 /**
  * Live "AI settings changed" for TMCode (services/aiLive.ts). It decides nothing: on `changed`
@@ -111,9 +112,11 @@ const eventLines = new Map<number, number>();
  */
 export async function aiEvents(req: Request, res: Response) {
   const id = userId(req);
-  const open = eventLines.get(id) ?? 0;
+  // Computed once, in the request's tenant: the close handler may fire outside it.
+  const lineKey = tk(id);
+  const open = eventLines.get(lineKey) ?? 0;
   if (open >= EVENT_LINES_PER_USER) return tmcodeError(res, 429, "TOO_MANY_STREAMS", "TMCode is already listening for AI changes.");
-  eventLines.set(id, open + 1);
+  eventLines.set(lineKey, open + 1);
   res.status(200);
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -132,9 +135,9 @@ export async function aiEvents(req: Request, res: Response) {
     closed = true;
     clearInterval(heartbeat);
     unsubscribe();
-    const left = (eventLines.get(id) ?? 1) - 1;
-    if (left > 0) eventLines.set(id, left);
-    else eventLines.delete(id);
+    const left = (eventLines.get(lineKey) ?? 1) - 1;
+    if (left > 0) eventLines.set(lineKey, left);
+    else eventLines.delete(lineKey);
   });
 }
 
@@ -413,7 +416,7 @@ export function buildMessages(input: z.infer<typeof ChatSchema>, staff = false, 
 }
 
 /** Asked chats waiting for their stream. A BYOK key stays here (memory only) until its stream starts. */
-const jobs = new Map<string, { user: number; mode: string; messages: ChatMessage[]; at: number; project: number | null; agent?: { tools: ToolDef[]; step: number }; access?: PaidAccess; route?: { learning: boolean; student: boolean }; learning?: { identifiers: Set<string>; reference: Set<string>; syntax: boolean; allowance: ReturnType<typeof allowanceOf> } }>();
+const jobs = new Map<string, { tid: number; user: number; mode: string; messages: ChatMessage[]; at: number; project: number | null; agent?: { tools: ToolDef[]; step: number }; access?: PaidAccess; route?: { learning: boolean; student: boolean }; learning?: { identifiers: Set<string>; reference: Set<string>; syntax: boolean; allowance: ReturnType<typeof allowanceOf> } }>();
 
 /** Paid-mode refusals (PREMIUM_REQUIRED, BYOK_DISABLED, BYOK_KEY_REQUIRED, MODEL_UNKNOWN), as JSON. */
 async function paidAccessOr(req: Request, res: Response, mode: string, byok: { provider: string; key: string } | undefined): Promise<{ access?: PaidAccess } | null> {
@@ -460,6 +463,7 @@ export async function aiChat(req: Request, res: Response) {
   const c = parsed.data.context;
   const tools = a ? ((learning ? a.tools.filter((t) => LEARNING_TOOLS.has(t.function.name)) : a.mode === "plan" ? a.tools.filter((t) => READ_ONLY.has(t.function.name)) : a.tools) as ToolDef[]) : null;
   jobs.set(job, {
+    tid: ctid(),
     user: id,
     mode: parsed.data.mode,
     messages: buildMessages(parsed.data, isStaff(req), learning ? layered.help : null),
@@ -479,7 +483,8 @@ export async function aiChat(req: Request, res: Response) {
 
 export async function aiChatStream(req: Request, res: Response) {
   const job = jobs.get(String(req.params.id));
-  if (!job || job.user !== userId(req)) return tmcodeError(res, 404, "NOT_FOUND", "That answer isn't available any more. Ask again.");
+  // Local user ids repeat across schools: the job is only its asker's in its own tenant.
+  if (!job || job.tid !== ctid() || job.user !== userId(req)) return tmcodeError(res, 404, "NOT_FOUND", "That answer isn't available any more. Ask again.");
   jobs.delete(String(req.params.id));
   // Checked again: the policy (or the exam, or the item's layer) may have changed since the chat was asked.
   const layered = await decideLayer(req, "assist", await itemFor(req, job.project));

@@ -2,6 +2,7 @@ import { Request } from "express";
 import { trackKeyEvent } from "../activity/keyEvents";
 import { publishAiChange } from "../services/aiLive";
 import type { AiAssessmentContext, AiFeature, AiMode, AiReason } from "../vendor/nga-access";
+import { tk } from "../tenancy/keys";
 
 /**
  * AI usage control activity events (AI_USAGE_CONTROL_PLAN.md §8):
@@ -37,7 +38,7 @@ const lastDenied = new Map<string, number>();
 
 export function trackAiDenied(req: Request, feature: AiFeature, reason: AiReason, item: AiAssessmentContext | null) {
   if (!item) return; // role refusals outside an item aren't interesting to teachers
-  const key = `${(req as any).user?.id}|${item.kind}|${item.id}|${feature}`;
+  const key = tk(`${(req as any).user?.id}|${item.kind}|${item.id}|${feature}`);
   const now = Date.now();
   if (now - (lastDenied.get(key) ?? 0) < DENIED_SAMPLE_MS) return;
   lastDenied.set(key, now);

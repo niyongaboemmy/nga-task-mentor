@@ -1,3 +1,4 @@
+import { tk } from "../tenancy/keys";
 import { QueryTypes } from "sequelize";
 import { sequelize } from "../config/database";
 import { User } from "../models/User.model";
@@ -13,8 +14,11 @@ import { User } from "../models/User.model";
  * sign-out can't slip through.
  */
 
-let ensured: Promise<void> | null = null;
+// Per tenant database: each school's DB gets its own CREATE TABLE IF NOT EXISTS.
+const ensuredByDb = new Map<string, Promise<void>>();
 export const ensureRevocationTable = () => {
+  const key = tk("ensure-table");
+  let ensured = ensuredByDb.get(key);
   if (!ensured) {
     ensured = sequelize
       .query(
@@ -25,19 +29,20 @@ export const ensureRevocationTable = () => {
       )
       .then(() => undefined)
       .catch((e) => {
-        ensured = null;
+        ensuredByDb.delete(key);
         throw e;
       });
+    ensuredByDb.set(key, ensured);
   }
   return ensured;
 };
 
 // Short cache: the middleware asks on every request.
-const cache = new Map<number, { at: number; revokedAt: Date | null }>();
+const cache = new Map<string, { at: number; revokedAt: Date | null }>();
 const CACHE_MS = 15_000;
 
 export const getRevokedAt = async (userId: number): Promise<Date | null> => {
-  const hit = cache.get(userId);
+  const hit = cache.get(tk(userId));
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.revokedAt;
   try {
     await ensureRevocationTable();
@@ -46,7 +51,7 @@ export const getRevokedAt = async (userId: number): Promise<Date | null> => {
       { replacements: [userId], type: QueryTypes.SELECT },
     );
     const revokedAt = rows[0]?.revoked_at ? new Date(rows[0].revoked_at) : null;
-    cache.set(userId, { at: Date.now(), revokedAt });
+    cache.set(tk(userId), { at: Date.now(), revokedAt });
     return revokedAt;
   } catch {
     // Never lock everyone out over a lookup failure.
@@ -63,7 +68,7 @@ export const revokeSessionsForMisUser = async (misUserId: string, at = new Date(
       "INSERT INTO session_revocations (user_id, revoked_at) VALUES (?, ?) ON DUPLICATE KEY UPDATE revoked_at = VALUES(revoked_at)",
       { replacements: [u.id, at] },
     );
-    cache.set(u.id, { at: Date.now(), revokedAt: at });
+    cache.set(tk(u.id), { at: Date.now(), revokedAt: at });
   }
   return users.map((u) => u.id);
 };

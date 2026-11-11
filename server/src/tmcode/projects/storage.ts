@@ -3,6 +3,7 @@ import zlib from "zlib";
 import { Op } from "sequelize";
 import { ProjectBlob, ProjectRevision } from "../../models";
 import fileServer from "../../utils/fileServer";
+import { tk } from "../../tenancy/keys";
 import { projectLimits } from "./limits";
 
 /**
@@ -145,23 +146,28 @@ export async function blobSizes(shas: string[]): Promise<Map<string, number>> {
 export const gzipManifest = (files: ManifestEntry[]) =>
   zlib.gzipSync(Buffer.from(JSON.stringify(files)));
 
-// Revisions never change, so their parsed manifests are cached by id.
-const manifestCache = new Map<number, ManifestEntry[]>();
+// Revisions never change, so their parsed manifests are cached by id --
+// tenant-keyed (tk), since revision ids repeat across school databases.
+const manifestCache = new Map<string, ManifestEntry[]>();
 const MANIFEST_CACHE_MAX = 300;
 
 export function readManifest(rev: Pick<ProjectRevision, "id" | "manifest_gz">): ManifestEntry[] {
-  const hit = manifestCache.get(rev.id);
+  const key = tk("manifest", rev.id);
+  const hit = manifestCache.get(key);
   if (hit) return hit;
   const files = JSON.parse(zlib.gunzipSync(rev.manifest_gz).toString("utf8")) as ManifestEntry[];
   if (manifestCache.size >= MANIFEST_CACHE_MAX) {
     const oldest = manifestCache.keys().next().value;
     if (oldest !== undefined) manifestCache.delete(oldest);
   }
-  manifestCache.set(rev.id, files);
+  manifestCache.set(key, files);
   return files;
 }
 
 /** Same files (path, hash) in the same order. */
+/** Tests only. */
+export const clearManifestCache = () => manifestCache.clear();
+
 export const sameManifest = (a: ManifestEntry[], b: ManifestEntry[]) =>
   a.length === b.length && a.every((f, i) => f.path === b[i].path && f.sha256 === b[i].sha256);
 

@@ -1,4 +1,7 @@
 import crypto from "crypto";
+import { legacyDefaultTid } from "../tenancy/config";
+import { enterTenant, resolveTenant } from "../tenancy/request";
+import { parseTid, PRIMARY_TENANT_ID } from "../vendor/nga-tenancy";
 import zlib from "zlib";
 import { Request, Response } from "express";
 import { z } from "zod";
@@ -113,7 +116,9 @@ export const launch = async (req: Request, res: Response) => {
     }
     const submission = started.submission;
 
-    const ticket = crypto.randomBytes(32).toString("base64url");
+    // The ticket names its school (`t<tid>.` prefix) so the unauthenticated
+    // redeem below can open the right tenant database.
+    const ticket = `t${req.tenant?.tid ?? PRIMARY_TENANT_ID}.${crypto.randomBytes(32).toString("base64url")}`;
     const expiresAt = new Date(Date.now() + TICKET_TTL_MS);
     await TmcodeLaunchTicket.create(
       {
@@ -161,7 +166,16 @@ const redeemSchema = z.object({
 export const redeemTicket = async (req: Request, res: Response) => {
   const parsed = redeemSchema.safeParse(req.body);
   if (!parsed.success) return validation(res, parsed.error);
-  const { ticket, device, env_report } = parsed.data;
+  const { ticket } = parsed.data;
+  // Tickets minted before tenancy carry no prefix (legacy default tenant).
+  const tagged = /^t(\d+)\./.exec(ticket);
+  const gate = await resolveTenant(tagged ? parseTid(tagged[1]) : legacyDefaultTid());
+  if (!gate.ok) return tmcodeError(res, gate.status, gate.code, gate.message);
+  return enterTenant(req, gate.tenant, () => redeemInTenant(req, res, parsed.data));
+};
+
+async function redeemInTenant(req: Request, res: Response, data: z.infer<typeof redeemSchema>) {
+  const { ticket, device, env_report } = data;
 
   const row = await TmcodeLaunchTicket.findByPk(sha256(ticket));
   if (!row || row.expires_at.getTime() < Date.now()) {
@@ -236,7 +250,7 @@ export const redeemTicket = async (req: Request, res: Response) => {
     expires_at: expiresAt.toISOString(),
     submission_id: submission.id,
   });
-};
+}
 
 // ─── GET /sessions/:sid/package ────────────────────────────────────────────
 

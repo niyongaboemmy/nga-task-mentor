@@ -6,6 +6,7 @@ import { matchesSchema } from "./aiProviders/schemaValidator";
 import { getAiPolicy } from "./aiPolicy";
 import { externalPupilDataAllowed, type AiPolicy } from "../vendor/nga-access";
 import { getMisToken } from "../utils/misUtils";
+import { tk } from "../tenancy/keys";
 
 /**
  * "Open in Claude / ChatGPT" + "Paste the answer" for Task Mentor
@@ -193,7 +194,8 @@ async function misPermissions(req: Request): Promise<Set<string>> {
   if (!token) return new Set();
   // Per MIS user (a new session token of the same person reuses it); else per token.
   const misUserId = Number((req as any).user?.mis_user_id);
-  const key = Number.isInteger(misUserId) && misUserId > 0 ? `u${misUserId}` : `t${crypto.createHash("sha256").update(token).digest("hex")}`;
+  // Tenant-keyed: MIS user ids repeat across schools.
+  const key = Number.isInteger(misUserId) && misUserId > 0 ? tk("perms", `u${misUserId}`) : tk("perms", `k${crypto.createHash("sha256").update(token).digest("hex")}`);
   const hit = permsCache.get(key);
   if (hit && Date.now() - hit.at < PERMS_TTL_MS) return hit.perms;
   try {

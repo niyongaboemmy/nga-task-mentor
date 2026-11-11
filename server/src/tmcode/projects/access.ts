@@ -10,6 +10,7 @@ import {
   Quiz,
   ActivityType,
 } from "../../models";
+import { tk } from "../../tenancy/keys";
 import { getScopedSubjects } from "../../utils/scopedSubjects";
 
 /**
@@ -195,14 +196,16 @@ export const canReadRevision = (access: ProjectAccess, revisionId: number) =>
 
 // ─── Course ids of a project (monitor scoping) ───────────────────────────────
 
-const courseCache = new Map<number, { at: number; ids: number[] }>();
+// Tenant-keyed (tk): project ids repeat across school databases.
+const courseCache = new Map<string, { at: number; ids: number[] }>();
 const COURSE_TTL_MS = 60_000;
 
-export const forgetProjectCourses = (projectId: number) => courseCache.delete(projectId);
+export const forgetProjectCourses = (projectId: number) => courseCache.delete(tk("project-courses", projectId));
 
 /** MIS subject ids of the activities a project is linked to (cached 60 s). */
 export async function projectCourseIds(projectId: number): Promise<number[]> {
-  const hit = courseCache.get(projectId);
+  const key = tk("project-courses", projectId);
+  const hit = courseCache.get(key);
   if (hit && Date.now() - hit.at < COURSE_TTL_MS) return hit.ids;
   const links = await ProjectActivityLink.findAll({ where: { project_id: projectId } });
   const ids = new Set<number>();
@@ -216,6 +219,6 @@ export async function projectCourseIds(projectId: number): Promise<number[]> {
   if (q.length) collect(await Quiz.findAll({ where: { id: q }, attributes: ["id", "course_id"] }));
   if (m.length) collect(await ManualAssessment.findAll({ where: { id: m }, attributes: ["id", "course_id"] }));
   const out = [...ids].sort((x, y) => x - y);
-  courseCache.set(projectId, { at: Date.now(), ids: out });
+  courseCache.set(key, { at: Date.now(), ids: out });
   return out;
 }

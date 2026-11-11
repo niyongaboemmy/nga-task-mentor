@@ -1097,12 +1097,9 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
       where: {
         [Op.and]: [
           { status: "published" },
-          {
-            [Op.or]: [
-              { is_public: true },
-              { course_id: { [Op.in]: courseIds } },
-            ],
-          },
+          // TM-11: a public quiz is offered to the student's own subjects
+          // only; is_public no longer reaches every class (or school).
+          { course_id: { [Op.in]: courseIds } },
           ...termCondition,
         ],
       },
@@ -1250,11 +1247,17 @@ export const getPublicQuizzes = async (req: Request, res: Response) => {
   try {
     console.log("Starting getPublicQuizzes function");
 
+    // TM-11: public quizzes of the caller's own subjects only (school-wide
+    // staff: every subject of their school). MIS unreachable -> none.
+    const { scope, subjects } = await getScopedSubjects(req);
+    const subjectFilter = scope === "all" ? {} : { course_id: { [Op.in]: subjects.map((sub) => sub.id) } };
+
     // Get public quizzes that are published and available
     const quizzes = await Quiz.findAll({
       where: {
         is_public: true,
         status: "published",
+        ...subjectFilter,
       },
       include: [
         {

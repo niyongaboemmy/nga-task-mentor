@@ -1,3 +1,5 @@
+import { mediaKeyQuery } from "../routes/uploads";
+import { currentTenantOrNull, PRIMARY_TENANT_ID } from "../vendor/nga-tenancy";
 import http from "http";
 import https from "https";
 import dns from "dns";
@@ -62,7 +64,11 @@ export async function storeEditorImage(buffer: Buffer, originalName = "image"): 
   const base = originalName.replace(/\.[a-z0-9]+$/i, "").replace(/[^a-z0-9]/gi, "_").toLowerCase().slice(0, 40) || "image";
   const filename = generateUniqueFilename("img", `${base}.${kind.ext}`, (n) => n);
   await fileServer.uploadFile(buffer, `editor-images/${filename}`);
-  return { url: `/uploads/editor-images/${filename}`, type: kind.mime, size: buffer.length };
+  // The media key lets <img> load it anywhere (desktop app, no cookie) while
+  // staying bound to this school and this path (routes/uploads.ts).
+  const subpath = `editor-images/${filename}`;
+  const tid = currentTenantOrNull()?.tid ?? PRIMARY_TENANT_ID;
+  return { url: `/uploads/${subpath}?${mediaKeyQuery(tid, subpath)}`, type: kind.mime, size: buffer.length };
 }
 
 // --- Import from a URL (pasted web images) ---------------------------------------

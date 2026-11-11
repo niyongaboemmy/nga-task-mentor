@@ -1,3 +1,4 @@
+import { allTenants } from "../tenancy/jobs";
 import { Op } from "sequelize";
 import {
   QuizAttempt,
@@ -167,11 +168,13 @@ export async function drainQueue(max = 50) {
 
 export async function startTmcodeWorker() {
   stopTmcodeWorker();
-  const n = await requeueStaleRuns().catch(() => 0);
-  if (n) console.log(`[tmcode] re-queued ${n} grading run(s) left running`);
+  await allTenants("tmcode-requeue", async (t) => {
+    const n = await requeueStaleRuns().catch(() => 0);
+    if (n) console.log(`[tmcode] re-queued ${n} grading run(s) left running (tenant ${t.tid})`);
+  });
   const ms = Number(process.env.TMCODE_WORKER_INTERVAL_MS) || 2000;
   timer = setInterval(() => {
-    drainQueue().catch((e) => console.error("[tmcode] worker:", e?.message));
+    void allTenants("tmcode-worker", () => drainQueue().catch((e) => console.error("[tmcode] worker:", e?.message)));
   }, ms);
   timer.unref?.();
 }

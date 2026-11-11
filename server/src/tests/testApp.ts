@@ -25,6 +25,10 @@ import codeRunnerRoutes from "../routes/codeRunner";
 import codeRoutes from "../routes/code";
 import aiRoutes from "../routes/ai";
 import adminAiRoutes from "../routes/adminAi";
+import tenancyRoutes from "../routes/tenancy";
+import settingsRoutes from "../routes/settings";
+import uploadsRoutes from "../routes/uploads";
+import cookieParser from "cookie-parser";
 
 /**
  * Minimal test harness app — mounts only the routers under test against the
@@ -35,6 +39,7 @@ import adminAiRoutes from "../routes/adminAi";
  */
 export function buildTestApp() {
   const app = express();
+  app.use(cookieParser());
   app.use("/api/tmcode", express.json({ limit: "8mb" }), tmcodeRoutes);
   // Practice runs carry whole projects (up to 1 MB of files).
   app.use("/api/code", express.json({ limit: "2mb" }));
@@ -52,7 +57,10 @@ export function buildTestApp() {
   app.use("/api/report-cards", reportCardRoutes);
   app.use("/api/manual-assessments", manualAssessmentRoutes);
   app.use("/api/access", accessRoutes);
+  app.use("/api/integration/tenants", tenancyRoutes);
   app.use("/api/integration", integrationRoutes);
+  app.use("/api/settings", settingsRoutes);
+  app.use("/uploads", uploadsRoutes);
   app.use("/api/question-bank", questionBankHubRoutes);
   app.use("/api/rankings", rankingRoutes);
   app.use("/api/courses/:courseId/question-bank", questionBankRoutes);

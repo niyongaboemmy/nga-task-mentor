@@ -6,6 +6,7 @@ import { sequelize } from "../config/database";
 import { DatabaseQueryLog, User } from "../models";
 import aiService from "../services/ai/aiService";
 import { aiDisabledBody, isAiDisabledError } from "../services/aiPolicy";
+import { consoleScopeViolation } from "../services/dbConsoleGuard";
 
 const READ_STATEMENTS = ["SELECT", "SHOW", "DESCRIBE", "DESC", "EXPLAIN"];
 const WRITE_STATEMENTS = [
@@ -17,6 +18,17 @@ const WRITE_STATEMENTS = [
   "CREATE",
   "DROP",
   "TRUNCATE",
+];
+
+const READ_ONLY_FORBIDDEN = [
+  /\bINTO\s+(OUT|DUMP)FILE\b/i,
+  /\bINTO\s+@/i,
+  /\bFOR\s+UPDATE\b/i,
+  /\bLOCK\s+IN\s+SHARE\s+MODE\b/i,
+  /\bUSE\s+`?\w/i,
+  /\bSLEEP\s*\(/i,
+  /\bBENCHMARK\s*\(/i,
+  /\bLOAD_FILE\s*\(/i,
 ];
 
 const FORBIDDEN_PATTERNS = [
@@ -490,6 +502,44 @@ export const runQuery = async (req: Request, res: Response) => {
   }
 
   const statementType = getStatementType(trimmed);
+  // Read-only console (TM-10): no writes, no file output, no locks, no
+  // switching databases (the tenant router tracks each connection's DB).
+  if (!READ_STATEMENTS.includes(statementType) || READ_ONLY_FORBIDDEN.some((p) => p.test(trimmed))) {
+    return res.status(400).json({
+      success: false,
+      code: "DB_CONSOLE_READ_ONLY",
+      message: "The database console is read-only: only SELECT, SHOW, DESCRIBE and EXPLAIN are allowed.",
+    });
+  }
+  // Tenant scope: the pool user reaches every school's database, so the
+  // statement must stay in the current one (see services/dbConsoleGuard.ts,
+  // which also documents the dedicated per-school MySQL user to deploy).
+  let scopeError: string | null;
+  try {
+    const [cur] = await sequelize.query<{ db: string | null }>("SELECT DATABASE() AS db", { type: QueryTypes.SELECT });
+    const schemata = await sequelize.query<{ name: string }>("SELECT SCHEMA_NAME AS name FROM information_schema.SCHEMATA", {
+      type: QueryTypes.SELECT,
+    });
+    scopeError = cur?.db
+      ? consoleScopeViolation(trimmed, { currentDb: cur.db, databases: schemata.map((r) => r.name) })
+      : "No current database.";
+  } catch (err: any) {
+    console.error("DB console scope check failed:", err?.message ?? err);
+    scopeError = "The statement could not be checked.";
+  }
+  if (scopeError) {
+    await logQuery({
+      userId,
+      queryText: trimmed,
+      statementType,
+      isWrite: false,
+      executionMs: Date.now() - startTime,
+      status: "error",
+      errorMessage: `Refused: ${scopeError}`,
+      ipAddress,
+    });
+    return res.status(400).json({ success: false, code: "DB_CONSOLE_SCOPE", message: scopeError });
+  }
   const isWrite = isWriteStatement(statementType);
 
   if (isWrite && confirm !== true) {

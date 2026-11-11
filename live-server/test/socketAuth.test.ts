@@ -76,6 +76,7 @@ describe("verifySocketToken", () => {
     expect(verifySocketToken(sessionToken({ id: 42, role: "admin" }), SECRET)).toEqual({
       userId: 42,
       isProctor: false,
+      tid: 1,
       via: "session",
     });
   });
@@ -84,6 +85,9 @@ describe("verifySocketToken", () => {
     expect(verifySocketToken(ticket({ id: 7, proctor: true }), SECRET)).toEqual({
       userId: 7,
       isProctor: true,
+      tid: 1,
+      courses: [],
+      sessions: undefined,
       via: "ticket",
     });
   });
@@ -96,7 +100,7 @@ describe("verifySocketToken", () => {
     // Same claims as a ticket but signed with JWT_SECRET instead of the derived
     // ticket key: it verifies only as a session token, so no proctor bit.
     const forged = jwt.sign({ typ: LIVE_TICKET_TYPE, id: 9, proctor: true }, SECRET);
-    expect(verifySocketToken(forged, SECRET)).toEqual({ userId: 9, isProctor: false, via: "session" });
+    expect(verifySocketToken(forged, SECRET)).toEqual({ userId: 9, isProctor: false, tid: 1, via: "session" });
   });
 
   it("rejects a ticket-key token with the wrong typ", () => {
@@ -106,8 +110,8 @@ describe("verifySocketToken", () => {
 });
 
 describe("resolveProctoringRole", () => {
-  const proctor = { userId: 1, isProctor: true, via: "ticket" as const };
-  const student = { userId: 2, isProctor: false, via: "session" as const };
+  const proctor = { userId: 1, isProctor: true, tid: 1, via: "ticket" as const };
+  const student = { userId: 2, isProctor: false, tid: 1, via: "session" as const };
 
   it("allows a proctor to join as dashboard", () => {
     expect(resolveProctoringRole(proctor, "dashboard")).toEqual({ allowed: true, role: "dashboard" });

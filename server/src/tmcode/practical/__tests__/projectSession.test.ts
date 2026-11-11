@@ -53,7 +53,7 @@ afterEach(() => jest.restoreAllMocks());
 
 describe("POST /projects/:id/sessions (grading's live Console)", () => {
   it("starts only the chosen Task folder, as the playground would send it", async () => {
-    const start = jest.spyOn(sessions, "startSession").mockResolvedValue({ id: "abc123def456", runnerId: "r1", userId: 7, createdAt: 0, closed: false });
+    const start = jest.spyOn(sessions, "startSession").mockResolvedValue({ id: "abc123def456", runnerId: "r1", tid: 1, userId: 7, createdAt: 0, closed: false });
     const r = res();
     await startProjectSession({ params: { id: "5" }, body: { rev: 9, language: "java", entry: "Task3/Task3.java" }, user: { id: 7 } } as any, r);
     expect(r.statusCode).toBe(201);

@@ -1,3 +1,6 @@
+import { tk } from "../tenancy/keys";
+import { resolveTenant, tidOfClaims } from "../tenancy/request";
+import { runWithTenant } from "../vendor/nga-tenancy";
 import { Request } from "express";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User.model";
@@ -42,12 +45,18 @@ export const createMisUserIdResolver =
       const token = sessionTokenOf(req);
       const secret = lookups.secret ?? process.env.JWT_SECRET;
       if (!token || !secret) return null;
-      const decoded = jwt.verify(token, secret) as { id?: unknown; iat?: number };
+      const decoded = jwt.verify(token, secret) as { id?: unknown; iat?: number; tid?: number };
       const localId = Number(decoded?.id);
       if (!Number.isInteger(localId) || localId <= 0) return null;
-      const misUserId = await lookups.findMisUserId(localId);
+      // The session's own tenant database (this route has no auth middleware).
+      const gate = await resolveTenant(tidOfClaims(decoded as any));
+      if (!gate.ok) return null;
+      const [misUserId, revokedAt] = await runWithTenant(gate.tenant, async () => [
+        await lookups.findMisUserId(localId),
+        await lookups.revokedAt(localId),
+      ]);
       if (misUserId === undefined) return null; // protect: "User not found"
-      if (issuedBeforeRevocation(decoded.iat, await lookups.revokedAt(localId))) return null; // SESSION_ENDED
+      if (issuedBeforeRevocation(decoded.iat, revokedAt as Date | null)) return null; // SESSION_ENDED
       const id = Number(misUserId);
       return Number.isInteger(id) && id > 0 ? id : null;
     } catch {
@@ -59,16 +68,16 @@ export const createMisUserIdResolver =
 // the cache window; heartbeats arrive every 30 s per tab, so this saves a
 // users lookup on almost every batch.
 const MIS_ID_CACHE_MS = 60_000;
-const misIdCache = new Map<number, { at: number; misUserId: number | null }>();
+const misIdCache = new Map<string, { at: number; misUserId: number | null }>();
 
 const findMisUserId = async (localUserId: number) => {
-  const hit = misIdCache.get(localUserId);
+  const hit = misIdCache.get(tk(localUserId));
   if (hit && Date.now() - hit.at < MIS_ID_CACHE_MS) return hit.misUserId;
   const user = await User.findByPk(localUserId, { attributes: ["id", "mis_user_id"] });
   if (!user) return undefined;
   const misUserId = user.mis_user_id ?? null;
-  if (misIdCache.size >= 5_000) misIdCache.delete(misIdCache.keys().next().value as number);
-  misIdCache.set(localUserId, { at: Date.now(), misUserId });
+  if (misIdCache.size >= 5_000) misIdCache.delete(misIdCache.keys().next().value as string);
+  misIdCache.set(tk(localUserId), { at: Date.now(), misUserId });
   return misUserId;
 };
 

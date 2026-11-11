@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { currentTenantOrNull, parseTid, PRIMARY_TENANT_ID } from "../vendor/nga-tenancy";
 
 /**
  * The TMCode user token (PROJECTS_PLAN.md §1): what TMCode keeps in the OS
@@ -22,14 +23,20 @@ export interface TmcodeUserClaims {
   sub: number;
   /** MIS user id (null for a local-only account). */
   mis: number | null;
+  /** Tenant (school) id; null on tokens minted before tenancy (legacy default applies). */
+  tid: number | null;
   /** Issued-at, seconds (single sign-out compares it with the revocation time). */
   iat: number;
   exp: number;
 }
 
-export function signTmcodeUserToken(userId: number, misUserId: number | null): { token: string; expiresAt: Date } {
+export function signTmcodeUserToken(
+  userId: number,
+  misUserId: number | null,
+  tid: number = currentTenantOrNull()?.tid ?? PRIMARY_TENANT_ID,
+): { token: string; expiresAt: Date } {
   const ttl = userTokenTtlSeconds();
-  const token = jwt.sign({ mis: misUserId ?? null }, secret(), {
+  const token = jwt.sign({ mis: misUserId ?? null, tid }, secret(), {
     algorithm: "HS256",
     audience: TMCODE_USER_AUDIENCE,
     subject: String(userId),
@@ -44,5 +51,11 @@ export function verifyTmcodeUserToken(token: string): TmcodeUserClaims {
   const p = jwt.verify(token, secret(), { algorithms: ["HS256"], audience: TMCODE_USER_AUDIENCE }) as any;
   const sub = Number(p.sub);
   if (!Number.isInteger(sub) || sub <= 0) throw new jwt.JsonWebTokenError("bad subject");
-  return { sub, mis: p.mis == null ? null : Number(p.mis), iat: Number(p.iat), exp: Number(p.exp) };
+  return {
+    sub,
+    mis: p.mis == null ? null : Number(p.mis),
+    tid: parseTid(p.tid),
+    iat: Number(p.iat),
+    exp: Number(p.exp),
+  };
 }

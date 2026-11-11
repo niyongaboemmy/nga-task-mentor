@@ -1,3 +1,4 @@
+import { currentTenantOrNull } from "../../vendor/nga-tenancy";
 import axios from "axios";
 import { JudgeUnavailableError, QuotaExceededError, RunnerRejectedError, UnsupportedLanguageError } from "../Judge0Service";
 import { PROFILES, isWebProfile, profileById, profileIdForLanguage } from "../../tmcode/profiles";
@@ -69,6 +70,9 @@ export class TmJudgeRunner implements CodeRunner {
   private get headers() {
     const h: Record<string, string> = { "Content-Type": "application/json" };
     if (process.env.TMJUDGE_TOKEN) h.Authorization = `Bearer ${process.env.TMJUDGE_TOKEN}`;
+    // Tenant tag for tm-judge's stats (TM-15); the judge itself is shared.
+    const tenant = currentTenantOrNull();
+    if (tenant) h["X-NGA-Tenant"] = String(tenant.tid);
     return h;
   }
 

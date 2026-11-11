@@ -1,3 +1,4 @@
+import { tk } from "../tenancy/keys";
 import { Request } from "express";
 import axios from "axios";
 import { getMisToken, resolveAcademicYearId } from "./misUtils";
@@ -32,7 +33,7 @@ export interface StudentClassCohort {
   keys: Set<string>;
 }
 
-const studentCohorts = new Map<number, { at: number; value: StudentClassCohort }>();
+const studentCohorts = new Map<string, { at: number; value: StudentClassCohort }>();
 const classRosters = new Map<string, { at: number; ids: number[] }>();
 
 /** Test hook. */
@@ -54,7 +55,7 @@ const misGet = (token: string, path: string, params: Record<string, unknown> = {
 
 async function classRoster(token: string, classGroupId: number, yearId: number | null): Promise<number[]> {
   const key = `${classGroupId}:${yearId ?? ""}`;
-  const hit = classRosters.get(key);
+  const hit = classRosters.get(tk(key));
   if (hit && Date.now() - hit.at < TTL_MS) return hit.ids;
   const res = await misGet(token, `/academics/class-groups/${classGroupId}/students`, yearId ? { academic_year_id: yearId } : {});
   // Active students only (ACTIVE_USERS_CONTRACTS.md): MIS row status and
@@ -63,7 +64,7 @@ async function classRoster(token: string, classGroupId: number, yearId: number |
   const ids = rows
     .map((r) => positive(r?.user_id ?? r?.id))
     .filter((n): n is number => n !== null);
-  classRosters.set(key, { at: Date.now(), ids });
+  classRosters.set(tk(key), { at: Date.now(), ids });
   return ids;
 }
 
@@ -74,7 +75,7 @@ async function classRoster(token: string, classGroupId: number, yearId: number |
  */
 export async function loadStudentClassCohort(req: Request, misUserId: number | null): Promise<StudentClassCohort | null> {
   if (!misUserId) return null;
-  const hit = studentCohorts.get(misUserId);
+  const hit = studentCohorts.get(tk(misUserId));
   if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
 
   const token = getMisToken(req, { quiet: true });
@@ -94,7 +95,7 @@ export async function loadStudentClassCohort(req: Request, misUserId: number | n
       academic_year_id: yearId,
       keys: new Set([...ids, misUserId].map((id) => `m${id}`)),
     };
-    studentCohorts.set(misUserId, { at: Date.now(), value });
+    studentCohorts.set(tk(misUserId), { at: Date.now(), value });
     return value;
   } catch (e: any) {
     console.warn(`rankingCohorts: class cohort for student ${misUserId} failed:`, e.message);

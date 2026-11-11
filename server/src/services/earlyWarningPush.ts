@@ -1,5 +1,7 @@
+import { allTenants } from "../tenancy/jobs";
 import { Op, QueryTypes } from "sequelize";
 import { sequelize } from "../config/database";
+import { tk } from "../tenancy/keys";
 import { Assignment, Quiz, QuizSubmission, Submission, User } from "../models";
 import { clientBasicAuth } from "../access/misClient";
 import { isMisTransportInjected, misBase, misServiceCall } from "./reminderSync";
@@ -265,8 +267,11 @@ export async function loadWork(now: Date, roster: RosterStudent[]) {
 
 // ── Last-success bookkeeping (tiny table, created on first use) ───────────
 
-let ensured: Promise<void> | null = null;
+// Per tenant database: each school's DB gets its own CREATE TABLE IF NOT EXISTS.
+const ensuredByDb = new Map<string, Promise<void>>();
 const ensureJobTable = () => {
+  const key = tk("ensure-table");
+  let ensured = ensuredByDb.get(key);
   if (!ensured) {
     ensured = sequelize
       .query(
@@ -279,9 +284,10 @@ const ensureJobTable = () => {
       )
       .then(() => undefined)
       .catch((e) => {
-        ensured = null;
+        ensuredByDb.delete(key);
         throw e;
       });
+    ensuredByDb.set(key, ensured);
   }
   return ensured;
 };
@@ -422,17 +428,17 @@ export function startEarlyWarningSchedule(): void {
   stopEarlyWarningSchedule();
 
   const boot = setTimeout(() => {
-    void (async () => {
+    void allTenants("early-warning", async () => {
       const last = await getLastSuccess();
       if (last == null || Date.now() - last > STALE_AFTER_MS) await runEarlyWarningPush();
-    })().catch((err) => warn("boot run failed", err));
+    }).catch((err) => warn("boot run failed", err));
   }, BOOT_DELAY_MS);
   boot.unref?.();
 
   const scheduleDaily = () => {
     const wait = Math.max(1000, nextRunAt(new Date()).getTime() - Date.now());
     const t = setTimeout(() => {
-      void runEarlyWarningPush()
+      void allTenants("early-warning", () => runEarlyWarningPush())
         .catch((err) => warn("daily run failed", err))
         .finally(scheduleDaily);
     }, wait);

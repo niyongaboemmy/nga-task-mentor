@@ -466,7 +466,7 @@ beforeEach(async () => {
   snapshotFor = {};
   revoked.clear();
   // The limiter's window is real time: keep one test's calls from throttling the next.
-  for (const id of Object.values(MIS)) integrationLimiter.resetKey(`mis:${id}`);
+  for (const id of Object.values(MIS)) integrationLimiter.resetKey(`t1:mis:${id}`);
   clearSnapshotCache();
   clearTargetCaches();
   clearMisBearerCache();

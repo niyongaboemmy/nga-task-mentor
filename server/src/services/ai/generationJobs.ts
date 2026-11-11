@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { ctid } from "../../tenancy/keys";
 
 /**
  * Background runs of one AI generation batch, polled by the client. Kept in
@@ -7,6 +8,8 @@ import crypto from "crypto";
  */
 export interface GenerationJob {
   id: string;
+  /** User and MIS course ids repeat across schools. */
+  tid: number;
   userId: number;
   courseId: number;
   state: "running" | "done";
@@ -30,7 +33,7 @@ export function createJob(
   run: () => Promise<{ status: number; payload: Record<string, unknown> }>,
 ): GenerationJob {
   sweep();
-  const job: GenerationJob = { id: crypto.randomUUID(), userId, courseId, state: "running", createdAt: Date.now() };
+  const job: GenerationJob = { id: crypto.randomUUID(), tid: ctid(), userId, courseId, state: "running", createdAt: Date.now() };
   jobs.set(job.id, job);
   run()
     .then((outcome) => {
@@ -46,10 +49,10 @@ export function createJob(
   return job;
 }
 
-/** Only the user who started it, for the same course. */
+/** Only the user who started it, for the same course, in the same school. */
 export function getJob(id: string, userId: number, courseId: number): GenerationJob | null {
   const job = jobs.get(id);
-  if (!job || job.userId !== userId || job.courseId !== courseId) return null;
+  if (!job || job.tid !== ctid() || job.userId !== userId || job.courseId !== courseId) return null;
   return job;
 }
 

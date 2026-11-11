@@ -304,10 +304,23 @@ describe("database admin routes (defense in depth: permission + step-up token)",
   });
 
   it("rejects an admin without the step-up token (permission passes, step-up blocks)", async () => {
+    process.env.DB_CONSOLE_ENABLED = "true";
+    try {
+      const res = await request(app)
+        .get("/api/database/tables")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(res.status).toBe(401);
+    } finally {
+      delete process.env.DB_CONSOLE_ENABLED;
+    }
+  });
+
+  it("is switched off unless DB_CONSOLE_ENABLED=true, even for an admin (TM-10)", async () => {
     const res = await request(app)
       .get("/api/database/tables")
       .set("Authorization", `Bearer ${adminToken}`);
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe("DB_CONSOLE_DISABLED");
   });
 });
 

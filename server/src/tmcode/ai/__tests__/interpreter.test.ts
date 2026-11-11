@@ -127,6 +127,16 @@ describe("budgets and the A/B arm", () => {
     expect([takeInterpret(1, "card"), takeInterpret(1, "card"), takeInterpret(1, "card")]).toEqual([true, true, false]);
     expect(takeInterpret(1, "coach")).toBe(true);
   });
+  it("caps are per school: user 1 of school 2 is not spent by user 1 of school 1", () => {
+    const { primaryTenantCtx, runWithTenant } = require("../../../vendor/nga-tenancy");
+    const T2 = { ...primaryTenantCtx(), tid: 2, slug: "two", isPrimary: false };
+    process.env.TMCODE_AI_INTERPRET_PER_DAY = "1";
+    expect(takeInterpret(1, "card")).toBe(true);
+    expect(takeInterpret(1, "card")).toBe(false);
+    expect(runWithTenant(T2, () => takeInterpret(1, "card"))).toBe(true);
+    expect(coachPassIsFree(9, "d")).toBe(true);
+    expect(runWithTenant(T2, () => coachPassIsFree(9, "d"))).toBe(true);
+  });
   it("the first coach pass on a draft is free (QD2)", () => {
     expect(coachPassIsFree(7, "d1")).toBe(true);
     expect(coachPassIsFree(7, "d1")).toBe(false);

@@ -1,3 +1,5 @@
+import { allTenants } from "../tenancy/jobs";
+import { tenantHeaders } from "../tenancy/misHttp";
 import { Op } from "sequelize";
 import { Assignment, Quiz } from "../models";
 import { clientBasicAuth } from "../access/misClient";
@@ -171,7 +173,8 @@ const fetchTransport: ReminderTransport = async (req) => {
   try {
     const res = await fetch(req.url, {
       method: req.method,
-      headers: req.headers,
+      // X-NGA-Tenant: the reminders belong to the school this runs for.
+      headers: { ...tenantHeaders(), ...req.headers },
       body: req.body === undefined ? undefined : JSON.stringify(req.body),
       signal: ctrl.signal,
     });
@@ -388,7 +391,7 @@ export function startReminderSweep(): void {
     return;
   }
   stopReminderSweep();
-  const run = () => void sweepReminders();
+  const run = () => void allTenants("reminders", () => sweepReminders());
   const first = setTimeout(run, SWEEP_FIRST_DELAY_MS);
   const every = setInterval(run, SWEEP_INTERVAL_MS);
   first.unref?.();

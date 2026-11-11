@@ -1,4 +1,5 @@
 import { createPrivateKey, sign as edSign, type KeyObject } from "node:crypto";
+import { tk } from "../../tenancy/keys";
 
 /**
  * The Learning layer of TMCode AI (nga-tmcode reports/TMCode vibe coding proposal 2026.md §8.3):
@@ -392,8 +393,10 @@ export interface Allowance {
 
 export function allowanceOf(userId: number, scope: string, help: LearningHelp, now = Date.now()): Allowance {
   const regainMs = help.allowance.regain_minutes * 60_000;
-  const h = refill(`${userId}:${scope}`, help.allowance.max, regainMs, now);
-  hearts.set(`${userId}:${scope}`, h);
+  // Tenant-keyed: local user ids repeat across schools.
+  const key = tk("hearts", userId, scope);
+  const h = refill(key, help.allowance.max, regainMs, now);
+  hearts.set(key, h);
   return { max: help.allowance.max, regain_minutes: help.allowance.regain_minutes, left: h.tokens, next_in_s: h.tokens >= help.allowance.max ? null : Math.max(1, Math.ceil((h.at + regainMs - now) / 1000)) };
 }
 
@@ -401,7 +404,7 @@ export function allowanceOf(userId: number, scope: string, help: LearningHelp, n
 export function takeQuestion(userId: number, scope: string, help: LearningHelp, now = Date.now()): { ok: boolean; allowance: Allowance } {
   const a = allowanceOf(userId, scope, help, now);
   if (a.left <= 0) return { ok: false, allowance: a };
-  const key = `${userId}:${scope}`;
+  const key = tk("hearts", userId, scope);
   const h = hearts.get(key)!;
   hearts.set(key, { tokens: h.tokens - 1, at: h.tokens >= help.allowance.max ? now : h.at });
   return { ok: true, allowance: allowanceOf(userId, scope, help, now) };

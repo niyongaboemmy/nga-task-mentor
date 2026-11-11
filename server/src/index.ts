@@ -29,6 +29,10 @@ import {
   testConnection,
 } from "./config/database";
 import { setupAssociations } from "./models";
+import { primaryTenantCtx, runWithTenant } from "./vendor/nga-tenancy";
+import { allTenants } from "./tenancy/jobs";
+import { tenantFromCallerHint } from "./tenancy/request";
+import { tenantDatabaseExists } from "./tenancy/provision";
 
 console.log("Environment variables loaded:");
 console.log("JWT_SECRET:", process.env.JWT_SECRET ? "SET" : "NOT SET");
@@ -67,6 +71,9 @@ import accessRoutes from "./routes/access";
 import integrationRoutes from "./routes/integration";
 import activityRoutes from "./routes/activity";
 import mediaRoutes from "./routes/media";
+import uploadsRoutes from "./routes/uploads";
+import tenancyRoutes from "./routes/tenancy";
+import settingsRoutes from "./routes/settings";
 import { activityRelay } from "./activity/relay";
 import activityCatalog from "./activity/catalog.json";
 import aiService from "./services/ai/aiService";
@@ -186,64 +193,10 @@ app.use("/api/quizzes", express.json({ limit: "2mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Proxy uploaded-file requests to the shared file-server, preserving the
-// exact /uploads/<subpath> URL shape every existing DB record and frontend
-// reference already uses (assignments/*, profile-pictures/*, report-cards/*)
-// -- files themselves moved off local disk, but nothing that already links
-// to them needed to change.
-app.get("/uploads/*", async (req, res) => {
-  const origin = req.headers.origin;
-  if (origin) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-  } else {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-  }
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD");
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, x-mis-token",
-  );
-
-  const subpath = (req.params as Record<string, string>)[0];
-  try {
-    const found = await fileServer.streamTo(subpath, res);
-    if (found) return;
-  } catch (error) {
-    console.error("uploads proxy error:", error);
-    if (res.headersSent) return;
-  }
-
-  // Fall back to the old local uploads/ dir for files that predate this
-  // migration and were never copied over to the file-server. Every path
-  // this route ever sees keeps the exact same relative shape it always
-  // did (assignments/x, profile-pictures/x, report-cards/x), so the local
-  // fallback resolves the same way express.static used to.
-  const legacyPath = path.join(__dirname, "../uploads", subpath);
-  if (fs.existsSync(legacyPath) && fs.statSync(legacyPath).isFile()) {
-    return res.sendFile(legacyPath);
-  }
-
-  if (!res.headersSent) {
-    res.status(404).json({ success: false, message: "Not found" });
-  }
-});
-
-app.options("/uploads/*", (req, res) => {
-  const origin = req.headers.origin;
-  if (origin) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-  } else {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-  }
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD");
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, x-mis-token",
-  );
-  res.status(200).end();
-});
+// Stored files (/uploads/<subpath>, the URL shape every DB record and
+// frontend reference uses), proxied from the shared file-server -- now
+// authenticated and authorised against the owning record (routes/uploads.ts).
+app.use("/uploads", uploadsRoutes);
 
 // Test database connection and sync models
 const initializeDatabase = async (): Promise<void> => {
@@ -312,10 +265,17 @@ const initializeDatabase = async (): Promise<void> => {
 
     // Create missing tables (alter: true causes a "too many keys" error). An
     // index the data can't take yet is logged, not fatal: see syncModels.
-    const synced = await syncModels(sequelizeInstance, { alter: false });
+    // Tenant 1 (DB_NAME) first, explicitly: startup has no request context.
+    const synced = await runWithTenant(primaryTenantCtx(), () => syncModels(sequelizeInstance, { alter: false }));
     console.log(
       `Database synchronized${synced.skippedIndexes.length ? ` (${synced.skippedIndexes.length} index(es) skipped)` : ""}`,
     );
+    // Every other provisioned tenant database gets the same model sync
+    // (tables added since it was provisioned). Non-fatal per tenant.
+    void allTenants("startup-sync", async (t) => {
+      if (t.isPrimary || !(await tenantDatabaseExists(t.tid))) return;
+      await syncModels(sequelizeInstance, { alter: false });
+    });
 
     // Add any additional initialization here
   } catch (error) {
@@ -350,13 +310,17 @@ const startServer = async (): Promise<void> => {
     app.use("/api/admin/ai", adminAiRoutes);
     app.use("/api/code", codeRoutes);
     app.use("/api/access", accessRoutes);
+    // MIS control plane -> Task Mentor: tenant provisioning / registry pushes.
+    app.use("/api/integration/tenants", tenancyRoutes);
     // MIS -> Task Mentor server-to-server reads (MIS bearer token, read-only)
     app.use("/api/integration", integrationRoutes);
+    app.use("/api/settings", settingsRoutes);
     app.use("/api/media", mediaRoutes);
     app.use("/api/competency", competencyRoutes);
     app.use("/api/ai", aiRoutes);
     // Public (no auth) — QR code verification
-    app.get("/api/public/verify/report-card/:uuid", verifyReportCard);
+    // The QR names no school: ?tid= (printed on new cards) or the legacy default.
+    app.get("/api/public/verify/report-card/:uuid", tenantFromCallerHint, verifyReportCard);
 
     // Health check endpoint
     app.get("/health", (req: Request, res: Response) => {
