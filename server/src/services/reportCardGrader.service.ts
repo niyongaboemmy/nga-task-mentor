@@ -50,8 +50,17 @@ export interface CategoryResult {
 export interface SubjectGrade {
   subject_id: number;
   categories: Partial<Record<AssessmentCategory, CategoryResult>>;
-  /** Sum of all scaled_scores (out of 100) */
+  /**
+   * The subject's mark out of 100, over the work that HAS marks: points earned
+   * divided by the weight of the categories with at least one recorded mark.
+   * A category with no marks yet (e.g. no EOT) is left out instead of counting
+   * as zero, so 37 points out of the 50 assessed is 74, not 37.
+   */
   total_score: number;
+  /** Points earned: the sum of the categories' scaled scores (out of weight_covered). */
+  points: number;
+  /** Weight of the categories that have marks (100 when every category has marks). */
+  weight_covered: number;
 }
 
 /**
@@ -97,13 +106,16 @@ export function calculateSubjectGrade(
   }
 
   const categories: Partial<Record<AssessmentCategory, CategoryResult>> = {};
-  let total_score = 0;
+  let points = 0;
+  let weight_covered = 0;
 
   for (const cat of Object.keys(grouped) as AssessmentCategory[]) {
-    const items = grouped[cat]!;
+    const items = grouped[cat]!.filter((s) => s.max_score > 0);
+    if (items.length === 0) continue; // nothing markable in this category: not assessed
     const avg = averagePercentage(items);
     const scaled = scaleToCategory(avg, cat, weights);
-    total_score += scaled;
+    points += scaled;
+    weight_covered += weights[cat] ?? 0;
 
     categories[cat] = {
       scaled_score: scaled,
@@ -119,10 +131,13 @@ export function calculateSubjectGrade(
     };
   }
 
+  const total_score = weight_covered > 0 ? (points / weight_covered) * 100 : 0;
   return {
     subject_id,
     categories,
     total_score: parseFloat(total_score.toFixed(2)),
+    points: parseFloat(points.toFixed(2)),
+    weight_covered,
   };
 }
 

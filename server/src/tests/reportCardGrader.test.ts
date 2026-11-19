@@ -182,7 +182,10 @@ const multiResult = calculateSubjectGrade(20, multiCW);
 expect("avg of two CW scores → 70%",   multiResult.categories.CW?.avg_percentage, near(70));
 expect("CW scaled_score = 10.50",       multiResult.categories.CW?.scaled_score,   near(10.5));
 expect("CW has 2 assessments",          multiResult.categories.CW?.assessments.length, eq(2));
-expect("total_score = 10.50",           multiResult.total_score,                   near(10.5));
+// Only CW has marks: the subject mark is over the assessed weight (15), not 100.
+expect("points = 10.50 (of 15)",        multiResult.points,                        near(10.5));
+expect("weight_covered = 15",           multiResult.weight_covered,                eq(15));
+expect("total_score = 70.00 (not 10.5)", multiResult.total_score,                  near(70));
 expect("HW/MD/EOT categories absent",   Object.keys(multiResult.categories).length, eq(1));
 
 suite("calculateSubjectGrade — perfect score");
@@ -211,6 +214,34 @@ suite("calculateSubjectGrade — empty scores array");
 const emptyResult = calculateSubjectGrade(1, []);
 expect("empty scores → total = 0.00",          emptyResult.total_score, near(0));
 expect("empty scores → no categories",          Object.keys(emptyResult.categories).length, eq(0));
+
+suite("calculateSubjectGrade — categories without marks are left out");
+
+// CW 80%, HW 70%, MD 72%, no EOT yet: 12 + 7 + 18 = 37 points of the 50 assessed → 74.
+const noEot: AssessmentScore[] = [
+  { assessment_id: 1, assessment_type: "quiz", category: "CW", raw_score: 8, max_score: 10 },
+  { assessment_id: 2, assessment_type: "assignment", category: "HW", raw_score: 7, max_score: 10 },
+  { assessment_id: 3, assessment_type: "manual", category: "MD", raw_score: 36, max_score: 50 },
+];
+const noEotResult = calculateSubjectGrade(30, noEot);
+expect("no EOT: points = 37",            noEotResult.points,         near(37));
+expect("no EOT: weight_covered = 50",    noEotResult.weight_covered, eq(50));
+expect("no EOT: total = 74 (not 37)",    noEotResult.total_score,    near(74));
+expect("no EOT: EOT absent",             noEotResult.categories.EOT, eq(undefined));
+expect("full card: weight_covered = 100", fullResult.weight_covered, eq(100));
+expect("full card: total = points",      fullResult.total_score,     near(fullResult.points));
+
+// A category whose only assessment has no markable points (max 0) is not assessed either.
+const zeroMax = calculateSubjectGrade(31, [
+  { assessment_id: 1, assessment_type: "quiz", category: "CW", raw_score: 9, max_score: 10 },
+  { assessment_id: 2, assessment_type: "quiz", category: "EOT", raw_score: 0, max_score: 0 },
+]);
+expect("max-0 EOT left out → total 90",  zeroMax.total_score,    near(90));
+expect("max-0 EOT left out → covered 15", zeroMax.weight_covered, eq(15));
+
+// Custom school weights are respected the same way.
+const custom = calculateSubjectGrade(32, [{ assessment_id: 1, assessment_type: "quiz", category: "MD", raw_score: 6, max_score: 10 }], { CW: 20, HW: 20, MD: 20, EOT: 40 });
+expect("custom weights: 60% MD → 60",    custom.total_score,     near(60));
 
 // ─── Summary ──────────────────────────────────────────────────────────────────
 

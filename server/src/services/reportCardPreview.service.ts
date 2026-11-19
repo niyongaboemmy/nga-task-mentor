@@ -121,9 +121,7 @@ export function buildProvisionalCard(
 
     const grade = recordedScores.length ? calculateSubjectGrade(s.subject_id, recordedScores, weights) : null;
     if (grade) grades.push(grade);
-    const weightCovered = grade
-      ? (Object.keys(grade.categories) as AssessmentCategory[]).reduce((n, c) => n + weights[c], 0)
-      : 0;
+    const weightCovered = grade ? grade.weight_covered : 0;
     const expected = s.items.length;
     out.push({
       subject_id: s.subject_id,
@@ -133,8 +131,9 @@ export function buildProvisionalCard(
       recorded: recordedScores.length,
       completeness: expected ? round1((recordedScores.length / expected) * 100) : null,
       weight_covered: weightCovered,
-      total_so_far: grade ? grade.total_score : null,
-      running_percentage: grade && weightCovered > 0 ? round1((grade.total_score / weightCovered) * 100) : null,
+      // Points so far, "of weight_covered"; the running % is the subject mark over what was assessed.
+      total_so_far: grade ? grade.points : null,
+      running_percentage: grade && weightCovered > 0 ? round1(grade.total_score) : null,
       categories,
       pending,
     });
