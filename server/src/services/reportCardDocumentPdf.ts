@@ -174,11 +174,24 @@ function drawCard(pdf: PDFKit.PDFDocument, doc: ReportCardDocument, art: CardArt
   ];
   const panelH = 36;
   pdf.roundedRect(M, y, W, panelH, 5).fill(C.navySoft);
-  const colW = W / fields.length;
+  // The name gets the most room; any value too long shrinks a little, then ends in "…", always on one line.
+  const weights = [1.7, 1, 1, 1.3].slice(0, fields.length);
+  const unit = (W - 24) / weights.reduce((a, b) => a + b, 0);
+  let x = M + 12;
   fields.forEach(([k, v], i) => {
-    const x = M + 12 + i * colW;
-    label(k, x, y + 8, colW - 18);
-    pdf.font(F.bold).fontSize(9.5).fillColor(C.ink).text(v, x, y + 18, { width: colW - 18, lineBreak: false, ellipsis: true });
+    const cw = unit * weights[i];
+    const room = cw - 12;
+    label(k, x, y + 8, room);
+    pdf.font(F.bold);
+    let size = 9.5;
+    while (size > 7.5 && pdf.fontSize(size).widthOfString(v) > room) size -= 0.5;
+    let text = v;
+    if (pdf.fontSize(size).widthOfString(text) > room) {
+      while (text.length > 1 && pdf.widthOfString(`${text}…`) > room) text = text.slice(0, -1);
+      text = `${text.trimEnd()}…`;
+    }
+    pdf.fillColor(C.ink).text(text, x, y + 18 + (9.5 - size) / 2, { lineBreak: false });
+    x += cw;
   });
   y += panelH + 12;
 
