@@ -22,6 +22,7 @@ import { clearSchoolDirectoryCache } from "../services/schoolDirectory";
 import { clearSubjectNameCache } from "../services/reportCardDocument";
 import { clearReportAnalyticsCache } from "../controllers/reportAnalytics.controller";
 import { NGA_ATTRIBUTES } from "../services/tenantSettings";
+import { Assignment } from "../models/Assignment.model";
 
 /**
  * The report card workflow end to end against the dev DB, MIS mocked:
@@ -266,6 +267,44 @@ describe("report card workflow", () => {
   it("refuses a class PDF without the class and term", async () => {
     const res = await auth(request(app).get(`/api/report-cycles/class-pdf?${q}`));
     expect(res.status).toBe(400);
+  });
+
+  it("refuses to map an assignment whose marks are part of another assessment", async () => {
+    const part = await Assignment.create({
+      title: `WF Section C ${RUN}`,
+      description: "part of the exam",
+      due_date: new Date(),
+      max_score: 15,
+      submission_type: "text",
+      course_id: SUBJ,
+      created_by: student.id,
+      status: "published",
+      marks_scope: "part_of",
+      part_of_title: "Mid term exam",
+    } as any);
+    try {
+      const before = await SubjectAssessmentMapping.count({ where: { subject_id: SUBJ, term: TERM, academic_year: YEAR } });
+      const res = await auth(
+        request(app)
+          .post("/api/report-cards/subject-mapping/save")
+          .send({
+            subject_id: SUBJ,
+            term: TERM,
+            academic_year: YEAR,
+            assessments: [
+              { assessment_type: "manual", assessment_id: assessmentId, category: "EOT" },
+              { assessment_type: "assignment", assessment_id: part.id, category: "MD" },
+            ],
+          }),
+      );
+      expect(res.status).toBe(400);
+      expect(res.body).toMatchObject({ code: "PART_OF_ANOTHER_ASSESSMENT" });
+      expect(res.body.message).toContain(`"WF Section C ${RUN}" (part of Mid term exam)`);
+      // Nothing was rewritten.
+      expect(await SubjectAssessmentMapping.count({ where: { subject_id: SUBJ, term: TERM, academic_year: YEAR } })).toBe(before);
+    } finally {
+      await part.destroy({ force: true } as any);
+    }
   });
 
   it("lists the class among the term's cycles", async () => {

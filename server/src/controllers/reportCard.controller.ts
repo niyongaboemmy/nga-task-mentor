@@ -145,9 +145,29 @@ function readShape(card: ReportCard, doc: ReportCardDocument, rawMappings: Repor
 
 // ─── POST /api/report-cards/builder/save (legacy, per student) ───────────────
 
+/**
+ * Assignments whose marks are part of another assessment (marks_scope
+ * "part_of", e.g. Section C of an exam) never go on a report card: mapping
+ * them would count the same marks twice. Returns the refusal message, or null.
+ */
+async function partOfRefusal(assessments: Array<{ assessment_type: string; assessment_id: number }>): Promise<string | null> {
+  const ids = [...new Set(assessments.filter((a) => a.assessment_type === "assignment").map((a) => a.assessment_id))];
+  if (!ids.length) return null;
+  const parts = await Assignment.findAll({
+    where: { id: { [Op.in]: ids }, marks_scope: "part_of" },
+    attributes: ["id", "title", "part_of_title"],
+    raw: true,
+  });
+  if (!parts.length) return null;
+  const list = parts.map((a: any) => `"${a.title}"${a.part_of_title ? ` (part of ${a.part_of_title})` : ""}`).join(", ");
+  return `${list} ${parts.length === 1 ? "is" : "are"} part of another assessment, so ${parts.length === 1 ? "it" : "they"} can't be mapped to the report card. Map the assessment ${parts.length === 1 ? "it belongs" : "they belong"} to instead.`;
+}
+
 export const saveBuilder = async (req: Request, res: Response) => {
   try {
     const { student_id, term, academic_year, assessments } = req.body as BuilderSavePayload;
+    const refusedB = await partOfRefusal(assessments);
+    if (refusedB) return res.status(400).json({ success: false, code: "PART_OF_ANOTHER_ASSESSMENT", message: refusedB });
 
     const builderTarget = once(() => cardStudentTarget(req, student_id));
     for (const subjectId of [...new Set(assessments.map((a) => a.subject_id))]) {
@@ -249,6 +269,8 @@ export const getSubjectMapping = async (req: Request, res: Response) => {
 export const saveSubjectMapping = async (req: Request, res: Response) => {
   try {
     const { subject_id, term, academic_year, assessments } = req.body as SubjectMappingSavePayload;
+    const refused = await partOfRefusal(assessments);
+    if (refused) return res.status(400).json({ success: false, code: "PART_OF_ANOTHER_ASSESSMENT", message: refused });
 
     const mayMap = await scopedAllow(req, {
       caps: ["REPORT_CARDS_CREATE", "REPORT_CARDS_EDIT"],
