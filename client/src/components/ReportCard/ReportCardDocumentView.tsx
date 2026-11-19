@@ -267,7 +267,7 @@ export function ReportCardDocumentView({ doc, verificationUrl }: { doc: ReportCa
       </div>
 
       {/* Student */}
-      <section style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", gap: 12, background: C.navySoft, borderRadius: 8, padding: "10px 14px", marginTop: 14 }}>
+      <section style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr 1fr 1.3fr", gap: 12, background: C.navySoft, borderRadius: 8, padding: "10px 14px", marginTop: 14 }}>
         {(
           [
             ["Student", doc.student.name],
@@ -278,7 +278,7 @@ export function ReportCardDocumentView({ doc, verificationUrl }: { doc: ReportCa
         ).map(([k, v]) => (
           <div key={k} style={{ minWidth: 0 }}>
             <div style={cap}>{k}</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v}</div>
+            <div title={v} style={{ fontSize: 13, fontWeight: 700, color: C.ink, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v}</div>
           </div>
         ))}
       </section>
