@@ -37,8 +37,9 @@ const LOGOS: Record<string, string> = { nga: ngaLogo };
 const CATS = ["CW", "HW", "MD", "EOT"] as const;
 const CAT_NAME: Record<(typeof CATS)[number], string> = { CW: "Class work", HW: "Homework", MD: "Midterm", EOT: "End of term exam" };
 const RATINGS = ["Excellent", "Very good", "Good"];
-const r0 = (n: number | null | undefined) => (n == null ? "" : String(Math.round(n)));
-const f1 = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+/** Exact marks, never rounded to whole numbers: up to 2 decimals (the precision marks are stored at), trailing zeros dropped. */
+const exact = (n: number | null | undefined) => (n == null ? "" : String(Number(n.toFixed(2))));
+const f1 = exact;
 const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th")}`;
 
 const cap: React.CSSProperties = { fontSize: 9, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: C.muted };
@@ -54,7 +55,16 @@ const th: React.CSSProperties = {
   lineHeight: 1.15,
 };
 const sub: React.CSSProperties = { fontWeight: 500, fontSize: 8, color: "#BFD0E3", textTransform: "none", letterSpacing: 0 };
-const td: React.CSSProperties = { fontSize: 11, padding: "6px 6px", textAlign: "center", borderBottom: `1px solid ${C.line}`, color: C.text };
+const td: React.CSSProperties = {
+  fontSize: 11,
+  padding: "6px 6px",
+  textAlign: "center",
+  verticalAlign: "middle",
+  borderBottom: `1px solid ${C.line}`,
+  color: C.text,
+  fontVariantNumeric: "tabular-nums",
+  whiteSpace: "nowrap",
+};
 
 function Pill({ children, tone }: { children: React.ReactNode; tone: "navy" | "red" | "green" }) {
   const map = { navy: [C.navySoft, C.navy], red: [C.redSoft, C.red], green: [C.greenSoft, C.green] } as const;
@@ -79,7 +89,7 @@ export function ReportCardDocumentView({ doc, verificationUrl }: { doc: ReportCa
   const named = doc.groups.some((g) => g.name);
   const cols = 7 + (hasCodes ? 1 : 0) + (showRank ? 1 : 0) + (showCA ? 1 : 0) + (showComp ? 1 : 0);
   const a = doc.attendance;
-  const pct = (n: number) => (a.total > 0 ? `${Math.round((n / a.total) * 100)}%` : "—");
+  const pct = (n: number) => (a.total > 0 ? `${exact((n / a.total) * 100)}%` : "—");
   const bands = [...doc.scheme.bands].sort((x, y) => y.min - x.min);
   const sm = doc.summary;
   const contact = [school.address_line, school.contact_line].filter(Boolean).join("  ·  ");
@@ -103,11 +113,11 @@ export function ReportCardDocumentView({ doc, verificationUrl }: { doc: ReportCa
   const competentCount = sm.modules_competent ?? marked.filter((s) => s.competent).length;
   const decided = competentCount + (sm.modules_nyc ?? marked.filter((s) => s.competent === false).length);
   const tiles: Array<{ k: string; v: string; sub?: string }> = [
-    { k: "Average", v: sm.average != null ? `${sm.average.toFixed(1)}%` : "—", sub: sm.remark ?? undefined },
+    { k: "Average", v: sm.average != null ? `${exact(sm.average)}%` : "—", sub: sm.remark ?? undefined },
     ...(doc.scheme.show_position && sm.position != null ? [{ k: "Position in class", v: ordinal(sm.position), sub: `of ${sm.position_of}` }] : []),
     { k: "Grade", v: sm.grade ?? "—" },
     ...(showComp ? [{ k: "Competent", v: `${competentCount}/${decided}`, sub: "modules" }] : [{ k: "Passed", v: `${sm.subjects_passed}/${sm.subjects_counted}` }]),
-    ...(showCA && sm.class_average != null ? [{ k: "Class average", v: `${sm.class_average.toFixed(1)}%` }] : []),
+    ...(showCA && sm.class_average != null ? [{ k: "Class average", v: `${exact(sm.class_average)}%` }] : []),
   ];
 
   const detail = (s: DocumentSubject) => {
@@ -279,7 +289,7 @@ export function ReportCardDocumentView({ doc, verificationUrl }: { doc: ReportCa
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {strongest && (
               <span style={{ padding: "3px 10px", borderRadius: 999, background: C.greenSoft, color: C.green, fontWeight: 600 }}>
-                Strongest: {strongest.name} · {Math.round(strongest.total as number)}%
+                Strongest: {strongest.name} · {exact(strongest.total)}%
               </span>
             )}
             {attention.length > 0 && (
@@ -292,7 +302,7 @@ export function ReportCardDocumentView({ doc, verificationUrl }: { doc: ReportCa
           <button
             type="button"
             onClick={() => setOpen(allOpen ? new Set() : new Set(marked.map((s) => s.subject_id)))}
-            style={{ border: `1px solid ${C.line}`, background: "#fff", color: C.navy, borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
+            style={{ border: `1px solid ${C.line}`, background: "#fff", color: C.navy, borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
           >
             {allOpen ? "Collapse details" : "Expand all details"}
           </button>
@@ -306,12 +316,12 @@ export function ReportCardDocumentView({ doc, verificationUrl }: { doc: ReportCa
             {hasCodes && <th style={{ ...th, textAlign: "left", width: 70, borderTopLeftRadius: 6 }}>Code</th>}
             <th style={{ ...th, textAlign: "left", borderTopLeftRadius: hasCodes ? 0 : 6 }}>Module</th>
             {CATS.map((c) => (
-              <th key={c} style={{ ...th, width: 34 }} title={CAT_NAME[c]}>
+              <th key={c} style={{ ...th, width: 40 }} title={CAT_NAME[c]}>
                 {c}
                 <div style={sub}>/{w[c]}</div>
               </th>
             ))}
-            <th style={{ ...th, width: 44 }} title="Mark out of 100">
+            <th style={{ ...th, width: 54 }} title="Mark out of 100">
               Mark<div style={sub}>/100</div>
             </th>
             <th style={{ ...th, width: 44 }}>Grade</th>
@@ -321,7 +331,7 @@ export function ReportCardDocumentView({ doc, verificationUrl }: { doc: ReportCa
               </th>
             )}
             {showCA && (
-              <th style={{ ...th, width: 42 }}>
+              <th style={{ ...th, width: 48 }}>
                 Class<div style={sub}>avg</div>
               </th>
             )}
@@ -367,26 +377,34 @@ export function ReportCardDocumentView({ doc, verificationUrl }: { doc: ReportCa
                         data-testid={`module-${s.subject_id}`}
                       >
                         {hasCodes && <td style={{ ...td, textAlign: "left", fontSize: 9.5, color: C.muted }}>{s.code ?? ""}</td>}
-                        <td style={{ ...td, textAlign: "left", color: C.ink }}>
-                          <span className="rc-no-print" style={{ display: "inline-block", width: 10, color: C.muted, fontSize: 9 }}>
-                            {s.total != null ? (isOpen ? "▾" : "▸") : ""}
-                          </span>
-                          {s.name}
-                          {s.missing_marks > 0 && !issued && <span style={{ color: "#B45309", fontSize: 9.5, marginLeft: 6 }}>· {s.missing_marks} mark(s) pending</span>}
-                          {showT && s.teacher && <div style={{ fontSize: 9, color: C.muted, marginLeft: 10 }}>{s.teacher}</div>}
+                        <td style={{ ...td, textAlign: "left", color: C.ink, whiteSpace: "normal" }}>
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: 4 }}>
+                            <span className="rc-no-print" aria-hidden="true" style={{ flex: "0 0 10px", color: C.muted, fontSize: 9, lineHeight: "15px" }}>
+                              {s.total != null ? (isOpen ? "▾" : "▸") : ""}
+                            </span>
+                            <div style={{ minWidth: 0, lineHeight: 1.35 }}>
+                              <div>{s.name}</div>
+                              {showT && s.teacher && <div style={{ fontSize: 9, color: C.muted, marginTop: 1 }}>{s.teacher}</div>}
+                              {s.missing_marks > 0 && !issued && (
+                                <div style={{ fontSize: 9, color: "#B45309", fontWeight: 600, marginTop: 1 }}>
+                                  {s.missing_marks} mark{s.missing_marks === 1 ? "" : "s"} pending
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </td>
                         {CATS.map((c) => (
                           <td key={c} style={td}>
-                            {r0(s.categories[c])}
+                            {exact(s.categories[c])}
                           </td>
                         ))}
                         <td style={{ ...td, fontWeight: 800, fontSize: 12, color: failing ? C.red : C.ink }} title={partial ? "Over the work assessed so far" : undefined}>
-                          {r0(s.total)}
+                          {exact(s.total)}
                           {partial ? "*" : ""}
                         </td>
                         <td style={td}>{s.grade && <Pill tone={failing ? "red" : "navy"}>{s.grade}</Pill>}</td>
                         {showRank && <td style={{ ...td, fontSize: 10.5 }}>{s.rank != null ? `${s.rank}/${s.rank_of}` : ""}</td>}
-                        {showCA && <td style={{ ...td, color: C.muted }}>{r0(s.class_average)}</td>}
+                        {showCA && <td style={{ ...td, color: C.muted }}>{exact(s.class_average)}</td>}
                         {showComp && (
                           <td style={td}>
                             {s.competent != null && <Pill tone={s.competent ? "green" : "red"}>{s.competent ? "Competent" : "NYC"}</Pill>}

@@ -596,7 +596,7 @@ export default function ReportCardWorkbenchPage() {
                         </td>
                       ))}
                       <td className="px-2 py-2 text-center font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
-                        {s.average != null ? s.average.toFixed(1) : "—"}
+                        {s.average != null ? String(Number(s.average.toFixed(2))) : "—"}
                       </td>
                       <td className="px-2 py-2 text-center">
                         {s.has_comment ? <CheckCircle2 className="mx-auto h-4 w-4 text-emerald-600" aria-label="Comment written" /> : <span className="text-text-secondary-light/60">—</span>}
@@ -932,7 +932,7 @@ function CardHistoryDrawer({
                       <li key={c.subject_id} className="flex items-center justify-between px-3 py-2 text-sm">
                         <span className="text-text-primary-light dark:text-text-primary-dark">{c.name}</span>
                         <span className="tabular-nums text-text-secondary-light dark:text-text-secondary-dark">
-                          {c.approved != null ? c.approved.toFixed(1) : "—"} → <strong>{c.now != null ? c.now.toFixed(1) : "—"}</strong>
+                          {c.approved != null ? String(Number(c.approved.toFixed(2))) : "—"} → <strong>{c.now != null ? String(Number(c.now.toFixed(2))) : "—"}</strong>
                         </span>
                       </li>
                     ))}
