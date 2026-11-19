@@ -464,8 +464,12 @@ export default function ReportCardWorkbenchPage() {
                         return (
                           <td key={sub.subject_id} className="px-2 py-2 text-center tabular-nums">
                             {c?.total != null ? (
-                              <span className={failing ? "font-semibold text-red-700 dark:text-red-400" : "text-text-primary-light dark:text-text-primary-dark"}>
+                              <span
+                                className={failing ? "font-semibold text-red-700 dark:text-red-400" : "text-text-primary-light dark:text-text-primary-dark"}
+                                title={c.covered != null && c.covered < 100 ? `${c.total.toFixed(1)} over the ${c.covered}% of the term assessed so far (categories without marks are left out)` : `${c.total.toFixed(1)} / 100`}
+                              >
                                 {Math.round(c.total)}
+                                {c.covered != null && c.covered < 100 && <sup className="ml-px text-[9px] font-medium text-text-secondary-light">{c.covered}%</sup>}
                               </span>
                             ) : (
                               <span className="text-text-secondary-light/60">—</span>
