@@ -10,7 +10,7 @@ import {
   getAdminGradingSummary,
   getActiveProctoringCount,
 } from "../controllers/dashboardController";
-import { getInstructorOverview } from "../controllers/instructorOverview.controller";
+import { getInstructorOverview, getMarksAttention } from "../controllers/instructorOverview.controller";
 import { getGradingInbox } from "../controllers/gradingInbox.controller";
 import { getStudentOverview } from "../controllers/studentOverview.controller";
 import { getAdminInsights, getAdminStudents, getAdminSubjects } from "../controllers/adminReports.controller";
@@ -59,6 +59,11 @@ router.get(
   "/instructor/overview",
   authorizePermission("DASHBOARD_VIEW_INSTRUCTOR"),
   getInstructorOverview,
+);
+router.get(
+  "/instructor/marks-attention",
+  authorizePermission("DASHBOARD_VIEW_INSTRUCTOR"),
+  getMarksAttention,
 );
 router.get(
   "/instructor/active-proctoring",

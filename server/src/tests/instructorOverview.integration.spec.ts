@@ -163,6 +163,23 @@ describe("GET /api/dashboard/instructor/overview", () => {
     expect(d.students.at_risk.map((s: any) => s.mis_user_id)).toEqual(expect.arrayContaining([990901]));
   });
 
+  it("flags the teacher's marks that aren't mapped or are missing, and puts them in the bell", async () => {
+    const res = await request(app).get("/api/dashboard/instructor/marks-attention?fresh=1").set("Authorization", `Bearer ${instructorToken}`).set(MIS_HEADER);
+    expect(res.status).toBe(200);
+    const d = res.body.data;
+    // The graded assignment of SUBJ_A has marks but no report-card category; closed work misses marks for its 2 students.
+    expect(d.totals.unmapped).toBeGreaterThan(0);
+    expect(d.items.every((i: any) => [SUBJ_A, SUBJ_B].includes(i.subject_id))).toBe(true);
+    expect(d.items.find((i: any) => i.unmapped)).toMatchObject({ kind: "assignment", subject_id: SUBJ_A });
+    expect(d.items.some((i: any) => i.missing > 0 && i.expected === 2)).toBe(true);
+    expect(JSON.stringify(d)).not.toContain(`Foreign ${RUN}`);
+
+    const overview = await get();
+    const titles = overview.body.data.alerts.map((a: any) => a.title);
+    expect(titles.some((t: string) => /with marks not mapped$/.test(t))).toBe(true);
+    expect(overview.body.data.alerts[0].severity).toBe("critical"); // still most severe first
+  });
+
   it("narrows to one subject and 404s on a subject the teacher doesn't teach", async () => {
     mockMis([SUBJ_A, SUBJ_B]);
     const one = await get(`?subjectId=${SUBJ_B}`);
