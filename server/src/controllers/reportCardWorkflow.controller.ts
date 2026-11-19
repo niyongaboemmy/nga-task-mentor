@@ -493,6 +493,7 @@ const callerActions = (req: Request) => ({
   approve: legacyCan(req, "REPORT_CARDS_APPROVE") || accessV2Enforced(),
   publish: legacyCan(req, "REPORT_CARDS_PUBLISH") || accessV2Enforced(),
   edit_settings: legacyCan(req, "REPORT_CARDS_APPROVE|REPORT_CARDS_REVIEW") || accessV2Enforced(),
+  comment: legacyCan(req, "REPORT_CARDS_COMMENT|REPORT_CARDS_EDIT") || accessV2Enforced(),
 });
 const accessV2Enforced = () => (process.env.ACCESS_V2_MODE ?? "off").toLowerCase() === "enforce";
 

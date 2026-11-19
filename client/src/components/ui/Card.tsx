@@ -23,7 +23,7 @@ interface CardContentProps {
 export const Card: React.FC<CardProps> = ({ children, className = "" }) => {
   return (
     <div
-      className={`bg-card-light dark:bg-card-dark ${
+      className={`bg-card-light dark:bg-gray-900 ${
         className ? "" : "rounded-2xl"
       } ${className}`}
     >

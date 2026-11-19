@@ -129,7 +129,7 @@ export default function ReportCardsPage() {
       />
 
       {/* School progress */}
-      <section className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
+      <section className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
         {rows == null ? (
           <Skeleton className="h-12 w-full" />
         ) : (
@@ -220,7 +220,7 @@ export default function ReportCardsPage() {
           {shown.map((r) => (
             <div
               key={r.class_group_id}
-              className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-4 transition-colors hover:border-blue-300 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-blue-500/40"
+              className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-4 transition-colors hover:border-blue-300 dark:border-white/10 dark:bg-gray-900 dark:hover:border-blue-500/40"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">

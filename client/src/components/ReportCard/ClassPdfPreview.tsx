@@ -116,10 +116,10 @@ export default function ClassPdfPreview({ isOpen, onClose, classGroupId, classNa
         </div>
       </div>
 
-      <div className="relative min-h-[70vh] flex-1 bg-gray-100 dark:bg-slate-950">
+      <div className="relative min-h-[70vh] flex-1 bg-gray-100 dark:bg-black">
         {loading && (
           <div className="absolute inset-0 flex items-start justify-center overflow-hidden p-6" data-testid="class-pdf-loading" aria-busy="true">
-            <div className="w-full max-w-[560px] space-y-4 rounded-xl bg-white p-6 dark:bg-slate-900">
+            <div className="w-full max-w-[560px] space-y-4 rounded-xl bg-white p-6 dark:bg-gray-900">
               <div className="flex items-center justify-between">
                 <Skeleton className="h-10 w-32" />
                 <Skeleton className="h-6 w-40" />

@@ -236,6 +236,19 @@ describe("report card workbench", () => {
     expect(toast.error).toHaveBeenCalledWith("No report cards for this class and term yet. Open the class to create them.");
   });
 
+  it("guides the approval flow: steps with progress, and reviewing the ready cards in one click after a confirm", async () => {
+    api.workbench.mockResolvedValue({ success: true, data: workbench(rows) });
+    api.transition.mockResolvedValue({ success: true, message: "1 report card updated (review)", data: { action: "review", ok: 1, failed: 0, results: [] } });
+    renderWorkbench();
+    const flow = await screen.findByTestId("approval-flow");
+    for (const k of ["marks", "comments", "review", "approve", "publish"]) expect(within(flow).getByTestId(`flow-step-${k}`)).toBeInTheDocument();
+    const review = within(flow).getByTestId("flow-step-review");
+    fireEvent.click(within(review).getByRole("button", { name: /Review \d+ ready/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Mark reviewed" }));
+    await waitFor(() => expect(api.transition).toHaveBeenCalledWith(expect.objectContaining({ action: "review" })));
+    expect(toast.success).toHaveBeenCalled();
+  });
+
   it("filters to cards ready to review", async () => {
     api.workbench.mockResolvedValue({ success: true, data: workbench(rows) });
     renderWorkbench();

@@ -242,3 +242,70 @@ html[data-focus-mode] [data-hide-in-focus] {
     opacity: 0.3;
   }
 }
+
+/*
+ * One modern checkbox across the app. Every native checkbox gets it, so no
+ * page is missed; :where() keeps specificity at zero so a component's own
+ * size/margin utilities still apply. Opt out with data-native, and checkboxes
+ * used as hidden toggle switches (.sr-only / .peer) are left alone.
+ */
+@layer base {
+  :where(input[type="checkbox"]:not([data-native]):not(.sr-only):not(.peer)) {
+    appearance: none;
+    -webkit-appearance: none;
+    flex-shrink: 0;
+    display: inline-grid;
+    place-content: center;
+    width: 1.05rem;
+    height: 1.05rem;
+    margin: 0;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 0.35rem;
+    background-color: #fff;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  }
+  :where(input[type="checkbox"]:not([data-native]):not(.sr-only):not(.peer))::before {
+    content: "";
+    width: 0.7rem;
+    height: 0.7rem;
+    transform: scale(0);
+    transition: transform 120ms ease;
+    background-color: #fff;
+    /* check mark */
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  }
+  :where(input[type="checkbox"]:not([data-native]):not(.sr-only):not(.peer)):hover:not(:disabled) {
+    border-color: #2563eb;
+  }
+  :where(input[type="checkbox"]:not([data-native]):not(.sr-only):not(.peer)):checked,
+  :where(input[type="checkbox"]:not([data-native]):not(.sr-only):not(.peer)):indeterminate {
+    background-color: #2563eb;
+    border-color: #2563eb;
+  }
+  :where(input[type="checkbox"]:not([data-native]):not(.sr-only):not(.peer)):checked::before {
+    transform: scale(1);
+  }
+  :where(input[type="checkbox"]:not([data-native]):not(.sr-only):not(.peer)):indeterminate::before {
+    transform: scale(1);
+    clip-path: inset(40% 10% 40% 10% round 2px);
+  }
+  :where(input[type="checkbox"]:not([data-native]):not(.sr-only):not(.peer)):focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
+  }
+  :where(input[type="checkbox"]:not([data-native]):not(.sr-only):not(.peer)):disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  :where(.dark input[type="checkbox"]:not([data-native]):not(.sr-only):not(.peer)) {
+    border-color: #475569;
+    background-color: transparent;
+  }
+  :where(.dark input[type="checkbox"]:not([data-native]):not(.sr-only):not(.peer)):checked,
+  :where(.dark input[type="checkbox"]:not([data-native]):not(.sr-only):not(.peer)):indeterminate {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+  }
+}

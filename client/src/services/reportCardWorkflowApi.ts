@@ -66,6 +66,8 @@ export interface CallerCan {
   approve: boolean;
   publish: boolean;
   edit_settings: boolean;
+  /** May write class-teacher comments / rate attributes (older servers omit it). */
+  comment?: boolean;
 }
 
 export interface CycleRow {

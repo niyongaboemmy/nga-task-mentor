@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   AlertTriangle,
@@ -28,6 +28,8 @@ import ReportCardPreview from "../components/ReportCard/ReportCardPreview";
 import SubmitMarksDialog from "../components/ReportCard/SubmitMarksDialog";
 import MarkCell from "../components/ReportCard/MarkCell";
 import ClassPdfPreview from "../components/ReportCard/ClassPdfPreview";
+import ApprovalFlow, { type FlowStep } from "../components/ReportCard/ApprovalFlow";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { CycleDatesModal, ProgressBar } from "./ReportCardsPage";
 import { statusMeta, ReportCardApiService } from "../services/reportCardApi";
 import {
@@ -181,8 +183,8 @@ export default function ReportCardWorkbenchPage() {
   };
   const applicable = (a: WorkflowAction) => selected.filter((s) => ACTION_FROM[a].includes(s.card.status));
 
-  const run = async (action: WorkflowAction, extra: { reason?: string; publish_at?: string | null } = {}) => {
-    const cards = applicable(action);
+  const run = async (action: WorkflowAction, extra: { reason?: string; publish_at?: string | null } = {}, explicit?: WorkbenchStudent[]) => {
+    const cards = explicit ?? applicable(action);
     if (cards.length === 0) return;
     setBusyAction(action);
     try {
@@ -237,6 +239,142 @@ export default function ReportCardWorkbenchPage() {
   const nameById = useMemo(() => new Map((data?.subjects ?? []).map((s) => [s.subject_id, s.name])), [data]);
   const total = students.length;
 
+  // ── Approval flow: steps, their progress and one-click next actions ──────
+  const navigate = useNavigate();
+  const subjectsRef = useRef<HTMLElement>(null);
+  const [flashSubjects, setFlashSubjects] = useState(false);
+  const [confirmFlow, setConfirmFlow] = useState<{ action: "review" | "approve"; cards: WorkbenchStudent[] } | null>(null);
+  const commentsUrl = `/report-cards/${classGroupId}/comments?term=${encodeURIComponent(term)}&year=${encodeURIComponent(year)}`;
+  const goToSubjects = () => {
+    subjectsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setFlashSubjects(true);
+    window.setTimeout(() => setFlashSubjects(false), 1600);
+  };
+  const flowSteps = useMemo<FlowStep[]>(() => {
+    if (!data) return [];
+    const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+    const mapped = data.subjects.filter((s) => s.mapped_cards > 0);
+    const open = mapped.filter((s) => s.signoff.status !== "submitted");
+    const mine = open.filter((s) => s.i_teach);
+    const missing = open.reduce((a, s) => a + s.missing_marks, 0);
+    const attrs = data.scheme.attributes.length;
+    const commented = students.filter((s) => s.has_comment && s.attributes_rated >= attrs).length;
+    const readyCards = students.filter((s) => s.card.status === "draft" && s.blockers.length === 0);
+    const reviewedCards = students.filter((s) => s.card.status === "reviewed");
+    const approvedCards = students.filter((s) => s.card.status === "approved" && !s.card.publish_at);
+    const blocked = students.filter((s) => s.card.status === "draft" && s.blockers.length > 0).length;
+    const c = data.counts;
+    return [
+      {
+        key: "marks",
+        title: "Marks submitted",
+        done: mapped.length - open.length,
+        total: mapped.length,
+        detail: !mapped.length
+          ? "No subject has assessments mapped yet."
+          : open.length
+            ? `${plural(open.length, "subject")} still open${missing ? ` · ${plural(missing, "mark")} missing` : ""}.`
+            : "Every subject teacher has submitted.",
+        action: mine.length
+          ? { label: `Submit ${mine[0].name}${mine.length > 1 ? ` (+${mine.length - 1})` : ""}`, onClick: () => setSignoff(mine[0]), primary: true }
+          : open.length
+            ? { label: "See open subjects", onClick: goToSubjects }
+            : null,
+        onSelect: goToSubjects,
+      },
+      {
+        key: "comments",
+        title: "Comments & attributes",
+        done: commented,
+        total,
+        detail: commented < total ? `${plural(total - commented, "card")} without a full comment and ${attrs} attributes.` : "Every card has its comment and attributes.",
+        action: data.can.comment && commented < total ? { label: "Write comments", to: commentsUrl, primary: true } : null,
+        onSelect: commented < total ? () => setView("blocked") : undefined,
+      },
+      {
+        key: "review",
+        title: "Reviewed",
+        done: total - c.draft,
+        total,
+        detail: readyCards.length
+          ? `${plural(readyCards.length, "card")} ready to review${blocked ? `, ${blocked} still blocked` : ""}.`
+          : blocked
+            ? `${plural(blocked, "card")} blocked: finish the steps before.`
+            : c.draft
+              ? "Waiting for cards to be ready."
+              : "All cards reviewed.",
+        action:
+          readyCards.length && (data.can.review || data.can.approve)
+            ? { label: `Review ${readyCards.length} ready`, onClick: () => setConfirmFlow({ action: "review", cards: readyCards }), busy: busyAction === "review", primary: true }
+            : blocked
+              ? { label: "Show blocked cards", onClick: () => setView("blocked") }
+              : null,
+        onSelect: () => setView(readyCards.length ? "ready" : "draft"),
+      },
+      {
+        key: "approve",
+        title: "Approved",
+        done: c.approved + c.published,
+        total,
+        detail: reviewedCards.length
+          ? `${plural(reviewedCards.length, "card")} waiting for approval${data.can.approve ? "" : " by the head of school"}.`
+          : c.approved + c.published === total
+            ? "All cards approved and locked."
+            : "Approved cards are locked until returned to draft.",
+        action:
+          reviewedCards.length && data.can.approve
+            ? { label: `Approve ${reviewedCards.length}`, onClick: () => setConfirmFlow({ action: "approve", cards: reviewedCards }), busy: busyAction === "approve", primary: true }
+            : null,
+        onSelect: () => setView("reviewed"),
+      },
+      {
+        key: "publish",
+        title: "Published",
+        done: c.published,
+        total,
+        detail: approvedCards.length
+          ? `${plural(approvedCards.length, "card")} approved, not yet visible to students.`
+          : c.scheduled
+            ? `${plural(c.scheduled, "card")} scheduled to publish.`
+            : c.published === total
+              ? "Students and parents can see every card."
+              : "Students see a card only once it's published.",
+        action:
+          approvedCards.length && data.can.publish
+            ? {
+                label: `Publish ${approvedCards.length}`,
+                onClick: () => {
+                  setPicked(new Set(approvedCards.map((s) => s.card.id)));
+                  setScheduleAt("");
+                  setScheduleOpen(true);
+                },
+                busy: busyAction === "publish",
+                primary: true,
+              }
+            : null,
+        onSelect: () => setView(approvedCards.length ? "approved" : "published"),
+      },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, students, busyAction, total, commentsUrl]);
+
+  /** Where each kind of blocker gets fixed. */
+  const fixBlocker = (code: string): { label: string; go: () => void } => {
+    switch (code) {
+      case "SUBJECT_NOT_SUBMITTED":
+      case "MISSING_MARKS":
+      case "SUBJECT_EMPTY":
+        return { label: "Go to subjects", go: goToSubjects };
+      case "NO_COMMENT":
+      case "ATTRIBUTES_INCOMPLETE":
+        return { label: "Write comments", go: () => navigate(commentsUrl) };
+      case "NO_ATTENDANCE":
+        return { label: "Import attendance", go: () => void importAttendance() };
+      default:
+        return { label: "Show students", go: () => setView("blocked") };
+    }
+  };
+
   return (
     <div className="mx-auto max-w-[1400px] space-y-4 p-4 pb-28 sm:p-6 sm:pb-28">
       <PageHeader
@@ -287,8 +425,10 @@ export default function ReportCardWorkbenchPage() {
       ) : (
         <>
           {/* Progress + blockers */}
+          <ApprovalFlow steps={flowSteps} />
+
           <section className="grid items-start gap-3 lg:grid-cols-[1fr_1.2fr]">
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                   {data.counts.published}/{total} published
@@ -321,7 +461,7 @@ export default function ReportCardWorkbenchPage() {
                 {!data.roster_complete && <span className="text-amber-700 dark:text-amber-300">Roster may be incomplete (MIS)</span>}
               </div>
             </div>
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
               <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">What still needs doing</p>
               {data.blockers.length === 0 ? (
                 <p className="mt-2 flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
@@ -329,11 +469,14 @@ export default function ReportCardWorkbenchPage() {
                 </p>
               ) : (
                 <ul className="mt-2 space-y-1.5">
-                  {data.blockers.map((b) => (
+                  {data.blockers.map((b) => {
+                    const fix = fixBlocker(b.code);
+                    return (
                     <li key={b.code}>
                       <button
-                        onClick={() => setView("blocked")}
-                        className="flex w-full items-start gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-gray-50 dark:hover:bg-white/5"
+                        onClick={fix.go}
+                        data-testid={`blocker-${b.code}`}
+                        className="group flex w-full items-start gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-gray-50 dark:hover:bg-white/5"
                       >
                         <AlertTriangle
                           className={`mt-0.5 h-4 w-4 flex-shrink-0 ${["SUBJECT_EMPTY", "NO_ATTENDANCE"].includes(b.code) ? "text-gray-400" : "text-amber-600"}`}
@@ -341,16 +484,26 @@ export default function ReportCardWorkbenchPage() {
                         <span className="min-w-0 text-text-primary-light dark:text-text-primary-dark">
                           <span className="font-semibold">{b.students} student{b.students === 1 ? "" : "s"}</span> — {b.example}
                         </span>
+                        <span className="ml-auto flex-shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold text-blue-700 opacity-70 transition-opacity group-hover:bg-blue-50 group-hover:opacity-100 dark:text-blue-300 dark:group-hover:bg-blue-500/10">
+                          {fix.label} →
+                        </span>
                       </button>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               )}
             </div>
           </section>
 
           {/* Subjects and their sign-off */}
-          <section className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
+          <section
+            ref={subjectsRef}
+            data-testid="subjects-section"
+            className={`scroll-mt-4 rounded-2xl border bg-white p-4 transition-colors duration-500 dark:bg-gray-900 ${
+              flashSubjects ? "border-blue-500 ring-2 ring-blue-500/30" : "border-gray-200 dark:border-white/10"
+            }`}
+          >
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Subjects</p>
               <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
@@ -474,7 +627,7 @@ export default function ReportCardWorkbenchPage() {
           </div>
 
           {/* How to read the marks */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-xs text-text-secondary-light dark:border-white/10 dark:bg-white/[0.03] dark:text-text-secondary-dark">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-xs text-text-secondary-light dark:border-white/10 dark:bg-gray-900 dark:text-text-secondary-dark">
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2" data-testid="marks-legend">
               <span>
                 <strong className="text-text-primary-light dark:text-text-primary-dark">73%</strong> mark out of 100, over the work assessed so far
@@ -517,11 +670,11 @@ export default function ReportCardWorkbenchPage() {
           {shown.length === 0 ? (
             <EmptyState title="No students in this view" description="Pick another filter above." />
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[#0b0d12]">
+            <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900">
               <table className="min-w-full text-sm" data-testid="workbench-matrix">
-                <thead className="bg-gray-50 text-xs text-text-secondary-light dark:bg-[#141821] dark:text-text-secondary-dark">
+                <thead className="bg-gray-50 text-xs text-text-secondary-light dark:bg-gray-800 dark:text-text-secondary-dark">
                   <tr>
-                    <th className="sticky left-0 z-10 bg-gray-50 px-3 py-2 text-left dark:bg-[#141821]">
+                    <th className="sticky left-0 z-10 bg-gray-50 px-3 py-2 text-left dark:bg-gray-800">
                       <input
                         type="checkbox"
                         checked={allShownPicked}
@@ -560,13 +713,13 @@ export default function ReportCardWorkbenchPage() {
                   {shown.map((s) => (
                     <tr
                       key={s.card.id}
-                      className={`group ${picked.has(s.card.id) ? "bg-blue-50 dark:bg-[#111a2e]" : "bg-white hover:bg-gray-50 dark:bg-[#0b0d12] dark:hover:bg-[#12151c]"}`}
+                      className={`group ${picked.has(s.card.id) ? "bg-blue-50 dark:bg-blue-950" : "bg-white hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800"}`}
                     >
                       <td
                         className={`sticky left-0 z-10 px-3 py-2 ${
                           picked.has(s.card.id)
-                            ? "bg-blue-50 dark:bg-[#111a2e]"
-                            : "bg-white group-hover:bg-gray-50 dark:bg-[#0b0d12] dark:group-hover:bg-[#12151c]"
+                            ? "bg-blue-50 dark:bg-blue-950"
+                            : "bg-white group-hover:bg-gray-50 dark:bg-gray-900 dark:group-hover:bg-gray-800"
                         }`}
                       >
                         <label className="flex items-center gap-2">
@@ -661,7 +814,7 @@ export default function ReportCardWorkbenchPage() {
 
       {/* Bulk bar */}
       {selected.length > 0 && data && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-white/10 dark:bg-slate-900/95">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-white/10 dark:bg-gray-900/95">
           <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
               {selected.length} selected
@@ -832,6 +985,23 @@ export default function ReportCardWorkbenchPage() {
           onClose={() => setPreview(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={!!confirmFlow}
+        title={confirmFlow?.action === "approve" ? `Approve ${confirmFlow.cards.length} report card${confirmFlow.cards.length === 1 ? "" : "s"}?` : `Mark ${confirmFlow?.cards.length ?? 0} card${confirmFlow?.cards.length === 1 ? "" : "s"} as reviewed?`}
+        description={
+          confirmFlow?.action === "approve"
+            ? "Approving locks each card and saves the version students will get: marks, comments and attributes can't change unless the card is returned to draft. Students see it only after it's published."
+            : `These cards have no blockers: marks submitted, comment and attributes done. Reviewing sends them for approval. ${(confirmFlow?.cards ?? []).slice(0, 4).map((s) => s.name).join(", ")}${(confirmFlow?.cards.length ?? 0) > 4 ? ` and ${(confirmFlow?.cards.length ?? 0) - 4} more` : ""}.`
+        }
+        confirmLabel={confirmFlow?.action === "approve" ? "Approve and lock" : "Mark reviewed"}
+        onConfirm={() => {
+          const f = confirmFlow;
+          setConfirmFlow(null);
+          if (f) void run(f.action, {}, f.cards);
+        }}
+        onCancel={() => setConfirmFlow(null)}
+      />
 
       <CardHistoryDrawer student={drawer} onClose={() => setDrawer(null)} subjectName={(id) => nameById.get(id) ?? `Subject #${id}`} />
 
