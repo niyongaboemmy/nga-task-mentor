@@ -88,7 +88,7 @@ export const Button: React.FC<ButtonProps> = ({
         </svg>
       )}
       {!loading && icon && <span className="flex-shrink-0">{icon}</span>}
-      {children && <span>{children}</span>}
+      {children && <span className="inline-flex items-center gap-1.5">{children}</span>}
     </button>
   );
 };

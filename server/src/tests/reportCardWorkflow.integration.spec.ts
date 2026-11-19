@@ -194,7 +194,10 @@ afterAll(async () => {
 });
 
 describe("report card workflow", () => {
-  it("shows the class on the workbench with its blockers", async () => {
+  it("shows the class on the workbench with its blockers, restoring a subject mapping the card missed", async () => {
+    // As if the fan-out never reached this student: the workbench copies the
+    // subject's saved mapping onto the draft card.
+    await ReportCardAssessment.destroy({ where: { report_card_id: cardId } });
     const res = await auth(request(app).get(`/api/report-cycles/workbench?class_group_id=${CG}&${q}`));
     expect(res.status).toBe(200);
     const d = res.body.data;
@@ -205,6 +208,8 @@ describe("report card workflow", () => {
     const me = d.students.find((s: any) => s.student_id === misId);
     expect(me.card).toMatchObject({ id: cardId, status: "draft", editable: true });
     expect(me.subjects[SUBJ].total).toBe(35); // 70% of EOT (50)
+    expect(await ReportCardAssessment.count({ where: { report_card_id: cardId } })).toBe(1);
+    expect(d.subjects[0]).toMatchObject({ mapped_cards: 1, total_cards: 1 });
     expect(me.blockers.map((b: any) => b.code)).toEqual(expect.arrayContaining(["SUBJECT_NOT_SUBMITTED", "NO_COMMENT", "ATTRIBUTES_INCOMPLETE"]));
     // The card is stamped with its class for cohort maths.
     expect((await ReportCard.findByPk(cardId))!.class_group_id).toBe(CG);

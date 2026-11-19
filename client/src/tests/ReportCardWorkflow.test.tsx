@@ -169,6 +169,20 @@ describe("report card workbench", () => {
     expect(toast.error).toHaveBeenCalled();
   });
 
+  it("says when a subject is mapped for only part of the class, and doesn't offer sign-off for unmapped ones", async () => {
+    const wb = workbench(rows);
+    wb.subjects = [
+      { ...wb.subjects[0], mapped_cards: 1, total_cards: 4 },
+      { ...wb.subjects[0], subject_id: 10, name: "Citizenship", i_teach: false, mapped_cards: 0, total_cards: 4, teachers: ["T. Mugisha"] },
+    ];
+    api.workbench.mockResolvedValue({ success: true, data: wb });
+    renderWorkbench();
+    expect(await screen.findByTestId("subject-9")).toHaveTextContent("Mapped for 1 of 4");
+    const unmapped = screen.getByTestId("subject-10");
+    expect(unmapped).toHaveTextContent("No assessments mapped · T. Mugisha");
+    expect(unmapped.tagName).toBe("DIV");
+  });
+
   it("filters to cards ready to review", async () => {
     api.workbench.mockResolvedValue({ success: true, data: workbench(rows) });
     renderWorkbench();
