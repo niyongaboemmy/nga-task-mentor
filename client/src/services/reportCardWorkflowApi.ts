@@ -89,6 +89,10 @@ export interface CyclesResponse {
 export interface WorkbenchSubject {
   subject_id: number;
   name: string;
+  /** RTB module code and category, and the mark needed to be Competent. */
+  code?: string | null;
+  category?: "specific" | "general" | "complementary" | null;
+  threshold?: number;
   teachers: string[];
   i_teach: boolean;
   mapped_cards: number;
@@ -96,6 +100,21 @@ export interface WorkbenchSubject {
   total_cards?: number;
   missing_marks: number;
   signoff: { status: "open" | "submitted"; submitted_by: string | null; submitted_at: string | null; returned_reason: string | null };
+}
+
+/** One student's mark in one module, as the workbench shows it. */
+export interface WorkbenchCell {
+  /** Mark out of 100 over the work assessed so far (points / covered x 100). */
+  total: number | null;
+  /** Marks mapped but not recorded (and not marked absent/exempt). */
+  missing: number;
+  /** How many of the term's 100 points are assessed (CW+HW+MD+EOT weights that have marks). */
+  covered?: number | null;
+  /** Points earned out of `covered`. */
+  points?: number | null;
+  /** Points per category (out of its weight); null = no marks in that category yet. */
+  categories?: Record<"CW" | "HW" | "MD" | "EOT", number | null> | null;
+  competent?: boolean | null;
 }
 
 export interface WorkbenchStudent {
@@ -116,7 +135,7 @@ export interface WorkbenchStudent {
     editable: boolean;
   };
   /** total: mark out of 100 over the assessed work; covered: weight (of 100) that has marks. */
-  subjects: Record<number, { total: number | null; missing: number; covered?: number | null }>;
+  subjects: Record<number, WorkbenchCell>;
   average: number | null;
   has_comment: boolean;
   attributes_rated: number;
@@ -133,7 +152,13 @@ export interface WorkbenchData {
   term: string;
   academic_year: string;
   cycle: CycleSettings & { id: number };
-  scheme: { attributes: string[]; pass_mark: number; require_distinct_approver: boolean };
+  scheme: {
+    attributes: string[];
+    pass_mark: number;
+    require_distinct_approver: boolean;
+    category_weights?: { CW: number; HW: number; MD: number; EOT: number };
+    competence_thresholds?: { specific: number; general: number; complementary: number };
+  };
   subjects: WorkbenchSubject[];
   students: WorkbenchStudent[];
   counts: { draft: number; reviewed: number; approved: number; published: number; scheduled: number; ready: number };
@@ -197,6 +222,12 @@ export interface ReportCardScheme {
   show_subject_teacher: boolean;
   head_title: string;
   require_distinct_approver: boolean;
+  /** Each module's position in the class. */
+  show_subject_rank?: boolean;
+  /** Competent / NYC per module (RTB). */
+  show_competence?: boolean;
+  /** Mark (out of 100) a module needs to be Competent, by RTB category. */
+  competence_thresholds?: { specific: number; general: number; complementary: number };
 }
 
 /** The scale on NGA's issued cards (A* 90-100 ... U 0-19). */

@@ -212,7 +212,22 @@ export interface DocumentSubject {
   passed: boolean | null;
   class_average: number | null;
   missing_marks: number;
+  /** RTB module code (e.g. SPEWI302). */
+  code?: string | null;
+  category?: ModuleCategory | null;
+  /** Points earned out of `weight_covered` assessed points (total = points / weight_covered x 100). */
+  points?: number | null;
+  weight_covered?: number | null;
+  /** Mark needed to be Competent; competent = total >= threshold (null without marks). */
+  threshold?: number | null;
+  competent?: boolean | null;
+  /** Rank in the class for this module, of rank_of students with a mark. */
+  rank?: number | null;
+  rank_of?: number | null;
 }
+
+/** RTB module categories. */
+export type ModuleCategory = "specific" | "general" | "complementary";
 
 export interface ReportCardDocument {
   schema: number;
@@ -245,6 +260,9 @@ export interface ReportCardDocument {
     show_class_average: boolean;
     show_subject_teacher: boolean;
     head_title: string;
+    show_subject_rank?: boolean;
+    show_competence?: boolean;
+    competence_thresholds?: Record<ModuleCategory, number>;
   };
   groups: Array<{ name: string | null; subjects: DocumentSubject[] }>;
   summary: {
@@ -258,6 +276,8 @@ export interface ReportCardDocument {
     position: number | null;
     position_of: number | null;
     class_average: number | null;
+    modules_competent?: number;
+    modules_nyc?: number;
   };
   attendance: { present: number; absent: number; excused: number; late: number; sick: number; total: number; source: "manual" | "imported" };
   attributes: AttributeItem[];

@@ -28,6 +28,9 @@ import {
   buildCardDocuments,
   computeCardGrades,
   resolveSubjectNames,
+  resolveSubjectInfo,
+  categoryFromCode,
+  displayCode,
   type CardGrades,
   type ReportCardDocument,
 } from "../services/reportCardDocument";
@@ -553,7 +556,17 @@ export const getWorkbench = async (req: Request, res: Response) => {
     for (const c of cards) computed.set(c.id!, await computeCardGrades(c, scheme.category_weights));
     const subjectIds = new Set<number>(classSubjects);
     for (const g of computed.values()) g.mappedSubjects.forEach((id) => subjectIds.add(id));
-    const names = await resolveSubjectNames(req, [...subjectIds]);
+    const subjectInfo = await resolveSubjectInfo(req, [...subjectIds]);
+    const names: Record<number, string> = Object.fromEntries(Object.entries(subjectInfo).map(([id, v]) => [Number(id), v.name]));
+    const schemeGroupOf = (sid: number) => scheme.subject_groups.find((g) => g.subject_ids.includes(sid))?.name?.toLowerCase() ?? "";
+    const categoryOf = (sid: number) => {
+      const n = schemeGroupOf(sid);
+      if (n.includes("complementary")) return "complementary" as const;
+      if (n.includes("general")) return "general" as const;
+      if (n.includes("specific") || n.includes("core")) return "specific" as const;
+      return categoryFromCode(subjectInfo[sid]?.code);
+    };
+    const thresholdOf = (sid: number) => scheme.competence_thresholds[categoryOf(sid) ?? "specific"] ?? scheme.pass_mark;
 
     const signoffs = await ReportCycleSubjectSignoff.findAll({ where: { cycle_id: cycle.id } });
     const signoffBy = new Map(signoffs.map((s) => [s.subject_id, s]));
@@ -583,6 +596,9 @@ export const getWorkbench = async (req: Request, res: Response) => {
         return {
           subject_id: sid,
           name: names[sid] ?? `Subject #${sid}`,
+          code: displayCode(subjectInfo[sid]?.code),
+          category: categoryOf(sid),
+          threshold: thresholdOf(sid),
           teachers: teachers.map((t) => t.name),
           i_teach: myId != null && teachers.some((t) => t.mis_user_id === myId),
           mapped_cards: mapped,
@@ -602,10 +618,34 @@ export const getWorkbench = async (req: Request, res: Response) => {
       const g = computed.get(card.id!)!;
       const info = studentsById.get(card.student_id);
       const facts = readinessOf(card, g, submitted, classSubjects, names, scheme.attributes.length);
-      const totals: Record<number, { total: number | null; missing: number; covered: number | null }> = {};
+      const totals: Record<
+        number,
+        {
+          total: number | null;
+          missing: number;
+          covered: number | null;
+          points: number | null;
+          categories: Record<"CW" | "HW" | "MD" | "EOT", number | null> | null;
+          competent: boolean | null;
+        }
+      > = {};
       for (const sid of subjectIds) {
         const grade = g.grades.find((x) => x.subject_id === sid);
-        totals[sid] = { total: grade ? grade.total_score : null, missing: g.missingBySubject.get(sid) ?? 0, covered: grade ? grade.weight_covered : null };
+        totals[sid] = {
+          total: grade ? grade.total_score : null,
+          missing: g.missingBySubject.get(sid) ?? 0,
+          covered: grade ? grade.weight_covered : null,
+          points: grade ? Math.round(grade.points * 100) / 100 : null,
+          categories: grade
+            ? {
+                CW: grade.categories.CW?.scaled_score ?? null,
+                HW: grade.categories.HW?.scaled_score ?? null,
+                MD: grade.categories.MD?.scaled_score ?? null,
+                EOT: grade.categories.EOT?.scaled_score ?? null,
+              }
+            : null,
+          competent: grade ? grade.total_score >= thresholdOf(sid) : null,
+        };
       }
       const avg = g.grades.length ? Math.round((g.grades.reduce((a, x) => a + x.total_score, 0) / g.grades.length) * 100) / 100 : null;
       const snap = snapBy.get(card.id!);
@@ -674,7 +714,13 @@ export const getWorkbench = async (req: Request, res: Response) => {
           publish_at: cycle.publish_at,
           next_term_begins_on: cycle.next_term_begins_on,
         },
-        scheme: { attributes: scheme.attributes, pass_mark: scheme.pass_mark, require_distinct_approver: scheme.require_distinct_approver },
+        scheme: {
+          attributes: scheme.attributes,
+          pass_mark: scheme.pass_mark,
+          require_distinct_approver: scheme.require_distinct_approver,
+          category_weights: scheme.category_weights,
+          competence_thresholds: scheme.competence_thresholds,
+        },
         subjects,
         students,
         counts,
