@@ -737,7 +737,8 @@ export const getCourseGrades = async (req: Request, res: Response) => {
     const quizzes = await Quiz.findAll({
       where: {
         course_id: courseId,
-        status: "published", // Only parsed published quizzes
+        // Published and closed ("completed") quizzes both carry marks.
+        status: { [Op.in]: ["published", "completed"] },
         ...termWhere,
       },
       attributes: [
@@ -795,7 +796,8 @@ export const getCourseGrades = async (req: Request, res: Response) => {
     const quizSubmissions = await QuizSubmission.findAll({
       where: {
         quiz_id: { [Op.in]: quizIds },
-        status: "completed", // Only count completed attempts
+        // Finished attempts (a timed-out attempt is finished too).
+        status: { [Op.in]: ["completed", "timed_out"] },
         ...(isSelfView && req.user ? { student_id: req.user.id } : {}),
       },
       attributes: [
@@ -1237,6 +1239,8 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
           [Op.in]: courseIds,
         },
         ...COUNTED_MARKS,
+        // Drafts and removed work are not the student's work to see.
+        status: { [Op.in]: ["published", "completed"] },
         ...termWhere,
       },
       attributes: ["id", "course_id", "max_score", "title", "due_date"],
@@ -1248,6 +1252,7 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
         course_id: {
           [Op.in]: courseIds,
         },
+        status: { [Op.in]: ["published", "completed"] },
         ...termWhere,
       },
       attributes: ["id", "course_id", "title", "start_date", "end_date"],
@@ -1270,6 +1275,7 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
           [Op.in]: assignmentIds,
         },
         student_id: req.user.id,
+        status: { [Op.ne]: "draft" },
       },
       attributes: ["assignment_id", "grade"],
     });
@@ -1280,8 +1286,10 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
           [Op.in]: quizIds,
         },
         student_id: req.user.id,
+        // Finished attempts only; an in-progress or abandoned attempt is no mark.
+        status: { [Op.in]: ["completed", "timed_out"] },
       },
-      attributes: ["quiz_id", "total_score"],
+      attributes: ["quiz_id", "total_score", "grade_status"],
     })) as any[];
 
     // 3b. Fetch the marks the student's teachers recorded by hand (class work,
@@ -1321,12 +1329,16 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
       const now = Date.now();
       const items = [
         ...courseAssignments.map((a) => {
-          const sub = submissions.find((s) => s.assignment_id === a.id);
-          const raw = sub?.grade ?? null;
-          const score =
-            raw === null || raw === undefined
-              ? null
-              : Number(String(raw).includes("/") ? String(raw).split("/")[0] : raw);
+          // Best graded submission (a resubmission may be graded higher).
+          const subs = submissions.filter((s) => s.assignment_id === a.id);
+          const scoreOf = (g: any) =>
+            g === null || g === undefined ? null : Number(String(g).includes("/") ? String(g).split("/")[0] : g);
+          const sub = subs.reduce<any>((best, s) => {
+            const v = scoreOf(s.grade);
+            const b = best ? scoreOf(best.grade) : null;
+            return v !== null && !isNaN(v) && (b === null || isNaN(b) || v > b) ? s : best ?? s;
+          }, null);
+          const score = sub ? scoreOf(sub.grade) : null;
           const due = (a as any).due_date ?? null;
           return {
             kind: "assignment" as const,
@@ -1344,7 +1356,14 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
           };
         }),
         ...courseQuizzes.map((q: any) => {
-          const sub = quizSubmissions.find((s) => s.quiz_id === q.id);
+          // Best finished attempt; one still waiting for a teacher's mark doesn't count yet.
+          const graded = quizSubmissions.filter(
+            (s) => s.quiz_id === q.id && s.grade_status !== "pending",
+          );
+          const sub = graded.reduce<any>(
+            (best, s) => (!best || Number(s.total_score) > Number(best.total_score) ? s : best),
+            null,
+          );
           const maxScore = Array.isArray(q.quizQuestions)
             ? q.quizQuestions.reduce(
                 (sum: number, question: any) => sum + (Number(question.points) || 0),
@@ -1359,9 +1378,9 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
             maxScore,
             score: sub ? Number(sub.total_score) || 0 : null,
             marked: !!sub,
-            submitted: !!sub,
+            submitted: quizSubmissions.some((s) => s.quiz_id === q.id),
             date: q.end_date ?? q.start_date ?? null,
-            overdue: !sub && closed,
+            overdue: !quizSubmissions.some((s) => s.quiz_id === q.id) && closed,
             countsToFinal: true,
           };
         }),

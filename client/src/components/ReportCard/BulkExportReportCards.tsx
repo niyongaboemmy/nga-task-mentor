@@ -283,7 +283,7 @@ export default function BulkExportReportCards() {
   const hasSelection = mode === "course" ? selectedCourseId !== "" : period !== null;
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
       {/* Header */}
       <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
@@ -307,7 +307,7 @@ export default function BulkExportReportCards() {
             disabled={isExporting}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
               mode === "course"
-                ? "bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                ? "bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400"
                 : "text-text-secondary-light dark:text-text-secondary-dark/70"
             }`}
           >
@@ -318,7 +318,7 @@ export default function BulkExportReportCards() {
             disabled={isExporting}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
               mode === "period"
-                ? "bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                ? "bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400"
                 : "text-text-secondary-light dark:text-text-secondary-dark/70"
             }`}
           >
@@ -437,7 +437,7 @@ export default function BulkExportReportCards() {
                       {summary.overall_average != null ? `${summary.overall_average}%` : "—"}
                     </p>
                   </div>
-                  {(["draft", "saved", "approved"] as const).map((s) => (
+                  {(["draft", "reviewed", "approved", "published"] as const).map((s) => (
                     <div key={s} className={`rounded-xl p-3 ${STATUS_META[s].bg}`}>
                       <p className={`text-[10px] uppercase tracking-wider font-semibold ${STATUS_META[s].color}`}>
                         {STATUS_META[s].label}
@@ -543,7 +543,7 @@ export default function BulkExportReportCards() {
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm
                     bg-gradient-to-r from-blue-600 to-blue-600 text-white
                     hover:from-blue-500 hover:to-blue-500
-                    shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40
+                   -blue-500/40
                     disabled:opacity-40 disabled:cursor-not-allowed
                     transition-all duration-200 active:scale-95"
                 >

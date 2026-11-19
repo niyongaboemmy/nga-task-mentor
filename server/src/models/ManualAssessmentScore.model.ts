@@ -9,11 +9,15 @@ import {
 } from "sequelize-typescript";
 import { ManualAssessment } from "./ManualAssessment.model";
 
+export type ManualScoreStatus = "scored" | "absent" | "exempt";
+
 export interface IManualAssessmentScoreAttributes {
   id?: number;
   manual_assessment_id: number;
   student_id: number;
   score: number;
+  /** scored (default) | absent (counts as 0) | exempt (left out). */
+  status?: ManualScoreStatus;
   created_at?: Date;
   updated_at?: Date;
 }
@@ -64,6 +68,9 @@ export class ManualAssessmentScore extends Model<
     validate: { min: 0 },
   })
   public score!: number;
+
+  @Column({ type: DataType.ENUM("scored", "absent", "exempt"), allowNull: false, defaultValue: "scored" })
+  public status!: ManualScoreStatus;
 
   @BelongsTo(() => ManualAssessment, "manual_assessment_id")
   public assessment!: ManualAssessment;

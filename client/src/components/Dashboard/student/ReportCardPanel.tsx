@@ -21,6 +21,7 @@ const ReportCardPanel: React.FC = () => {
   const [downloading, setDownloading] = useState(false);
   const [available, setAvailable] = useState<"checking" | "yes" | "no">("checking");
   const [reportCardId, setReportCardId] = useState<number | null>(null);
+  const [issued, setIssued] = useState<{ version: number; published_at: string | null } | null>(null);
 
   const term = periodField(user?.currentAcademicTerm, "name") as string | undefined;
   const year = periodField(user?.currentAcademicYear, "name") as string | undefined;
@@ -36,6 +37,7 @@ const ReportCardPanel: React.FC = () => {
         if (cancelled) return;
         if (res.success && res.data?.report_card) {
           setReportCardId(res.data.report_card.id);
+          setIssued({ version: res.data.report_card.version ?? 1, published_at: res.data.report_card.published_at ?? null });
           setAvailable("yes");
         } else setAvailable("no");
       })
@@ -58,6 +60,7 @@ const ReportCardPanel: React.FC = () => {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      toast.success("Report card downloaded.");
     } catch {
       toast.error("Could not generate the PDF. Please try again in a moment.");
     } finally {
@@ -87,6 +90,9 @@ const ReportCardPanel: React.FC = () => {
           </div>
           <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
             {term ?? "—"} · {year ?? "—"}
+            {available === "yes" && issued?.published_at && (
+              <> · published {new Date(issued.published_at).toLocaleDateString()}{issued.version > 1 ? ` (version ${issued.version})` : ""}</>
+            )}
           </p>
         </div>
       </div>

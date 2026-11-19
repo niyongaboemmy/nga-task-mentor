@@ -53,11 +53,12 @@ export function KpiCard({
 }: {
   icon: React.ReactNode;
   label: string;
-  value: number;
+  /** null = nothing to measure yet; the tile shows "—" rather than a fake 0. */
+  value: number | null;
   suffix?: string;
   caption: string;
   accent: string;
-  progress?: number;
+  progress?: number | null;
   progressColor?: string;
   onClick?: () => void;
   active?: boolean;
@@ -83,7 +84,7 @@ export function KpiCard({
         </span>
       </div>
       <p className="text-2xl sm:text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">
-        <CountUp value={value} suffix={suffix} />
+        {value === null ? <span className="tabular-nums">—</span> : <CountUp value={value} suffix={suffix} />}
       </p>
       {typeof progress === "number" && (
         <div className="mt-3 h-1.5 w-full rounded-full bg-surface-light dark:bg-surface-dark overflow-hidden">

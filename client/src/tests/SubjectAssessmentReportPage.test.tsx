@@ -102,6 +102,12 @@ vi.mock("../hooks/useTermYearSelector", () => ({
   }),
 }));
 
+const downloadCsv = vi.fn();
+vi.mock("../utils/csvExport", async () => {
+  const actual = await vi.importActual<typeof import("../utils/csvExport")>("../utils/csvExport");
+  return { ...actual, downloadCsv: (...args: unknown[]) => downloadCsv(...args) };
+});
+
 vi.mock("../contexts/ThemeContext", () => ({ useTheme: () => ({ theme: "dark" }) }));
 
 import SubjectAssessmentReportPage from "../pages/SubjectAssessmentReportPage";
@@ -118,6 +124,7 @@ const renderPage = () =>
 describe("SubjectAssessmentReportPage", () => {
   beforeEach(() => {
     fetchSubjectGrades.mockReset().mockResolvedValue(payload);
+    downloadCsv.mockReset();
   });
 
   it("renders the subject, its KPIs and every chart panel", async () => {
@@ -153,6 +160,35 @@ describe("SubjectAssessmentReportPage", () => {
 
     await waitFor(() => expect(screen.queryByText("Ada Byron")).not.toBeInTheDocument());
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
+  });
+
+  it("leaves an inactive student out of the class numbers but keeps them listed", async () => {
+    const leaver = {
+      ...payload.students[0],
+      student: { id: 3, name: "Left Early", email: "left@example.com", inactive: true },
+      summary: { ...payload.students[0].summary, total_percentage: 100 },
+    };
+    fetchSubjectGrades.mockResolvedValue({ ...payload, students: [...payload.students, leaver] });
+    renderPage();
+    expect(await screen.findByText("Left Early")).toBeInTheDocument();
+    // Still 2 students and a 60% median: the leaver's 100% doesn't count.
+    expect(screen.getByText(/2 assessments · 2 students/)).toBeInTheDocument();
+    expect(screen.getByText(/Median 60% /)).toBeInTheDocument();
+  });
+
+  it("shows — and exports empty cells when nothing is marked", async () => {
+    const blank = (s: (typeof payload.students)[number]) => ({
+      ...s,
+      assessments: s.assessments!.map((a) => ({ ...a, score: null, recorded: false })),
+      summary: { ...s.summary, total_points_earned: 0, total_percentage: 0 },
+    });
+    fetchSubjectGrades.mockResolvedValue({ ...payload, students: payload.students.map(blank) });
+    renderPage();
+    expect(await screen.findByText("No marks yet — nothing to average")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Export/ }));
+    const rows = downloadCsv.mock.calls[0][1] as string[][];
+    const ada = rows.find((r) => r[0] === "Ada Byron")!;
+    expect(ada.slice(2)).toEqual(["", "", "", "No marks"]);
   });
 
   it("shows a recoverable error when the grades call fails", async () => {

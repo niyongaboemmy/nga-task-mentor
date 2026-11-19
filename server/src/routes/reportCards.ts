@@ -18,7 +18,15 @@ import {
 } from "../controllers/reportCard.controller";
 import { protect, authorizePermission, authorizeCapability } from "../middleware/auth";
 import { draftReportComment } from "../controllers/reportCommentAi.controller";
-import { validate } from "../middleware/validation.middleware";
+import {
+  transitionCards,
+  getCardHistory,
+  getCardDiff,
+  getScheme,
+  putScheme,
+} from "../controllers/reportCardWorkflow.controller";
+import { transitionSchema } from "../validations/reportCardWorkflow.validation";
+import { validate, validateBody } from "../middleware/validation.middleware";
 import {
   builderSaveSchema,
   subjectMappingSaveSchema,
@@ -115,22 +123,41 @@ router.get(
   getAdminSummary,
 );
 
+// ── Workflow: draft -> reviewed -> approved -> published ───────────────────────
+// One action over up to 200 cards; each card is checked on its own (scope,
+// state, readiness, reason) and gets its own result. See
+// controllers/reportCardWorkflow.controller.ts and services/reportCardWorkflow.ts.
+router.post(
+  "/transition",
+  authorizePermission("REPORT_CARDS_REVIEW", "REPORT_CARDS_APPROVE", "REPORT_CARDS_PUBLISH"),
+  validateBody(transitionSchema),
+  transitionCards,
+);
+
+// The school's report card scheme (weights, pass mark, attributes, subject
+// groups, what the card shows). Read by anyone who works on cards.
+router.get(
+  "/scheme",
+  authorizePermission("REPORT_CARDS_VIEW_ALL", "REPORT_CARDS_EDIT", "REPORT_CARDS_COMMENT", "REPORT_CARDS_REVIEW", "REPORT_CARDS_APPROVE"),
+  getScheme,
+);
+router.put("/scheme", authorizePermission("REPORT_CARDS_APPROVE", "USERS_EDIT"), putScheme);
+
+router.get("/:id(\\d+)/history", authorizePermission("REPORT_CARDS_VIEW_ALL"), getCardHistory);
+router.get("/:id(\\d+)/diff", authorizePermission("REPORT_CARDS_VIEW_ALL"), getCardDiff);
+
 // ── Status lifecycle ───────────────────────────────────────────────────────────
-// PATCH /api/report-cards/:id/status
-// Editors: draft <-> saved
-// Approvers: any -> any (including approved) — enforced in the controller
-// Access control v2 (enforce): "approved" is also the published state, so
-// entering or leaving it needs REPORT_CARDS_APPROVE and REPORT_CARDS_PUBLISH
-// over the student (controller); draft <-> saved needs REPORT_CARDS_EDIT.
+// PATCH /api/report-cards/:id/status (legacy, one release): the target status
+// is mapped onto the workflow actions above, so the same rules apply.
 router.patch(
   "/:id/status",
-  authorizePermission("REPORT_CARDS_EDIT", "REPORT_CARDS_APPROVE"),
+  authorizePermission("REPORT_CARDS_REVIEW", "REPORT_CARDS_APPROVE", "REPORT_CARDS_PUBLISH"),
   validate(updateStatusSchema),
   updateStatus,
 );
 
 // ── Read ───────────────────────────────────────────────────────────────────────
-// Callers without REPORT_CARDS_VIEW_ALL receive only approved cards (controller-scoped).
+// Callers without REPORT_CARDS_VIEW_ALL receive only their own published cards.
 router.get(
   "/student/:studentId",
   authorizePermission("REPORT_CARDS_VIEW_OWN", "REPORT_CARDS_VIEW_ALL"),

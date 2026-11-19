@@ -100,7 +100,7 @@ export interface AssessmentStat {
   date: string | null;
   maxScore: number;
   countsToFinal: boolean;
-  /** How many students have a mark for it, out of the whole roster. */
+  /** How many active students have a mark for it, out of the active roster. */
   markedCount: number;
   rosterSize: number;
   averagePct: number | null;
@@ -132,11 +132,12 @@ export interface StudentStat {
 export interface SubjectReport {
   assessments: AssessmentStat[];
   students: StudentStat[];
+  /** Active students only — inactive (left MIS) rows are listed but never counted. */
   rosterSize: number;
-  /** Class average of every student who has at least one mark. */
-  classAverage: number;
-  medianPct: number;
-  passRate: number;
+  /** Class average of every active student who has at least one mark; null when nobody has. */
+  classAverage: number | null;
+  medianPct: number | null;
+  passRate: number | null;
   atRiskCount: number;
   /** Student×assessment cells still waiting on a mark. */
   outstandingMarks: number;
@@ -168,8 +169,8 @@ const toNumber = (value: number | string | null | undefined): number | null => {
 const pct = (score: number, max: number) =>
   max > 0 ? Math.round((score / max) * 1000) / 10 : 0;
 
-const median = (values: number[]) => {
-  if (values.length === 0) return 0;
+const median = (values: number[]): number | null => {
+  if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 0
@@ -181,7 +182,11 @@ export const buildSubjectReport = (
   payload: SubjectGradesPayload,
 ): SubjectReport => {
   const rawStudents = payload.students ?? [];
-  const rosterSize = rawStudents.length;
+  // Students who have left (inactive in MIS) stay on the sheet because they
+  // have marks, but they are not part of the class any more: they never count
+  // in an average, a pass rate, a band, the roster size or outstanding marks.
+  const isActive = (s: RawStudentGrade) => !s.student.inactive;
+  const rosterSize = rawStudents.filter(isActive).length;
 
   // Every assessment, keyed the same way on both axes of the matrix.
   const definitions: Array<{
@@ -252,7 +257,7 @@ export const buildSubjectReport = (
     for (const student of rawStudents) {
       const mark = def.markOf(student);
       marksByStudent.get(student.student.id)![def.key] = mark;
-      if (mark !== null) marks.push(mark);
+      if (mark !== null && isActive(student)) marks.push(mark);
     }
     const sum = marks.reduce((acc, m) => acc + m, 0);
     return {
@@ -293,13 +298,14 @@ export const buildSubjectReport = (
 
   // A student with nothing marked isn't a 0% — they're "no data". Counting
   // them would drag the class average down and invent a failing cohort.
-  const graded = students.filter((s) => s.markedCount > 0);
+  // Nothing graded means "no data" (null → "—"), never 0%.
+  const graded = students.filter((s) => s.markedCount > 0 && !s.inactive);
   const classAverage =
     graded.length > 0
       ? Math.round(
           (graded.reduce((acc, s) => acc + s.overallPct, 0) / graded.length) * 10,
         ) / 10
-      : 0;
+      : null;
 
   const bandCounts = BANDS.reduce(
     (acc, b) => ({ ...acc, [b.key]: graded.filter((s) => s.band === b.key).length }),
@@ -315,7 +321,7 @@ export const buildSubjectReport = (
     passRate:
       graded.length > 0
         ? Math.round((graded.filter((s) => s.overallPct >= 50).length / graded.length) * 100)
-        : 0,
+        : null,
     atRiskCount: graded.filter((s) => s.overallPct < 50).length,
     outstandingMarks: assessments.reduce(
       (acc, a) => acc + Math.max(0, a.rosterSize - a.markedCount),

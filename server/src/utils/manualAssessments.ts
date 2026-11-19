@@ -66,6 +66,8 @@ export const fetchManualAssessments = async (
       where: {
         manual_assessment_id: { [Op.in]: assessments.map((a) => a.id) },
         ...(everyone ? {} : { student_id: { [Op.in]: Array.from(new Set(numericStudentIds)) } }),
+        // Exempt = not part of this student's marks anywhere; absent stays as its 0.
+        status: { [Op.ne]: "exempt" },
       },
       attributes: ["manual_assessment_id", "student_id", "score"],
     });

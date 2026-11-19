@@ -262,7 +262,7 @@ export const upsertScores = async (req: Request, res: Response) => {
     }
 
     const maxScore = parseFloat(String(assessment.max_score));
-    const invalid = scores.find((s) => parseFloat(String(s.score)) > maxScore);
+    const invalid = scores.find((s) => (s.status ?? "scored") === "scored" && parseFloat(String(s.score)) > maxScore);
     if (invalid) {
       return res.status(400).json({
         success: false,
@@ -279,12 +279,14 @@ export const upsertScores = async (req: Request, res: Response) => {
     const toCreate: any[] = [];
     const updatePromises: Promise<any>[] = [];
 
-    for (const { student_id, score } of scores) {
+    for (const { student_id, score, status } of scores) {
+      const st = status ?? "scored";
+      const value = st === "scored" ? parseFloat(String(score)) : 0;
       const ex = existingMap.get(student_id);
       if (ex) {
-        updatePromises.push(ex.update({ score: parseFloat(String(score)) }));
+        updatePromises.push(ex.update({ score: value, status: st }));
       } else {
-        toCreate.push({ manual_assessment_id: id, student_id, score: parseFloat(String(score)) });
+        toCreate.push({ manual_assessment_id: id, student_id, score: value, status: st });
       }
     }
 

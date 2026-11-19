@@ -128,6 +128,13 @@ describe("StudentReportsPage", () => {
     expect(screen.getByText("38%", { selector: "td" })).toBeInTheDocument();
   });
 
+  it("shows — for the average when no subject has marks yet", async () => {
+    fetchMyGrades.mockResolvedValue([rows[1]]);
+    renderPage();
+    expect(await screen.findByText("Nothing marked yet — no average to show")).toBeInTheDocument();
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+  });
+
   it("shows an untouched subject as having no marks rather than 0%", async () => {
     renderPage();
     expect(await screen.findByText("Graphic User Interface Design")).toBeInTheDocument();

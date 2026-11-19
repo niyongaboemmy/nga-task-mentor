@@ -25,7 +25,7 @@ const props = {
   term: "Term 1",
   academicYear: "2026-2027",
   results: { 1: [{ name: "Mathematics", score: 81 }] },
-  initialData: { 3: { attendance: "present" as const, attributes: {}, comment: "Already written." } },
+  initialData: { 3: { present: 40, absent: 2, attributes: {}, comment: "Already written." } },
 };
 
 describe("AI report-card comments", () => {
@@ -43,7 +43,7 @@ describe("AI report-card comments", () => {
     const row = screen.getByTestId("student-row-1");
     fireEvent.click(within(row).getByRole("button", { name: "Draft a comment for Alice Mutoni with AI" }));
     await waitFor(() => expect((within(row).getByLabelText("Comment for Alice Mutoni") as HTMLTextAreaElement).value).toBe("Alice is a careful mathematician; Alice should now read more widely."));
-    expect(calls[0]).toMatchObject({ term: "Term 1", academic_year: "2026-2027", subjects: [{ name: "Mathematics", score: 81 }], attendance: "present", current: null });
+    expect(calls[0]).toMatchObject({ term: "Term 1", academic_year: "2026-2027", subjects: [{ name: "Mathematics", score: 81 }], attendance: null, current: null });
   });
 
   it("drafts only the empty comments in bulk, two at a time", async () => {

@@ -131,11 +131,18 @@ beforeAll(async () => {
   instructorToken = signTokenFor(instructor.id);
   studentToken = signTokenFor(student.id);
 
+  // A crashed earlier run may have left its card (one card per student x term).
+  const stale = await ReportCard.findAll({ where: { term: TERM, academic_year: YEAR } });
+  for (const c of stale) {
+    await sequelize.query("DELETE FROM report_card_attributes WHERE report_card_id = ?", { replacements: [c.id] });
+    await sequelize.query("DELETE FROM report_card_assessments WHERE report_card_id = ?", { replacements: [c.id] });
+    await c.destroy();
+  }
   card = await ReportCard.create({
     student_id: student.id,
     term: TERM,
     academic_year: YEAR,
-    status: "saved",
+    status: "draft",
     attendance_present: 0,
     attendance_absent: 0,
     attendance_late: 0,
@@ -335,8 +342,8 @@ describe("ACCESS_V2_MODE=enforce", () => {
       expect((await asInstructor(request(app).get(cardUrl()))).status).toBe(403);
     });
 
-    it("limits a student to their own (approved) card", async () => {
-      await card.update({ status: "approved" });
+    it("limits a student to their own (published) card", async () => {
+      await card.update({ status: "published" });
       try {
         snapshotFor[S_TOKEN] = snap(student.mis_user_id!, {
           REPORT_CARDS_VIEW_OWN: e({ self: student.mis_user_id! }, "detail"),
@@ -349,41 +356,57 @@ describe("ACCESS_V2_MODE=enforce", () => {
         });
         expect((await asStudent(request(app).get(cardUrl()))).status).toBe(403);
       } finally {
-        await card.update({ status: "saved" });
+        await card.update({ status: "draft", version: 0 });
       }
     });
 
-    it("needs APPROVE and PUBLISH over the student to approve (= publish)", async () => {
-      snapshotFor[I_TOKEN] = snap(instructor.mis_user_id!, {
-        REPORT_CARDS_APPROVE: e({ class_groups: [CLASS] }),
-      });
-      const patch = (status: string) =>
-        asInstructor(request(app).patch(`/api/report-cards/${card.id}/status`).send({ status }));
-      expect((await patch("approved")).status).toBe(403);
+    const transition = (action: string, extra: Record<string, unknown> = {}) =>
+      asInstructor(request(app).post("/api/report-cards/transition").send({ card_ids: [card.id], action, ...extra }));
+    const resultOf = (res: any) => res.body?.data?.results?.[0];
 
-      clearSnapshotCache();
-      snapshotFor[I_TOKEN] = snap(instructor.mis_user_id!, {
-        REPORT_CARDS_APPROVE: e({ class_groups: [CLASS] }),
-        REPORT_CARDS_PUBLISH: e({ class_groups: [OTHER_CLASS] }),
-      });
-      expect((await patch("approved")).status).toBe(403);
+    it("needs REPORT_CARDS_APPROVE over the student to approve, and a reason to reopen", async () => {
+      await card.update({ status: "reviewed" });
+      try {
+        snapshotFor[I_TOKEN] = snap(instructor.mis_user_id!, { REPORT_CARDS_APPROVE: e({ class_groups: [OTHER_CLASS] }) });
+        expect(resultOf(await transition("approve")).code).toBe("FORBIDDEN");
 
-      clearSnapshotCache();
-      snapshotFor[I_TOKEN] = snap(instructor.mis_user_id!, {
-        REPORT_CARDS_APPROVE: e({ class_groups: [CLASS] }),
-        REPORT_CARDS_PUBLISH: e({ class_groups: [CLASS] }),
-      });
-      expect((await patch("approved")).status).toBe(200);
-      expect((await patch("saved")).status).toBe(200);
+        clearSnapshotCache();
+        snapshotFor[I_TOKEN] = snap(instructor.mis_user_id!, { REPORT_CARDS_APPROVE: e({ class_groups: [CLASS] }) });
+        const approved = await transition("approve");
+        expect(approved.status).toBe(200);
+        expect(resultOf(approved)).toMatchObject({ ok: true, status: "approved" });
+
+        expect(resultOf(await transition("reopen")).code).toBe("REASON_REQUIRED");
+        const reopened = await transition("reopen", { reason: "Corrected a mark" });
+        expect(resultOf(reopened)).toMatchObject({ ok: true, status: "draft" });
+      } finally {
+        await card.update({ status: "draft" });
+      }
     });
 
-    it("moves draft <-> saved with REPORT_CARDS_EDIT over the class", async () => {
-      snapshotFor[I_TOKEN] = snap(instructor.mis_user_id!, { REPORT_CARDS_EDIT: e({ class_groups: [OTHER_CLASS] }) });
-      const patch = () => asInstructor(request(app).patch(`/api/report-cards/${card.id}/status`).send({ status: "saved" }));
-      expect((await patch()).status).toBe(403);
+    it("needs REPORT_CARDS_PUBLISH over the student to publish", async () => {
+      await card.update({ status: "approved" });
+      try {
+        snapshotFor[I_TOKEN] = snap(instructor.mis_user_id!, {
+          REPORT_CARDS_APPROVE: e({ class_groups: [CLASS] }),
+          REPORT_CARDS_PUBLISH: e({ class_groups: [OTHER_CLASS] }),
+        });
+        expect(resultOf(await transition("publish")).code).toBe("FORBIDDEN");
+        clearSnapshotCache();
+        snapshotFor[I_TOKEN] = snap(instructor.mis_user_id!, { REPORT_CARDS_PUBLISH: e({ class_groups: [CLASS] }) });
+        expect(resultOf(await transition("publish"))).toMatchObject({ ok: true, status: "published" });
+      } finally {
+        await card.update({ status: "draft" });
+      }
+    });
+
+    it("needs REPORT_CARDS_REVIEW over the class to review (and a complete card)", async () => {
+      snapshotFor[I_TOKEN] = snap(instructor.mis_user_id!, { REPORT_CARDS_REVIEW: e({ class_groups: [OTHER_CLASS] }) });
+      expect(resultOf(await transition("review")).code).toBe("FORBIDDEN");
       clearSnapshotCache();
-      snapshotFor[I_TOKEN] = snap(instructor.mis_user_id!, { REPORT_CARDS_EDIT: e({ class_groups: [CLASS] }) });
-      expect((await patch()).status).toBe(200);
+      snapshotFor[I_TOKEN] = snap(instructor.mis_user_id!, { REPORT_CARDS_REVIEW: e({ class_groups: [CLASS] }) });
+      // Allowed now, but the card has no comment and no rated attributes yet.
+      expect(resultOf(await transition("review")).code).toBe("NOT_READY");
     });
 
     it("gates the class-teacher comment on REPORT_CARDS_COMMENT over the class group", async () => {

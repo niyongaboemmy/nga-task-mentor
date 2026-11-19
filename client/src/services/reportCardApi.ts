@@ -4,7 +4,8 @@ import type { AiAnswer } from "./myAiApi";
 export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT";
 export type AssessmentType = "quiz" | "assignment" | "manual";
 export type AttributeRating = "Excellent" | "Very good" | "Good";
-export type ReportCardStatus = "draft" | "saved" | "approved";
+/** draft -> reviewed -> approved -> published; only a draft can be edited. */
+export type ReportCardStatus = "draft" | "reviewed" | "approved" | "published";
 
 export interface AssessmentItem {
   subject_id: number;
@@ -30,9 +31,14 @@ export interface AttributesSavePayload {
   term: string;
   academic_year: string;
   class_teacher_comment?: string | null;
-  attendance_present: number;
-  attendance_absent: number;
-  attendance_late: number;
+  /** Saved only for reviewers/approvers. */
+  head_teacher_comment?: string | null;
+  attendance_present?: number;
+  attendance_absent?: number;
+  attendance_late?: number;
+  attendance_excused?: number;
+  attendance_sick?: number;
+  attendance_source?: "manual" | "imported";
   attributes: AttributeItem[];
 }
 
@@ -95,7 +101,8 @@ export interface AttributesSaveResponse {
     report_card_id: number;
     status: ReportCardStatus;
     class_teacher_comment: string | null;
-    attendance: { present: number; absent: number; late: number };
+    head_teacher_comment?: string | null;
+    attendance: { present: number; absent: number; late: number; excused?: number; sick?: number; source?: string };
     attributes: AttributeItem[];
   };
 }
@@ -106,6 +113,8 @@ export interface StudentReportCardStatus {
   student_id: number;
   report_card_id: number | null;
   status: ReportCardStatus | null;
+  version?: number;
+  publish_at?: string | null;
   subjects_mapped: number;
   has_attributes: boolean;
   updated_at: string | null;
@@ -167,13 +176,94 @@ export interface ReportCardMeta {
   term: string;
   academic_year: string;
   status: ReportCardStatus;
+  version?: number;
+  editable?: boolean;
+  reviewed_at?: string | null;
+  approved_at?: string | null;
+  published_at?: string | null;
+  publish_at?: string | null;
+  returned_reason?: string | null;
   class_teacher_comment: string | null;
+  head_teacher_comment?: string | null;
   attendance: {
     present: number;
     absent: number;
     late: number;
+    excused?: number;
+    sick?: number;
     total_days: number;
+    source?: "manual" | "imported";
   };
+}
+
+/**
+ * The rendered card (server services/reportCardDocument.ts): a snapshot for
+ * approved/published cards, a live render for drafts.
+ */
+export interface DocumentSubject {
+  subject_id: number;
+  name: string;
+  group: string | null;
+  teacher: string | null;
+  categories: Record<AssessmentCategory, number | null>;
+  total: number | null;
+  grade: string | null;
+  remark: string | null;
+  passed: boolean | null;
+  class_average: number | null;
+  missing_marks: number;
+}
+
+export interface ReportCardDocument {
+  schema: number;
+  card: {
+    id: number;
+    uuid: string;
+    version: number;
+    status: ReportCardStatus;
+    term: string;
+    academic_year: string;
+    approved_at: string | null;
+    published_at: string | null;
+  };
+  school: { name: string; address_line: string };
+  student: {
+    id: number;
+    name: string;
+    registration_number: string | null;
+    gender: string | null;
+    class_group_id: number | null;
+    class_name: string | null;
+    grade_name: string | null;
+    program_name: string | null;
+  };
+  scheme: {
+    category_weights: Record<AssessmentCategory, number>;
+    pass_mark: number;
+    bands: GradeBand[];
+    show_position: boolean;
+    show_class_average: boolean;
+    show_subject_teacher: boolean;
+    head_title: string;
+  };
+  groups: Array<{ name: string | null; subjects: DocumentSubject[] }>;
+  summary: {
+    average: number | null;
+    grade: string | null;
+    remark: string | null;
+    total_marks: number;
+    subjects_counted: number;
+    subjects_passed: number;
+    subjects_failed: number;
+    position: number | null;
+    position_of: number | null;
+    class_average: number | null;
+  };
+  attendance: { present: number; absent: number; excused: number; late: number; sick: number; total: number; source: "manual" | "imported" };
+  attributes: AttributeItem[];
+  comments: { class_teacher: string | null; head_teacher: string | null };
+  next_term_begins_on: string | null;
+  grades: SubjectGrade[];
 }
 
 export interface ReportCardData {
@@ -184,6 +274,8 @@ export interface ReportCardData {
   subject_names?: Record<number, string>;
   // Raw assessment mappings — used by the builder to pre-populate its state
   raw_assessments: AssessmentItem[];
+  /** The full rendered card (absent on the provisional preview). */
+  document?: ReportCardDocument;
 }
 
 export interface ReportCardResponse {
@@ -288,30 +380,45 @@ export function scoreToLetterGrade(score: number, bands: GradeBand[] = gradingBa
 
 export const STATUS_META: Record<
   ReportCardStatus,
-  { label: string; color: string; bg: string; border: string; dot: string }
+  { label: string; color: string; bg: string; border: string; dot: string; hint: string }
 > = {
   draft: {
     label: "Draft",
-    color: "text-orange-700 dark:text-orange-300",
-    bg: "bg-orange-100 dark:bg-orange-900/30",
-    border: "border-orange-300 dark:border-orange-600",
-    dot: "bg-orange-400",
+    color: "text-amber-800 dark:text-amber-300",
+    bg: "bg-amber-50 dark:bg-amber-900/20",
+    border: "border-amber-200 dark:border-amber-700/50",
+    dot: "bg-amber-500",
+    hint: "Being prepared — marks, comment and attendance can change",
   },
-  saved: {
-    label: "Saved",
-    color: "text-blue-700 dark:text-blue-300",
-    bg: "bg-blue-100 dark:bg-blue-900/30",
-    border: "border-blue-300 dark:border-blue-600",
-    dot: "bg-blue-400",
+  reviewed: {
+    label: "Reviewed",
+    color: "text-blue-800 dark:text-blue-200",
+    bg: "bg-blue-50 dark:bg-blue-900/20",
+    border: "border-blue-200 dark:border-blue-700/50",
+    dot: "bg-blue-500",
+    hint: "Checked by the class teacher — locked, waiting for approval",
   },
   approved: {
     label: "Approved",
-    color: "text-white dark:text-white",
-    bg: "bg-blue-700 dark:bg-blue-700",
-    border: "border-blue-800 dark:border-blue-800",
-    dot: "bg-white",
+    color: "text-blue-900 dark:text-blue-100",
+    bg: "bg-blue-100 dark:bg-blue-800/30",
+    border: "border-blue-300 dark:border-blue-600/60",
+    dot: "bg-blue-700",
+    hint: "Approved and frozen — not yet visible to the student",
+  },
+  published: {
+    label: "Published",
+    color: "text-emerald-800 dark:text-emerald-200",
+    bg: "bg-emerald-50 dark:bg-emerald-900/20",
+    border: "border-emerald-200 dark:border-emerald-700/50",
+    dot: "bg-emerald-600",
+    hint: "Visible to the student and parents",
   },
 };
+
+/** Status meta for any value (an old "saved" reads as draft). */
+export const statusMeta = (s: string | null | undefined) =>
+  STATUS_META[(s as ReportCardStatus) in STATUS_META ? (s as ReportCardStatus) : "draft"];
 
 // ─── Annual (combined-terms) summary ──────────────────────────────────────────
 // Read-only, computed on demand from the term report cards that already
@@ -331,7 +438,7 @@ export interface AnnualSubjectGrade {
 export interface AnnualPerTerm {
   term: string;
   status: ReportCardStatus;
-  attendance: { present: number; absent: number; late: number };
+  attendance: { present: number; absent: number; late: number; excused?: number; sick?: number };
   attributes: AttributeItem[];
   grades: SubjectGrade[];
 }
@@ -357,6 +464,8 @@ export interface AdminReportCardStudent {
   student_id: number;
   uuid: string;
   status: ReportCardStatus;
+  version?: number;
+  class_name?: string | null;
   name: string;
 }
 
@@ -372,7 +481,7 @@ export interface AdminReportCardSummary {
   academic_year: string;
   total_report_cards: number;
   truncated: boolean;
-  status_counts: { draft: number; saved: number; approved: number };
+  status_counts: { draft: number; reviewed: number; approved: number; published: number };
   overall_average: number | null;
   category_averages: Record<AssessmentCategory, number | null>;
   subject_averages: Array<{
@@ -454,7 +563,6 @@ export class ReportCardApiService {
     return response.data;
   }
 
-  // Instructors: draft ↔ saved.  Admins: any → any (including approved).
   /** AI draft of the class-teacher comment ([NAME] in place of the name; nothing stored). */
   static async draftComment(body: {
     term: string;

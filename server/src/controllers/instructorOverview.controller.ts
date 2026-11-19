@@ -1,6 +1,7 @@
 import { tk } from "../tenancy/keys";
 import { filterActiveMisRows } from "../utils/activeUsers";
 import { Request, Response } from "express";
+import { staffReportCardAlerts } from "../services/reportCardAlerts";
 import { Op } from "sequelize";
 import axios from "axios";
 import { Assignment } from "../models/Assignment.model";
@@ -310,7 +311,11 @@ export const getInstructorOverview = async (req: Request, res: Response) => {
   try {
     const subjectId = req.query.subjectId ? Number(req.query.subjectId) : null;
     const { overview, scope } = await computeOverview(req, { subjectId, fresh: req.query.fresh === "1" });
-    return res.status(200).json({ success: true, data: { ...overview, scope } });
+    const cardAlerts = subjectId ? [] : await staffReportCardAlerts(req);
+    return res.status(200).json({
+      success: true,
+      data: { ...overview, alerts: cardAlerts.length ? [...cardAlerts, ...overview.alerts] : overview.alerts, scope },
+    });
   } catch (error) {
     if (error instanceof SubjectOutOfScopeError) {
       return res.status(404).json({ success: false, message: error.message });

@@ -128,10 +128,64 @@ describe("buildSubjectReport", () => {
       quizzes: [],
       assessments: [],
     });
-    expect(empty.classAverage).toBe(0);
-    expect(empty.passRate).toBe(0);
+    // Nothing graded is "no data" (shown as —), never a 0% class.
+    expect(empty.classAverage).toBeNull();
+    expect(empty.passRate).toBeNull();
     expect(empty.outstandingMarks).toBe(0);
-    expect(empty.medianPct).toBe(0);
+    expect(empty.medianPct).toBeNull();
+  });
+
+  it("reports null averages when students are enrolled but nothing is marked", () => {
+    const unmarked = buildSubjectReport({ ...payload, students: [payload.students[2]] });
+    expect(unmarked.rosterSize).toBe(1);
+    expect(unmarked.classAverage).toBeNull();
+    expect(unmarked.medianPct).toBeNull();
+    expect(unmarked.passRate).toBeNull();
+    expect(unmarked.atRiskCount).toBe(0);
+  });
+});
+
+describe("buildSubjectReport with inactive students (AN-26)", () => {
+  // A student who left the school keeps their row (they have marks) but is
+  // no longer part of the class: no average, pass rate, band, roster or
+  // outstanding-mark count includes them.
+  const leaver = {
+    ...payload.students[1],
+    student: { id: 9, name: "Left", email: "left@example.com", inactive: true },
+    // A perfect score that would visibly move every number if it counted.
+    assessments: [{ assessment_id: 5, score: 100, recorded: true, max_score: 100 }],
+    summary: { ...payload.students[1].summary, total_percentage: 100 },
+  };
+  const report = buildSubjectReport({ ...payload, students: [...payload.students, leaver] });
+
+  it("still lists the inactive student", () => {
+    expect(report.students.map((s) => s.name)).toContain("Left");
+    expect(report.students.find((s) => s.name === "Left")?.inactive).toBe(true);
+  });
+
+  it("leaves them out of the class average, median, pass rate and bands", () => {
+    expect(report.classAverage).toBe(58.9);
+    expect(report.medianPct).toBe(58.9);
+    expect(report.passRate).toBe(50);
+    expect(report.bandCounts.excellent).toBe(1);
+    expect(report.atRiskCount).toBe(1);
+  });
+
+  it("leaves them out of the roster size, assessment stats and outstanding marks", () => {
+    expect(report.rosterSize).toBe(3);
+    const manual = report.assessments.find((a) => a.key === "manual-5")!;
+    expect(manual.rosterSize).toBe(3);
+    expect(manual.markedCount).toBe(2);
+    expect(manual.averagePct).toBe(65);
+    // Same 5 as without the leaver: their missing quiz/assignment don't count.
+    expect(report.outstandingMarks).toBe(5);
+  });
+
+  it("reports null when only inactive students have marks", () => {
+    const onlyLeaver = buildSubjectReport({ ...payload, students: [payload.students[2], leaver] });
+    expect(onlyLeaver.rosterSize).toBe(1);
+    expect(onlyLeaver.classAverage).toBeNull();
+    expect(onlyLeaver.passRate).toBeNull();
   });
 });
 

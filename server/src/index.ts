@@ -60,6 +60,9 @@ import questionBankHubRoutes from "./routes/questionBankHub";
 import rankingRoutes from "./routes/rankings";
 import academicsRoutes from "./routes/academics";
 import reportCardRoutes from "./routes/reportCards";
+import reportCycleRoutes from "./routes/reportCycles";
+import schoolReportRoutes from "./routes/schoolReports";
+import { startReportCardPublishSweep } from "./services/reportCardPublishSweep";
 import manualAssessmentRoutes from "./routes/manualAssessments";
 import databaseRoutes from "./routes/database.routes";
 import rolesPermissionsRoutes from "./routes/rolesPermissions";
@@ -229,6 +232,7 @@ const initializeDatabase = async (): Promise<void> => {
       RolePermission,
       TMCODE_MODELS,
       PROJECT_MODELS,
+      REPORT_CARD_WORKFLOW_MODELS,
     } = await import("./models");
 
     // Add models to Sequelize instance
@@ -257,6 +261,7 @@ const initializeDatabase = async (): Promise<void> => {
       RolePermission,
       ...TMCODE_MODELS,
       ...PROJECT_MODELS,
+      ...REPORT_CARD_WORKFLOW_MODELS,
     ]);
 
     // Set up model associations
@@ -303,6 +308,8 @@ const startServer = async (): Promise<void> => {
     app.use("/api/quizzes", quizRoutes);
     app.use("/api/proctoring", proctoringRoutes);
     app.use("/api/report-cards", reportCardRoutes);
+    app.use("/api/report-cycles", reportCycleRoutes);
+    app.use("/api/reports", schoolReportRoutes);
     app.use("/api/manual-assessments", manualAssessmentRoutes);
     app.use("/api/database", databaseRoutes);
     app.use("/api/roles-permissions", rolesPermissionsRoutes);
@@ -366,6 +373,8 @@ const startServer = async (): Promise<void> => {
       );
       // Backstop for the per-request pushes to the MIS Reminder Hub.
       startReminderSweep();
+      // Scheduled report card releases (approved cards whose publish_at passed).
+      startReportCardPublishSweep();
       // Daily early-warning signals (work due/missed, mark trends) to the MIS.
       startEarlyWarningSchedule();
       // Daily MIS account status (users.mis_status) so inactive people leave rosters.

@@ -329,10 +329,11 @@ export const ReportCardReadiness: React.FC<{ insights: AdminInsights }> = ({ ins
   const t = useChartTheme();
   const rc = insights.report_cards;
   const mappedPct = rc.subjects_total ? Math.round((rc.subjects_mapped / rc.subjects_total) * 100) : 0;
-  // Status of the cards that exist: approved (published) -> saved -> draft.
+  // Status of the cards that exist: published -> approved -> reviewed -> draft.
   const segments = [
+    { key: "published", label: "Published", n: rc.cards.published, color: "#059669" },
     { key: "approved", label: "Approved", n: rc.cards.approved, color: t.s1 },
-    { key: "saved", label: "Saved", n: rc.cards.saved, color: t.s2 },
+    { key: "reviewed", label: "Reviewed", n: rc.cards.reviewed, color: "#93c5fd" },
     { key: "draft", label: "Draft", n: rc.cards.draft, color: t.track },
   ];
   return (
@@ -451,7 +452,7 @@ const SchoolInsights: React.FC<{ insights: AdminInsights }> = ({ insights }) => 
       >
         <DecisionList decisions={insights.decisions} />
       </Panel>
-      <Panel title="Coverage" subtitle="Gaps across the school this term" icon={<Layers className="w-4 h-4" />} iconColor="violet">
+      <Panel title="Coverage" subtitle="Gaps across the school this term" icon={<Layers className="w-4 h-4" />} iconColor="blue">
         <CoverageList insights={insights} />
       </Panel>
     </div>
@@ -461,7 +462,7 @@ const SchoolInsights: React.FC<{ insights: AdminInsights }> = ({ insights }) => 
       title="Teachers"
       subtitle="Work published, grading backlog and results across each teacher's subjects"
       icon={<UserCog className="w-4 h-4" />}
-      iconColor="indigo"
+      iconColor="blue"
     >
       <TeacherTable teachers={insights.teachers} />
     </Panel>
@@ -482,7 +483,7 @@ const SchoolInsights: React.FC<{ insights: AdminInsights }> = ({ insights }) => 
           <ReportCardReadiness insights={insights} />
         </Panel>
         {insights.programmes.length > 0 && (
-          <Panel title="Programmes" icon={<BookOpenCheck className="w-4 h-4" />} iconColor="purple">
+          <Panel title="Programmes" icon={<BookOpenCheck className="w-4 h-4" />} iconColor="blue">
             <ProgrammeCards insights={insights} />
           </Panel>
         )}

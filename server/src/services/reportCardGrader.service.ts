@@ -58,8 +58,14 @@ export interface SubjectGrade {
  * Scale a percentage to a category's weight cap.
  * e.g. 80% in CW → 80 * 15 / 100 = 12.00
  */
-export function scaleToCategory(percentage: number, category: AssessmentCategory): number {
-  const weight = CATEGORY_WEIGHTS[category];
+export type CategoryWeights = Record<AssessmentCategory, number>;
+
+export function scaleToCategory(
+  percentage: number,
+  category: AssessmentCategory,
+  weights: CategoryWeights = CATEGORY_WEIGHTS,
+): number {
+  const weight = weights[category];
   return parseFloat(((percentage * weight) / 100).toFixed(2));
 }
 
@@ -81,6 +87,7 @@ export function averagePercentage(scores: Array<{ raw_score: number; max_score: 
 export function calculateSubjectGrade(
   subject_id: number,
   scores: AssessmentScore[],
+  weights: CategoryWeights = CATEGORY_WEIGHTS,
 ): SubjectGrade {
   const grouped: Partial<Record<AssessmentCategory, AssessmentScore[]>> = {};
 
@@ -95,12 +102,12 @@ export function calculateSubjectGrade(
   for (const cat of Object.keys(grouped) as AssessmentCategory[]) {
     const items = grouped[cat]!;
     const avg = averagePercentage(items);
-    const scaled = scaleToCategory(avg, cat);
+    const scaled = scaleToCategory(avg, cat, weights);
     total_score += scaled;
 
     categories[cat] = {
       scaled_score: scaled,
-      weight: CATEGORY_WEIGHTS[cat],
+      weight: weights[cat],
       avg_percentage: avg,
       assessments: items.map((s) => ({
         assessment_id: s.assessment_id,

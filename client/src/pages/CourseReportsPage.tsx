@@ -24,6 +24,7 @@ import {
   Zap,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { downloadCsv } from "../utils/csvExport";
 import type { RootState, AppDispatch } from "../store";
 import { fetchCourses } from "../store/slices/courseSlice";
 import StudentGradeModal from "../components/Courses/StudentGradeModal";
@@ -230,22 +231,13 @@ export default function CourseReportsPage() {
       s.email,
       ...report.assessments.map((a) => {
         const mark = s.marks[a.key];
-        return mark === null || mark === undefined ? "-" : `${mark}%`;
+        // Unmarked is an empty cell, never "0%".
+        return mark === null || mark === undefined ? "" : `${mark}%`;
       }),
-      `${s.overallPct}%`,
+      s.markedCount > 0 ? `${s.overallPct}%` : "",
       s.markedCount > 0 ? bandMeta(s.band).label : "No marks",
     ]);
-    const csv = [headers, ...rows]
-      .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${course?.code ?? `course-${courseId}`}-grades.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadCsv(`${course?.code ?? `course-${courseId}`}-grades.csv`, [headers, ...rows]);
     toast.success("Grade sheet exported");
   };
 
@@ -394,7 +386,7 @@ export default function CourseReportsPage() {
               value={report.classAverage}
               suffix="%"
               progress={report.classAverage}
-              caption={`Median ${report.medianPct}% · marked students only`}
+              caption={report.medianPct === null ? "No marks yet · active students only" : `Median ${report.medianPct}% · marked students only`}
             />
             <KpiCard
               icon={<CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
@@ -865,10 +857,10 @@ function StudentSelfView({ report }: { report: SubjectReport }) {
           caption="Your teacher hasn't entered these yet"
         />
         <KpiCard
-          icon={<Award className="w-4 h-4 text-violet-600 dark:text-violet-400" />}
-          accent="bg-violet-100 dark:bg-violet-900/20"
+          icon={<Award className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
+          accent="bg-blue-100 dark:bg-blue-900/20"
           label="Standing"
-          value={me.markedCount > 0 ? me.overallPct : 0}
+          value={me.markedCount > 0 ? me.overallPct : null}
           suffix="%"
           caption={
             me.markedCount === 0

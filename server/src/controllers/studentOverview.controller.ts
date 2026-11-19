@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { sendControllerError } from "../utils/controllerErrors";
 import { loadStudentOverview } from "../services/studentOverview.loader";
+import { studentReportCardReminders } from "../services/reportCardAlerts";
 
 /**
  * GET /api/dashboard/student/overview
@@ -18,7 +19,12 @@ export const getStudentOverview = async (req: Request, res: Response) => {
     const userId = Number(req.user?.id);
     if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
     const { overview } = await loadStudentOverview(req, userId);
-    return res.status(200).json({ success: true, data: overview });
+    const misId = (req as any).user?.mis_user_id != null ? Number((req as any).user.mis_user_id) : null;
+    const cardReminders = await studentReportCardReminders(userId, misId);
+    return res.status(200).json({
+      success: true,
+      data: cardReminders.length ? { ...overview, reminders: [...cardReminders, ...overview.reminders] } : overview,
+    });
   } catch (error) {
     return sendControllerError(res, error, "getStudentOverview");
   }

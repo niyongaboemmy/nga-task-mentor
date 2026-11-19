@@ -193,9 +193,11 @@ const setupAssociations = () => {
   // and ReportCardAssessment.belongsTo(ReportCard) are registered via @BelongsTo
   // decorators in their model files — only the reverse hasMany goes here.
   // ----------------------
+  // student_id is the student's MIS id, not a users.id FK (no DB constraint).
   User.hasMany(ReportCard, {
     foreignKey: "student_id",
     as: "reportCards",
+    constraints: false,
   });
 
   ReportCard.hasMany(ReportCardAttribute, {
@@ -258,6 +260,19 @@ export * from "./Tmcode.models";
 export * from "./AiSettings.model";
 export { AiDraft } from "./AiDraft.model";
 export * from "./Project.model";
+export * from "./ReportCardWorkflow.model";
+import {
+  ReportCardSnapshot,
+  ReportCardTransition,
+  ReportCycle,
+  ReportCycleSubjectSignoff,
+} from "./ReportCardWorkflow.model";
+export const REPORT_CARD_WORKFLOW_MODELS = [
+  ReportCardSnapshot,
+  ReportCardTransition,
+  ReportCycle,
+  ReportCycleSubjectSignoff,
+];
 
 export default {
   User,

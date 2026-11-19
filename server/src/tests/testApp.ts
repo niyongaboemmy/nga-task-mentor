@@ -11,6 +11,8 @@ import submissionRoutes from "../routes/submissions";
 import quizRoutes from "../routes/quizzes";
 import courseRoutes from "../routes/courses";
 import reportCardRoutes from "../routes/reportCards";
+import reportCycleRoutes from "../routes/reportCycles";
+import schoolReportRoutes from "../routes/schoolReports";
 import manualAssessmentRoutes from "../routes/manualAssessments";
 import accessRoutes from "../routes/access";
 import integrationRoutes from "../routes/integration";
@@ -55,6 +57,8 @@ export function buildTestApp() {
   app.use("/api/quizzes", quizRoutes);
   app.use("/api/courses", courseRoutes);
   app.use("/api/report-cards", reportCardRoutes);
+  app.use("/api/report-cycles", reportCycleRoutes);
+  app.use("/api/reports", schoolReportRoutes);
   app.use("/api/manual-assessments", manualAssessmentRoutes);
   app.use("/api/access", accessRoutes);
   app.use("/api/integration/tenants", tenancyRoutes);
@@ -102,6 +106,7 @@ export async function ensureModelsRegistered() {
     models.RolePermission,
     ...models.TMCODE_MODELS,
     ...models.PROJECT_MODELS,
+    ...models.REPORT_CARD_WORKFLOW_MODELS,
   ]);
   setupAssociations();
   modelsRegistered = true;

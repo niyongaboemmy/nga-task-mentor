@@ -1043,7 +1043,7 @@ async function unattemptedQuizItem(ctx: Ctx): Promise<AttentionItem | null> {
 
 const daysUntil = (ctx: Ctx, d: Date | null) => (d ? (d.getTime() - ctx.now.getTime()) / DAY : Infinity);
 
-/** C-06: this term's unapproved cards with no class-teacher comment, in REPORT_CARDS_COMMENT scope. */
+/** C-06: this term's draft cards (the only editable ones) with no class-teacher comment, in REPORT_CARDS_COMMENT scope. */
 async function commentItem(ctx: Ctx): Promise<AttentionItem | null> {
   if (!ctx.has("REPORT_CARDS_COMMENT")) return null;
   const period = await ctx.period();
@@ -1059,7 +1059,7 @@ async function commentItem(ctx: Ctx): Promise<AttentionItem | null> {
        FROM report_cards rc
        LEFT JOIN users u ON u.id = rc.student_id AND u.mis_user_id IS NOT NULL
        LEFT JOIN users m ON u.id IS NULL AND m.mis_user_id = rc.student_id
-      WHERE rc.term = ? AND rc.academic_year = ? AND rc.status IN ('draft', 'saved')
+      WHERE rc.term = ? AND rc.academic_year = ? AND rc.status = 'draft'
         AND (rc.class_teacher_comment IS NULL OR TRIM(rc.class_teacher_comment) = '')`,
     [period.term, period.academicYear],
   );
@@ -1083,24 +1083,21 @@ async function commentItem(ctx: Ctx): Promise<AttentionItem | null> {
       .map((c) => `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim())
       .filter(Boolean)
       .slice(0, MAX_ENTITIES),
-    why: "Report cards can't be approved and published without the class-teacher comment.",
-    cta: { label: "Comment", href: ctx.href("/grades"), external: true },
+    why: "Report cards can't be reviewed, approved or published without the class-teacher comment.",
+    cta: { label: "Comment", href: ctx.href("/report-cards?filter=mine"), external: true },
     due_at: iso(period.termEnd),
   };
 }
 
-/** P-05: this term's saved cards awaiting approval (= publishing), in APPROVE (and, under enforce, PUBLISH) scope. */
+/** P-05: this term's reviewed cards awaiting approval, in REPORT_CARDS_APPROVE scope (the workbench approves; publishing is a separate step). */
 async function approveItem(ctx: Ctx): Promise<AttentionItem | null> {
   if (!ctx.has("REPORT_CARDS_APPROVE")) return null;
-  const enforce = accessMode() === "enforce";
-  // updateStatus: "approved" is also the published state, so v2 needs both.
-  const caps = enforce ? ["REPORT_CARDS_APPROVE", "REPORT_CARDS_PUBLISH"] : ["REPORT_CARDS_APPROVE"];
-  if (!caps.every((c) => ctx.has(c))) return null;
+  const caps = ["REPORT_CARDS_APPROVE"];
   const period = await ctx.period();
   if (!period.term || !period.academicYear) return null;
   const cards = await select<{ student_id: number }>(
     `SELECT rc.student_id FROM report_cards rc
-      WHERE rc.term = ? AND rc.academic_year = ? AND rc.status = 'saved'`,
+      WHERE rc.term = ? AND rc.academic_year = ? AND rc.status = 'reviewed'`,
     [period.term, period.academicYear],
   );
   if (cards.length === 0) return null;
@@ -1118,10 +1115,10 @@ async function approveItem(ctx: Ctx): Promise<AttentionItem | null> {
     via: await ctx.via(caps),
     depth: "write",
     count,
-    title: `${plural(count, "report card")} awaiting approval and publishing`,
+    title: `${plural(count, "report card")} awaiting approval`,
     entities: [],
-    why: "Students and parents can't see their report cards until they are approved.",
-    cta: { label: "Review", href: ctx.href("/grades"), external: true },
+    why: "Reviewed by the class teacher. Students and parents see a card only after it is approved and published.",
+    cta: { label: "Review", href: ctx.href("/report-cards?filter=attention"), external: true },
     due_at: iso(period.termEnd),
   };
 }
@@ -1183,10 +1180,10 @@ async function resultUpdates(ctx: Ctx): Promise<UpdateItem[]> {
   if (ctx.has("REPORT_CARDS_VIEW_OWN") && ctx.misUserId) {
     // ReportCard.student_id may hold the local id or (fan-out rows) the MIS id.
     const rows = await select<any>(
-      `SELECT rc.id, rc.student_id, rc.term, rc.academic_year, rc.updated_at
+      `SELECT rc.id, rc.student_id, rc.term, rc.academic_year, COALESCE(rc.published_at, rc.updated_at) AS updated_at
          FROM report_cards rc
-        WHERE rc.student_id IN (?, ?) AND rc.status = 'approved' AND rc.updated_at >= ?
-        ORDER BY rc.updated_at DESC LIMIT ?`,
+        WHERE rc.student_id IN (?, ?) AND rc.status = 'published' AND COALESCE(rc.published_at, rc.updated_at) >= ?
+        ORDER BY COALESCE(rc.published_at, rc.updated_at) DESC LIMIT ?`,
       [ctx.userId, ctx.misUserId, since, MAX_UPDATES],
     );
     const misOf = await reportCardStudentMisIds(rows.map((r) => Number(r.student_id)));

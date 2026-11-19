@@ -23,6 +23,7 @@ import {
   ClipboardCheck,
   Cpu,
   Sparkles,
+  FileBarChart,
 } from "lucide-react";
 
 import { usePermissions } from "../hooks/usePermissions";
@@ -69,6 +70,11 @@ const StudentReportsPage = lazyPage(() => import("../pages/StudentReportsPage"))
 const SubjectGradesPage = lazyPage(() => import("../pages/SubjectGradesPage"));
 const SubjectAssessmentReportPage = lazyPage(() => import("../pages/SubjectAssessmentReportPage"));
 const GeneralAttributesPage = lazyPage(() => import("../pages/GeneralAttributesPage"));
+const ReportCardsPage = lazyPage(() => import("../pages/ReportCardsPage"));
+const ReportCardWorkbenchPage = lazyPage(() => import("../pages/ReportCardWorkbenchPage"));
+const ClassCommentsPage = lazyPage(() => import("../pages/ClassCommentsPage"));
+const ReportCardSettingsPage = lazyPage(() => import("../pages/ReportCardSettingsPage"));
+const SchoolReportsPage = lazyPage(() => import("../pages/SchoolReportsPage"));
 const BloomsTaxonomyManagementPage = lazyPage(() => import("../components/Quizzes/BloomsTaxonomyManagementPage"));
 const QuestionBankPage = lazyPage(() => import("../pages/QuestionBankPage"));
 const QuestionEditPage = lazyPage(() => import("../pages/questionBank/QuestionEditPage"));
@@ -473,6 +479,34 @@ export const appRoutes: AppRoute[] = [
     path: "/grades/subjects/:courseId",
     element: <SubjectGradesPage />,
     permissions: ["REPORT_CARDS_CREATE", "REPORT_CARDS_EDIT", "REPORT_CARDS_APPROVE"],
+  },
+  // Report cards, class by class: draft -> reviewed -> approved -> published.
+  {
+    path: "/report-cards",
+    element: <ReportCardsPage />,
+    permissions: ["REPORT_CARDS_VIEW_ALL", "REPORT_CARDS_REVIEW", "REPORT_CARDS_APPROVE", "REPORT_CARDS_COMMENT", "REPORT_CARDS_EDIT"],
+    navItem: { label: "Report cards", icon: ClipboardCheck, group: "Teaching" },
+  },
+  {
+    path: "/report-cards/settings",
+    element: <ReportCardSettingsPage />,
+    permissions: ["REPORT_CARDS_APPROVE"],
+  },
+  {
+    path: "/report-cards/:classGroupId",
+    element: <ReportCardWorkbenchPage />,
+    permissions: ["REPORT_CARDS_VIEW_ALL", "REPORT_CARDS_REVIEW", "REPORT_CARDS_APPROVE", "REPORT_CARDS_COMMENT", "REPORT_CARDS_EDIT"],
+  },
+  {
+    path: "/report-cards/:classGroupId/comments",
+    element: <ClassCommentsPage />,
+    permissions: ["REPORT_CARDS_COMMENT", "REPORT_CARDS_EDIT"],
+  },
+  {
+    path: "/reports/school",
+    element: <SchoolReportsPage />,
+    permissions: ["REPORT_CARDS_VIEW_ALL"],
+    navItem: { label: "School reports", icon: FileBarChart, group: "Teaching" },
   },
   {
     path: "/grades/:assessmentId/marks",

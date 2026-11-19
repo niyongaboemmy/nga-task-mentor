@@ -353,10 +353,11 @@ beforeAll(async () => {
     flags_count: 1,
   });
 
-  // Report cards this term: student1 saved (awaiting approval), student2 draft; neither commented.
+  // Report cards this term: student1 draft (needs a comment), student2 reviewed
+  // (awaiting approval; locked, so no longer "needs a comment"); neither commented.
   for (const [key, status] of [
-    ["student1", "saved"],
-    ["student2", "draft"],
+    ["student1", "draft"],
+    ["student2", "reviewed"],
   ] as const) {
     await insert("report_cards", {
       uuid: crypto.randomUUID(),
@@ -778,8 +779,8 @@ describe("report-card pipeline (admin)", () => {
   it("off: C-06 and P-05 school-wide from the legacy permissions, blocking near term end", async () => {
     const res = await summaryFor("admin");
     const c06 = item(res, "C-06");
-    expect(c06).toMatchObject({ id: "taskmentor:C-06:SCHOOL", tier: "blocking", lens: "SCHOOL", depth: "write", count: 2 });
-    expect(c06.entities.sort()).toEqual([`Sam Home${RUN}`, `Tess Home${RUN}`]);
+    expect(c06).toMatchObject({ id: "taskmentor:C-06:SCHOOL", tier: "blocking", lens: "SCHOOL", depth: "write", count: 1 });
+    expect(c06.entities.sort()).toEqual([`Sam Home${RUN}`]);
     expect(item(res, "P-05")).toMatchObject({ tier: "blocking", lens: "SCHOOL", count: 1, entities: [] });
   });
 
@@ -1048,7 +1049,7 @@ describe("edge cases", () => {
     try {
       const res = await summaryFor("admin");
       const c06 = item(res, "C-06");
-      expect(c06.count).toBe(3);
+      expect(c06.count).toBe(2);
       expect(JSON.stringify(res.body)).not.toContain("Zedwrongperson");
     } finally {
       await sequelize.query("DELETE FROM report_cards WHERE id = ?", { replacements: [card] });

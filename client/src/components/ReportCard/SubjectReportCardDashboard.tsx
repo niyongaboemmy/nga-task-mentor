@@ -5,10 +5,7 @@ import {
   Loader2,
   Users,
   TrendingUp,
-  CheckCircle2,
   Eye,
-  ThumbsUp,
-  RotateCcw,
   GraduationCap,
   ChevronRight,
 } from "lucide-react";
@@ -26,7 +23,9 @@ import AnnualReportCardPreview from "./AnnualReportCardPreview";
 import Tooltip from "../ui/Tooltip";
 
 // ─── Read side of the subject report-card picture: class average, progress,
-// and the student roster with Preview/Annual/status-lifecycle actions.
+// and the student roster with Preview/Annual. Status changes happen class by
+// class in the report card workbench (/report-cards/:classGroupId); a subject
+// teacher submits their marks there.
 // Shared by SubjectGradesPage (alongside the drag-drop builder) and
 // CourseReportCardsPanel (embedded read-only in Course Details), so a
 // teacher can see the class's report cards without leaving either page.
@@ -37,7 +36,8 @@ export interface SubjectReportCardDashboardProps {
   academicYear: string;
   /** When set, shows an "Open Report Card Builder" link (e.g. from Course Details). */
   manageHref?: string;
-  isAdmin: boolean;
+  /** Kept for callers; status changes now happen in the workbench. */
+  isAdmin?: boolean;
 }
 
 interface RosterStudent {
@@ -64,17 +64,20 @@ function StatusBadge({ status }: { status: ReportCardStatus | null }) {
 }
 
 function ProgressSummary({ total, statuses }: { total: number; statuses: (ReportCardStatus | null)[] }) {
-  const counts = { notStarted: 0, draft: 0, saved: 0, approved: 0 };
-  statuses.forEach((s) => { if (!s) counts.notStarted++; else counts[s]++; });
+  const counts = { notStarted: 0, draft: 0, reviewed: 0, approved: 0, published: 0 };
+  statuses.forEach((s) => {
+    if (!s) counts.notStarted++;
+    else if (s in counts) counts[s as keyof typeof counts]++;
+    else counts.draft++;
+  });
   const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
-
   const bars = [
     { label: "Not started", count: counts.notStarted, color: "bg-gray-300 dark:bg-gray-600" },
-    { label: "Draft",       count: counts.draft,       color: "bg-orange-400" },
-    { label: "Saved",       count: counts.saved,       color: "bg-blue-400" },
-    { label: "Approved",    count: counts.approved,    color: "bg-blue-700" },
+    { label: STATUS_META.draft.label, count: counts.draft, color: "bg-amber-400" },
+    { label: STATUS_META.reviewed.label, count: counts.reviewed, color: "bg-blue-400" },
+    { label: STATUS_META.approved.label, count: counts.approved, color: "bg-blue-700" },
+    { label: STATUS_META.published.label, count: counts.published, color: "bg-emerald-500" },
   ];
-
   return (
     <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl border border-white dark:border-border-dark/30 p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -83,7 +86,7 @@ function ProgressSummary({ total, statuses }: { total: number; statuses: (Report
           Class Progress — {total} student{total !== 1 ? "s" : ""}
         </h3>
         <span className="text-xs font-bold text-text-secondary-light dark:text-text-secondary-dark/60">
-          {counts.approved}/{total} approved
+          {counts.published}/{total} published
         </span>
       </div>
       <div className="flex h-3 w-full rounded-full overflow-hidden gap-px bg-gray-100 dark:bg-gray-800">
@@ -110,7 +113,6 @@ export default function SubjectReportCardDashboard({
   term,
   academicYear,
   manageHref,
-  isAdmin,
 }: SubjectReportCardDashboardProps) {
   const [students, setStudents] = useState<RosterStudent[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
@@ -118,9 +120,6 @@ export default function SubjectReportCardDashboard({
   const [overview, setOverview] = useState<Map<number, StudentSubjectScore>>(new Map());
   const [overviewLoading, setOverviewLoading] = useState(false);
 
-  const [approvingId, setApprovingId] = useState<number | null>(null);
-  const [revertingId, setRevertingId] = useState<number | null>(null);
-  const [markingCompleteId, setMarkingCompleteId] = useState<number | null>(null);
 
   const [previewStudent, setPreviewStudent] = useState<{ id: number; name: string } | null>(null);
   const [annualStudent, setAnnualStudent] = useState<{ id: number; name: string } | null>(null);
@@ -180,52 +179,6 @@ export default function SubjectReportCardDashboard({
   }, [overview]);
   const avgLetter = classAverage != null ? scoreToLetterGrade(classAverage) : null;
 
-  // ── Status lifecycle actions ───────────────────────────────────────────────
-  const handleMarkComplete = async (studentId: number) => {
-    const row = overview.get(studentId);
-    if (!row?.report_card_id) return;
-    setMarkingCompleteId(studentId);
-    try {
-      await ReportCardApiService.updateStatus(row.report_card_id, "saved");
-      toast.success("Marked as complete — ready for admin review.");
-      setOverview((prev) => new Map(prev).set(studentId, { ...row, status: "saved" }));
-    } catch {
-      toast.error("Failed to mark as complete.");
-    } finally {
-      setMarkingCompleteId(null);
-    }
-  };
-
-  const handleApprove = async (studentId: number) => {
-    const row = overview.get(studentId);
-    if (!row?.report_card_id) return;
-    setApprovingId(studentId);
-    try {
-      await ReportCardApiService.updateStatus(row.report_card_id, "approved");
-      toast.success("Report card approved.");
-      setOverview((prev) => new Map(prev).set(studentId, { ...row, status: "approved" }));
-    } catch {
-      toast.error("Failed to approve.");
-    } finally {
-      setApprovingId(null);
-    }
-  };
-
-  const handleRevert = async (studentId: number) => {
-    const row = overview.get(studentId);
-    if (!row?.report_card_id) return;
-    setRevertingId(studentId);
-    try {
-      await ReportCardApiService.updateStatus(row.report_card_id, "saved");
-      toast.success("Reverted to Saved.");
-      setOverview((prev) => new Map(prev).set(studentId, { ...row, status: "saved" }));
-    } catch {
-      toast.error("Failed to revert.");
-    } finally {
-      setRevertingId(null);
-    }
-  };
-
   return (
     <div className="space-y-5">
       {/* Header stats */}
@@ -248,14 +201,24 @@ export default function SubjectReportCardDashboard({
           </div>
         </div>
 
-        {manageHref && (
+        <div className="flex flex-wrap items-center gap-3">
           <Link
-            to={manageHref}
+            to="/report-cards?filter=mine"
+            data-testid="open-workbench"
             className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+            title="Submit this subject's marks class by class, then the class teacher reviews the cards"
           >
-            Open Report Card Builder <ChevronRight className="w-4 h-4" />
+            Submit marks by class <ChevronRight className="w-4 h-4" />
           </Link>
-        )}
+          {manageHref && (
+            <Link
+              to={manageHref}
+              className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Open Report Card Builder <ChevronRight className="w-4 h-4" />
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Class progress */}
@@ -334,41 +297,6 @@ export default function SubjectReportCardDashboard({
                           <GraduationCap className="w-3.5 h-3.5" />
                         </button>
                       </Tooltip>
-
-                      {status === "draft" && row?.report_card_id && (
-                        <button
-                          onClick={() => handleMarkComplete(student.student_id)}
-                          disabled={markingCompleteId === student.student_id}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/50 disabled:opacity-50 transition-colors"
-                        >
-                          {markingCompleteId === student.student_id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                          <span className="hidden sm:inline">Done</span>
-                        </button>
-                      )}
-
-                      {isAdmin && status === "saved" && (
-                        <button
-                          onClick={() => handleApprove(student.student_id)}
-                          disabled={approvingId === student.student_id}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-blue-700 text-white hover:bg-blue-800 disabled:opacity-50 transition-colors"
-                        >
-                          {approvingId === student.student_id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ThumbsUp className="w-3.5 h-3.5" />}
-                          <span className="hidden sm:inline">Approve</span>
-                        </button>
-                      )}
-
-                      {isAdmin && status === "approved" && (
-                        <Tooltip label="Revert to Saved">
-                          <button
-                            onClick={() => handleRevert(student.student_id)}
-                            disabled={revertingId === student.student_id}
-                            aria-label="Revert to Saved"
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-800/50 disabled:opacity-50 transition-colors"
-                          >
-                            {revertingId === student.student_id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                          </button>
-                        </Tooltip>
-                      )}
 
                       <ChevronRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
                     </div>

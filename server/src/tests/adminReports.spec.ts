@@ -40,7 +40,8 @@ const directory: SchoolDirectory = {
     [2, [10]],
     [3, [20]],
   ]),
-  subject_teachers: new Map([
+  class_subject_teachers: new Map(),
+      subject_teachers: new Map([
     [1, [{ mis_user_id: 900, name: "T1 Teacher" }]],
     [2, [{ mis_user_id: 900, name: "T1 Teacher" }]],
     [3, [{ mis_user_id: 901, name: "T2 Teacher" }]],
@@ -260,7 +261,7 @@ describe("school insights", () => {
       subjectRows,
       studentRows,
       directory,
-      reportCards: { term: "Term 1", academic_year: "2026", cards: { draft: 2, saved: 1, approved: 1, total: 4 } },
+      reportCards: { term: "Term 1", academic_year: "2026", cards: { draft: 2, reviewed: 1, approved: 0, published: 1, total: 4 } },
     });
 
     const t1 = insights.teachers.find((t) => t.mis_user_id === 900)!;
@@ -304,7 +305,7 @@ describe("school insights", () => {
       subjectRows,
       studentRows,
       directory: { ...directory, assignments_available: false },
-      reportCards: { term: null, academic_year: null, cards: { draft: 0, saved: 0, approved: 0, total: 0 } },
+      reportCards: { term: null, academic_year: null, cards: { draft: 0, reviewed: 0, approved: 0, published: 0, total: 0 } },
     });
     expect(insights.coverage.no_teacher).toEqual([]);
     expect(insights.decisions.map((d) => d.id)).not.toContain("admin-subjects-no-teacher");

@@ -22,6 +22,7 @@ import {
   Users,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { downloadCsv } from "../utils/csvExport";
 import { CourseApiService } from "../services/courseApi";
 import { useTermYearSelector } from "../hooks/useTermYearSelector";
 import TermYearSelect from "../components/ReportCard/TermYearSelect";
@@ -202,22 +203,13 @@ export default function SubjectAssessmentReportPage() {
       s.email,
       ...report.assessments.map((a) => {
         const mark = s.marks[a.key];
-        return mark === null || mark === undefined ? "-" : `${mark}%`;
+        // Unmarked is an empty cell, never "0%".
+        return mark === null || mark === undefined ? "" : `${mark}%`;
       }),
-      `${s.overallPct}%`,
+      s.markedCount > 0 ? `${s.overallPct}%` : "",
       s.markedCount > 0 ? bandMeta(s.band).label : "No marks",
     ]);
-    const csv = [headers, ...rows]
-      .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${subjectCode || `subject-${courseId}`}-${term || "term"}-assessment-report.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadCsv(`${subjectCode || `subject-${courseId}`}-${term || "term"}-assessment-report.csv`, [headers, ...rows]);
     toast.success("Report exported");
   };
 
@@ -332,7 +324,7 @@ export default function SubjectAssessmentReportPage() {
           value={report.classAverage}
           suffix="%"
           progress={report.classAverage}
-          caption={`Median ${report.medianPct}% · counts only students with at least one mark`}
+          caption={report.medianPct === null ? "No marks yet — nothing to average" : `Median ${report.medianPct}% · counts only students with at least one mark`}
         />
         <KpiCard
           icon={<CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
