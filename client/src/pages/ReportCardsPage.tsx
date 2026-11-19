@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { CalendarDays, ChevronRight, ClipboardCheck, RefreshCw, Search, Settings2, Users } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, ClipboardCheck, Clock, RefreshCw, Search, Settings2, Users } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import { Button } from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
@@ -29,7 +29,33 @@ const BAR: Record<string, string> = {
 };
 const LABEL: Record<string, string> = { not_started: "Not started", ...Object.fromEntries(Object.entries(STATUS_META).map(([k, v]) => [k, v.label])) };
 
-type Filter = "all" | "mine" | "attention" | "done";
+type Filter = "all" | "mine" | "attention" | "done" | `stage-${number}`;
+
+/** Where a class is in the flow, from the least advanced card. */
+const STAGES = [
+  { key: "marks", title: "Collecting marks", cta: "Collect marks", hint: "Subject teachers submit their marks." },
+  { key: "review", title: "Ready to review", cta: "Review cards", hint: "Comments, attributes, then review." },
+  { key: "approve", title: "Awaiting approval", cta: "Approve", hint: "Approval locks the cards and their marks." },
+  { key: "publish", title: "Ready to publish", cta: "Publish", hint: "Students see cards once published." },
+  { key: "done", title: "Published", cta: "View cards", hint: "Every card is out." },
+] as const;
+
+function stageOf(r: CycleRow): number {
+  if (r.subjects_total > 0 && r.subjects_submitted < r.subjects_total) return 0;
+  if (r.counts.not_started + r.counts.draft > 0) return 1;
+  if (r.counts.reviewed > 0) return 2;
+  if (r.counts.approved > 0) return 3;
+  return 4;
+}
+
+/** "in 3 days" / "today" / "2 days ago" — and whether it's overdue. */
+function due(iso?: string | null): { text: string; overdue: boolean } | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  const days = Math.round((new Date(d.toDateString()).getTime() - new Date(new Date().toDateString()).getTime()) / 86_400_000);
+  const text = days === 0 ? "today" : days === 1 ? "tomorrow" : days === -1 ? "yesterday" : days > 0 ? `in ${days} days` : `${-days} days ago`;
+  return { text, overdue: days < 0 };
+}
 
 export default function ReportCardsPage() {
   const sel = useTermYearSelector();
@@ -69,7 +95,9 @@ export default function ReportCardsPage() {
     if (filter === "mine") return list.filter((r) => r.i_teach);
     if (filter === "attention") return list.filter((r) => r.counts.reviewed > 0 || r.subjects_submitted < r.subjects_total);
     if (filter === "done") return list.filter((r) => r.counts.published === r.students && r.students > 0);
-    return list;
+    if (filter.startsWith("stage-")) return list.filter((r) => stageOf(r) === Number(filter.slice(6)));
+    // Least advanced first: what needs doing comes to the top.
+    return [...list].sort((a, b) => stageOf(a) - stageOf(b) || a.name.localeCompare(b.name));
   }, [rows, q, filter]);
 
   const totals = useMemo(() => {
@@ -80,6 +108,13 @@ export default function ReportCardsPage() {
     }
     return t;
   }, [rows]);
+
+  const byStage = useMemo(() => {
+    const n = [0, 0, 0, 0, 0];
+    for (const r of rows ?? []) if (r.students > 0) n[stageOf(r)]++;
+    return n;
+  }, [rows]);
+  const nextStage = byStage.findIndex((n, i) => i < 4 && n > 0);
 
   const setFilter = (f: Filter) => {
     const next = new URLSearchParams(params);
@@ -128,22 +163,70 @@ export default function ReportCardsPage() {
         }
       />
 
-      {/* School progress */}
-      <section className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
+      {/* School pipeline: how many classes sit at each stage, and what to do next */}
+      <section className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900" data-testid="school-pipeline">
         {rows == null ? (
-          <Skeleton className="h-12 w-full" />
+          <div className="space-y-3">
+            <Skeleton className="h-5 w-64" />
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {Array.from({ length: 5 }, (_, i) => (
+                <Skeleton key={i} className="h-16" />
+              ))}
+            </div>
+          </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {totals.published} of {totals.students} cards published
+                <span className="ml-2 font-normal text-text-secondary-light dark:text-text-secondary-dark">
+                  · {(rows ?? []).filter((r) => r.students > 0).length} classes
+                </span>
               </p>
-              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                {totals.reviewed} waiting for approval · {totals.approved} approved, not published
-              </p>
+              {nextStage >= 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setFilter(`stage-${nextStage}`)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20"
+                  data-testid="next-step"
+                >
+                  Next: {byStage[nextStage]} class{byStage[nextStage] === 1 ? "" : "es"} {STAGES[nextStage].title.toLowerCase()}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              ) : totals.students > 0 ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-300">
+                  <Check className="h-3.5 w-3.5" /> Every class is published
+                </span>
+              ) : null}
             </div>
-            <ProgressBar counts={totals} total={totals.students} className="mt-3 h-2.5" />
-            <Legend counts={totals} />
+            <ProgressBar counts={totals} total={totals.students} className="mt-3 h-1.5" />
+            <ol className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {STAGES.map((st, i) => {
+                const active = filter === `stage-${i}`;
+                return (
+                  <li key={st.key}>
+                    <button
+                      type="button"
+                      onClick={() => setFilter(active ? "all" : `stage-${i}`)}
+                      aria-pressed={active}
+                      title={st.hint}
+                      className={`flex w-full flex-col items-start rounded-xl border px-3 py-2 text-left transition-colors ${
+                        active
+                          ? "border-blue-500 bg-blue-50 dark:border-blue-400/60 dark:bg-blue-500/10"
+                          : "border-gray-200 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5"
+                      }`}
+                    >
+                      <span className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
+                        {i + 1}. {st.title}
+                      </span>
+                      <span className={`text-lg font-semibold tabular-nums ${byStage[i] ? "text-text-primary-light dark:text-text-primary-dark" : "text-text-secondary-light/60 dark:text-text-secondary-dark/50"}`}>
+                        {byStage[i]}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
           </>
         )}
       </section>
@@ -187,7 +270,7 @@ export default function ReportCardsPage() {
               onChange={(e) => setQ(e.target.value)}
               placeholder="Find a class"
               aria-label="Find a class"
-              className="w-48 rounded-lg border border-gray-200 bg-white py-1.5 pl-8 pr-3 text-sm dark:border-white/10 dark:bg-slate-800"
+              className="w-48 rounded-lg border border-gray-200 bg-white py-1.5 pl-8 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-white/10 dark:bg-gray-900"
             />
           </label>
         </div>
@@ -217,47 +300,105 @@ export default function ReportCardsPage() {
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {shown.map((r) => (
-            <div
-              key={r.class_group_id}
-              className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-4 transition-colors hover:border-blue-300 dark:border-white/10 dark:bg-gray-900 dark:hover:border-blue-500/40"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{r.name}</p>
-                  <p className="truncate text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                    {[r.grade_name, r.program_name].filter(Boolean).join(" · ") || "—"}
-                  </p>
-                </div>
-                {can?.edit_settings && (
-                  <input
-                    type="checkbox"
-                    checked={picked.has(r.class_group_id)}
-                    onChange={() => toggle(r.class_group_id)}
-                    aria-label={`Select ${r.name}`}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600"
-                  />
-                )}
-              </div>
-              <ProgressBar counts={r.counts} total={r.students} className="mt-3 h-2" />
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
-                <span className="inline-flex items-center gap-1">
-                  <Users className="h-3 w-3" /> {r.students}
-                </span>
-                <span>
-                  Subjects submitted {r.subjects_submitted}/{r.subjects_total}
-                </span>
-                {r.counts.reviewed > 0 && <span className="font-semibold text-blue-700 dark:text-blue-300">{r.counts.reviewed} to approve</span>}
-                {r.cycle?.marks_due_at && <span>Marks due {new Date(r.cycle.marks_due_at).toLocaleDateString()}</span>}
-              </div>
-              <Link
-                to={`/report-cards/${r.class_group_id}?${query}`}
-                className="mt-3 inline-flex items-center justify-between rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50 dark:border-white/10 dark:text-blue-300 dark:hover:bg-blue-900/20"
+          {shown.map((r) => {
+            const st = stageOf(r);
+            const stage = STAGES[st];
+            const marksDue = st === 0 ? due(r.cycle?.marks_due_at) : null;
+            const reviewDue = st > 0 && st < 3 ? due(r.cycle?.review_due_at) : null;
+            const deadline = marksDue ? { label: "Marks due", ...marksDue } : reviewDue ? { label: "Review due", ...reviewDue } : null;
+            const n = st === 2 ? r.counts.reviewed : st === 3 ? r.counts.approved : 0;
+            const url = `/report-cards/${r.class_group_id}?${query}${st === 2 ? "&view=reviewed" : st === 3 ? "&view=approved" : ""}`;
+            const subjPct = r.subjects_total ? Math.round((r.subjects_submitted / r.subjects_total) * 100) : 0;
+            return (
+              <div
+                key={r.class_group_id}
+                data-testid={`class-${r.class_group_id}`}
+                className="group relative flex flex-col rounded-2xl border border-gray-200 bg-white p-4 transition-colors hover:border-blue-300 dark:border-white/10 dark:bg-gray-900 dark:hover:border-blue-500/40"
               >
-                Open workbench <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
-          ))}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <Link to={url} className="block truncate text-sm font-semibold text-text-primary-light after:absolute after:inset-0 after:rounded-2xl focus:outline-none dark:text-text-primary-dark">
+                      {r.name}
+                    </Link>
+                    <p className="truncate text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                      {[r.grade_name, r.program_name].filter(Boolean).join(" · ") || "—"}
+                      {r.i_teach ? " · you teach" : ""}
+                    </p>
+                  </div>
+                  {can?.edit_settings && (
+                    <input
+                      type="checkbox"
+                      checked={picked.has(r.class_group_id)}
+                      onChange={() => toggle(r.class_group_id)}
+                      aria-label={`Select ${r.name} to set dates`}
+                      className="relative z-10 mt-0.5"
+                    />
+                  )}
+                </div>
+
+                {/* Stage: four steps, the current one named */}
+                <div className="mt-3 flex items-center gap-1" aria-label={`Stage: ${stage.title}`}>
+                  {STAGES.slice(0, 4).map((x, i) => (
+                    <span
+                      key={x.key}
+                      title={x.title}
+                      className={`h-1.5 flex-1 rounded-full ${i < st ? "bg-blue-600" : i === st ? "bg-blue-400" : "bg-gray-200 dark:bg-white/10"}`}
+                    />
+                  ))}
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-primary-light dark:text-text-primary-dark">
+                    {st === 4 ? <Check className="h-3.5 w-3.5 text-blue-600" /> : <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />}
+                    {stage.title}
+                  </span>
+                  {deadline && (
+                    <span
+                      className={`inline-flex items-center gap-1 text-[11px] ${deadline.overdue ? "font-semibold text-red-600 dark:text-red-400" : "text-text-secondary-light dark:text-text-secondary-dark"}`}
+                    >
+                      <Clock className="h-3 w-3" /> {deadline.label} {deadline.text}
+                    </span>
+                  )}
+                </div>
+
+                <dl className="mt-3 grid grid-cols-3 gap-2 text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
+                  <div>
+                    <dt>Students</dt>
+                    <dd className="inline-flex items-center gap-1 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+                      <Users className="h-3.5 w-3.5 opacity-60" /> {r.students}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Subjects in</dt>
+                    <dd className="text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
+                      {r.subjects_submitted}/{r.subjects_total}
+                    </dd>
+                    <span className="mt-0.5 block h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+                      <span className="block h-full rounded-full bg-blue-500" style={{ width: `${subjPct}%` }} />
+                    </span>
+                  </div>
+                  <div>
+                    <dt>Published</dt>
+                    <dd className="text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
+                      {r.counts.published}/{r.students}
+                    </dd>
+                  </div>
+                </dl>
+
+                <span
+                  className={`relative mt-4 inline-flex items-center justify-between rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                    st < 4
+                      ? "bg-blue-600 text-white group-hover:bg-blue-700"
+                      : "border border-gray-200 text-blue-700 group-hover:bg-blue-50 dark:border-white/10 dark:text-blue-300 dark:group-hover:bg-blue-500/10"
+                  }`}
+                  aria-hidden="true"
+                >
+                  {stage.cta}
+                  {n ? ` ${n}` : ""}
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -292,18 +433,6 @@ export function ProgressBar({
         if (!n || !total) return null;
         return <span key={k} className={BAR[k]} style={{ width: `${(n / total) * 100}%` }} title={`${LABEL[k]}: ${n}`} />;
       })}
-    </div>
-  );
-}
-
-function Legend({ counts }: { counts: Partial<Record<string, number>> }) {
-  return (
-    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-      {ORDER.map((k) => (
-        <span key={k} className="inline-flex items-center gap-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-          <span className={`h-2 w-2 rounded-full ${BAR[k]}`} /> {LABEL[k]} {counts[k] ?? 0}
-        </span>
-      ))}
     </div>
   );
 }

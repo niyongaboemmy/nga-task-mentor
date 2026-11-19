@@ -287,10 +287,17 @@ describe("report cards classes page", () => {
         <ReportCardsPage />
       </MemoryRouter>,
     );
-    expect(await screen.findByText("Grade 10 A")).toBeInTheDocument();
-    expect(screen.getByText("15 of 30 cards published")).toBeInTheDocument();
-    expect(screen.getByText("Subjects submitted 9/12")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Open workbench/ })).toHaveAttribute("href", "/report-cards/5?term=Term%202&year=2025-2026");
+    const link = await screen.findByRole("link", { name: "Grade 10 A" });
+    expect(link).toHaveAttribute("href", "/report-cards/5?term=Term%202&year=2025-2026");
+    expect(screen.getByTestId("school-pipeline")).toHaveTextContent("15 of 30 cards published");
+    // 9 of 12 subjects in: the class is still collecting marks, and that's the school's next step.
+    const card = screen.getByTestId("class-5");
+    expect(card).toHaveTextContent("Collecting marks");
+    expect(card).toHaveTextContent("9/12");
+    expect(card).toHaveTextContent("Collect marks");
+    expect(screen.getByTestId("next-step")).toHaveTextContent("Next: 1 class collecting marks");
+    fireEvent.click(screen.getByRole("button", { name: /Ready to review/ }));
+    expect(screen.queryByTestId("class-5")).toBeNull();
   });
 });
 
