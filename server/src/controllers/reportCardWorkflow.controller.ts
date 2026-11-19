@@ -582,6 +582,11 @@ export const getWorkbench = async (req: Request, res: Response) => {
       if (!prev || prev.version < s.version) snapBy.set(s.report_card_id, s);
     }
 
+    // Which assessments the missing marks are, so teachers know what to record.
+    const missingKeys: Array<{ type: string; id: number }> = [];
+    for (const g of computed.values()) for (const list of g.missingItems.values()) for (const m of list) missingKeys.push({ type: m.assessment_type, id: m.assessment_id });
+    const missingTitles = missingKeys.length ? await assessmentTitles(missingKeys) : new Map<string, { title: string; href: string | null }>();
+
     const myId = (req as any).user?.mis_user_id != null ? Number((req as any).user.mis_user_id) : null;
     const subjects = [...subjectIds]
       .map((sid) => {
@@ -627,6 +632,7 @@ export const getWorkbench = async (req: Request, res: Response) => {
           points: number | null;
           categories: Record<"CW" | "HW" | "MD" | "EOT", number | null> | null;
           competent: boolean | null;
+          missing_items: Array<{ assessment_type: string; assessment_id: number; category: string; title: string; href: string | null }>;
         }
       > = {};
       for (const sid of subjectIds) {
@@ -645,6 +651,10 @@ export const getWorkbench = async (req: Request, res: Response) => {
               }
             : null,
           competent: grade ? grade.total_score >= thresholdOf(sid) : null,
+          missing_items: (g.missingItems.get(sid) ?? []).map((m) => {
+            const t = missingTitles.get(`${m.assessment_type}:${m.assessment_id}`);
+            return { ...m, title: t?.title ?? `${m.assessment_type} #${m.assessment_id}`, href: t?.href ?? null };
+          }),
         };
       }
       const avg = g.grades.length ? Math.round((g.grades.reduce((a, x) => a + x.total_score, 0) / g.grades.length) * 100) / 100 : null;
@@ -876,6 +886,23 @@ interface MissingItem {
   category: string;
 }
 
+/** Titles (and where to record the mark) of quiz / assignment / manual assessments. */
+async function assessmentTitles(keys: Array<{ type: string; id: number }>): Promise<Map<string, { title: string; href: string | null }>> {
+  const idsOf = (t: string) => [...new Set(keys.filter((k) => k.type === t).map((k) => k.id))];
+  const [quizzes, assignments, manuals] = await Promise.all([
+    idsOf("quiz").length ? Quiz.findAll({ where: { id: { [Op.in]: idsOf("quiz") } }, attributes: ["id", "title"], raw: true }) : [],
+    idsOf("assignment").length ? Assignment.findAll({ where: { id: { [Op.in]: idsOf("assignment") } }, attributes: ["id", "title"], raw: true }) : [],
+    idsOf("manual").length
+      ? ManualAssessment.findAll({ where: { id: { [Op.in]: idsOf("manual") } }, attributes: ["id", "title", "course_id"], raw: true })
+      : [],
+  ]);
+  const out = new Map<string, { title: string; href: string | null }>();
+  for (const q of quizzes as any[]) out.set(`quiz:${q.id}`, { title: q.title, href: `/quizzes/${q.id}/submissions` });
+  for (const a of assignments as any[]) out.set(`assignment:${a.id}`, { title: a.title, href: `/assignments/${a.id}` });
+  for (const m of manuals as any[]) out.set(`manual:${m.id}`, { title: m.title, href: m.course_id ? `/courses/${m.course_id}/grades` : null });
+  return out;
+}
+
 /** Marks of `subjectId` not recorded and not resolved, for the class's draft cards. */
 async function missingMarksFor(
   req: Request,
@@ -915,17 +942,8 @@ async function missingMarksFor(
       keys.push({ type: m.assessment_type, id: m.assessment_id });
     }
   }
-  const idsOf = (t: string) => [...new Set(keys.filter((k) => k.type === t).map((k) => k.id))];
-  const [quizzes, assignments, manuals] = await Promise.all([
-    idsOf("quiz").length ? Quiz.findAll({ where: { id: { [Op.in]: idsOf("quiz") } }, attributes: ["id", "title"], raw: true }) : [],
-    idsOf("assignment").length ? Assignment.findAll({ where: { id: { [Op.in]: idsOf("assignment") } }, attributes: ["id", "title"], raw: true }) : [],
-    idsOf("manual").length ? ManualAssessment.findAll({ where: { id: { [Op.in]: idsOf("manual") } }, attributes: ["id", "title"], raw: true }) : [],
-  ]);
-  const title = new Map<string, string>();
-  for (const q of quizzes as any[]) title.set(`quiz:${q.id}`, q.title);
-  for (const a of assignments as any[]) title.set(`assignment:${a.id}`, a.title);
-  for (const m of manuals as any[]) title.set(`manual:${m.id}`, m.title);
-  for (const i of items) i.title = title.get(`${i.assessment_type}:${i.assessment_id}`) ?? `${i.assessment_type} #${i.assessment_id}`;
+  const titles = await assessmentTitles(keys);
+  for (const i of items) i.title = titles.get(`${i.assessment_type}:${i.assessment_id}`)?.title ?? `${i.assessment_type} #${i.assessment_id}`;
   items.sort((a, b) => a.name.localeCompare(b.name) || a.title.localeCompare(b.title));
   return { items, cards, directory };
 }
