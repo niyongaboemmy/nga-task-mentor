@@ -169,6 +169,20 @@ describe("report card workbench", () => {
     expect(toast.error).toHaveBeenCalled();
   });
 
+  it("says when a subject is mapped for only part of the class, and doesn't offer sign-off for unmapped ones", async () => {
+    const wb = workbench(rows);
+    wb.subjects = [
+      { ...wb.subjects[0], mapped_cards: 1, total_cards: 4 },
+      { ...wb.subjects[0], subject_id: 10, name: "Citizenship", i_teach: false, mapped_cards: 0, total_cards: 4, teachers: ["T. Mugisha"] },
+    ];
+    api.workbench.mockResolvedValue({ success: true, data: wb });
+    renderWorkbench();
+    expect(await screen.findByTestId("subject-9")).toHaveTextContent("Mapped for 1 of 4");
+    const unmapped = screen.getByTestId("subject-10");
+    expect(unmapped).toHaveTextContent("No assessments mapped · T. Mugisha");
+    expect(unmapped.tagName).toBe("DIV");
+  });
+
   it("filters to cards ready to review", async () => {
     api.workbench.mockResolvedValue({ success: true, data: workbench(rows) });
     renderWorkbench();
@@ -250,7 +264,7 @@ describe("report card document view", () => {
   const doc = (status: "draft" | "published"): ReportCardDocument => ({
     schema: 1,
     card: { id: 1, uuid: "u", version: status === "published" ? 2 : 0, status, term: "Term 2", academic_year: "2025-2026", approved_at: status === "published" ? "2026-04-01T00:00:00Z" : null, published_at: null },
-    school: { name: "NATIONAL GRAMMAR ACADEMY", address_line: "Kigali" },
+    school: { name: "New Generation Coding Academy", address_line: "Kigali, Rwanda", contact_line: "info@nga.ac.rw", logo: "nga" },
     student: { id: 1, name: "Aline Uwase", registration_number: "1487250119", gender: "F", class_group_id: 5, class_name: "Grade10", grade_name: null, program_name: "SPES YEAR 1" },
     scheme: {
       category_weights: { CW: 15, HW: 10, MD: 25, EOT: 50 },
@@ -281,17 +295,19 @@ describe("report card document view", () => {
     grades: [],
   });
 
-  it("lays the card out like the school's: class, reg. no., groups, CA, teacher, summary, attendance %, next term", () => {
+  it("shows the official logo and the school's card layout: class, reg. no., groups, CA, teacher, summary, attendance %, next term, QR", () => {
     render(<ReportCardDocumentView doc={doc("published")} verificationUrl="https://x/verify?v=2" />);
     const d = screen.getByTestId("report-card-document");
-    for (const t of ["1487250119", "Core modules", "Networking Fundamentals", "Ntabomvura L.", "77", "Excused absence", "Signature of Principal"]) {
+    expect(within(d).getByAltText("New Generation Coding Academy")).toBeInTheDocument();
+    for (const t of ["1487250119", "Core modules", "Networking Fundamentals", "Ntabomvura L.", "77", "Excused", "Principal"]) {
       expect(within(d).getByText(t)).toBeInTheDocument();
     }
-    expect(d).toHaveTextContent("86.64%");
-    expect(d).toHaveTextContent("Position 3 of 40");
+    expect(d).toHaveTextContent("86.6%");
+    expect(d).toHaveTextContent("of 40");
     expect(d).toHaveTextContent("Next term begins on Monday, 20 April 2026");
     expect(d).toHaveTextContent("Version 2");
-    expect(within(d).getByText("60")).toBeInTheDocument(); // present 3 of 5 days
+    expect(within(d).getByText("60%")).toBeInTheDocument(); // present 3 of 5 days
+    expect(within(d).getByTestId("verify-qr")).toBeInTheDocument();
     expect(d).not.toHaveTextContent("PROVISIONAL");
   });
 

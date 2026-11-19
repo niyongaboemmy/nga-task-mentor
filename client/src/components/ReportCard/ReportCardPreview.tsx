@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ReportCardDocumentView } from "./ReportCardDocumentView";
+import ngaLogo from "../../assets/branding/nga-logo-horizontal.png";
 import { statusMeta } from "../../services/reportCardApi";
 import { QRCodeSVG } from "qrcode.react";
 import { X, Download, Printer, Loader2, AlertCircle, RefreshCw, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
@@ -26,8 +27,10 @@ const CATEGORY_LABELS: Record<string, { short: string; weight: number }> = {
 
 const CATEGORY_ORDER = ["CW", "HW", "MD", "EOT"] as const;
 
-const SCHOOL_NAME = "National Grammar Academy";
-const SCHOOL_MOTTO = "Excellence · Integrity · Service";
+// The provisional preview's header; issued cards use the school's branding
+// from the document (ReportCardDocumentView).
+const SCHOOL_NAME = "New Generation Coding Academy";
+const SCHOOL_MOTTO = "Rwanda's Tech Talent Engine";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -408,21 +411,7 @@ function ReportCardDocument({
           marginBottom: 20,
         }}
       >
-        {/* Logo placeholder */}
-        <div
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: "50%",
-            background: "linear-gradient(135deg,#1e3a5f,#2563eb)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          <span style={{ color: "#fff", fontSize: 22, fontWeight: 900 }}>NGA</span>
-        </div>
+        <img src={ngaLogo} alt={SCHOOL_NAME} style={{ height: 64, width: "auto", flexShrink: 0 }} />
 
         <div style={{ flex: 1, textAlign: "center", padding: "0 16px" }}>
           <div

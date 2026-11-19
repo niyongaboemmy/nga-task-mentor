@@ -226,7 +226,7 @@ export interface ReportCardDocument {
     approved_at: string | null;
     published_at: string | null;
   };
-  school: { name: string; address_line: string };
+  school: { name: string; address_line: string; contact_line?: string; logo?: string | null };
   student: {
     id: number;
     name: string;

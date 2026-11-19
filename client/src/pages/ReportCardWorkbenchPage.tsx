@@ -272,7 +272,7 @@ export default function ReportCardWorkbenchPage() {
       ) : (
         <>
           {/* Progress + blockers */}
-          <section className="grid gap-3 lg:grid-cols-[1fr_1.2fr]">
+          <section className="grid items-start gap-3 lg:grid-cols-[1fr_1.2fr]">
             <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -284,6 +284,21 @@ export default function ReportCardWorkbenchPage() {
                 </p>
               </div>
               <ProgressBar counts={data.counts} total={total} className="mt-3 h-2.5" />
+              <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {(["draft", "reviewed", "approved", "published"] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setView(k)}
+                    className="rounded-xl border border-gray-200 px-3 py-2 text-left hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5"
+                  >
+                    <dt className="flex items-center gap-1.5 text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
+                      <span className={`h-1.5 w-1.5 rounded-full ${statusMeta(k).dot}`} /> {statusMeta(k).label}
+                    </dt>
+                    <dd className="text-lg font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">{data.counts[k]}</dd>
+                  </button>
+                ))}
+              </dl>
               <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 {data.cycle.marks_due_at && <span>Marks due {new Date(data.cycle.marks_due_at).toLocaleString()}</span>}
                 {data.cycle.review_due_at && <span>Review due {new Date(data.cycle.review_due_at).toLocaleString()}</span>}
@@ -330,35 +345,78 @@ export default function ReportCardWorkbenchPage() {
             <div className="mt-3 flex flex-wrap gap-2">
               {data.subjects.map((s) => {
                 const submitted = s.signoff.status === "submitted";
-                return (
-                  <button
-                    key={s.subject_id}
-                    onClick={() => setSignoff(s)}
-                    data-testid={`subject-${s.subject_id}`}
-                    className={`flex max-w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs transition-colors ${
-                      submitted
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-700/40 dark:bg-emerald-900/20 dark:text-emerald-200"
-                        : s.signoff.returned_reason
-                          ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-200"
-                          : "border-gray-200 text-text-primary-light hover:bg-gray-50 dark:border-white/10 dark:text-text-primary-dark dark:hover:bg-white/5"
-                    }`}
-                    title={s.signoff.returned_reason ? `Returned: ${s.signoff.returned_reason}` : s.teachers.join(", ")}
-                  >
-                    {submitted ? <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" /> : <Send className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />}
+                const total = s.total_cards ?? students.length;
+                const unmapped = s.mapped_cards === 0;
+                const partial = !unmapped && s.mapped_cards < total;
+                const canOpen = s.i_teach || data.can.review || data.can.approve;
+                const tone = submitted
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-700/40 dark:bg-emerald-900/20 dark:text-emerald-200"
+                  : s.signoff.returned_reason
+                    ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-200"
+                    : unmapped
+                      ? "border-dashed border-gray-300 text-text-secondary-light dark:border-white/15 dark:text-text-secondary-dark"
+                      : "border-gray-200 text-text-primary-light dark:border-white/10 dark:text-text-primary-dark";
+                const status = submitted
+                  ? `Submitted${s.signoff.submitted_by ? ` by ${s.signoff.submitted_by}` : ""}`
+                  : unmapped
+                    ? "No assessments mapped"
+                    : partial
+                      ? `Mapped for ${s.mapped_cards} of ${total}`
+                      : s.missing_marks
+                        ? `${s.missing_marks} mark${s.missing_marks === 1 ? "" : "s"} missing`
+                        : "Ready to submit";
+                const body = (
+                  <>
+                    {submitted ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+                    ) : unmapped ? (
+                      <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 opacity-50" />
+                    ) : (
+                      <Send className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
+                    )}
                     <span className="min-w-0">
                       <span className="block truncate font-semibold">{s.name}</span>
                       <span className="block truncate opacity-80">
-                        {submitted
-                          ? `Submitted${s.signoff.submitted_by ? ` by ${s.signoff.submitted_by}` : ""}`
-                          : s.mapped_cards === 0
-                            ? "Not mapped yet"
-                            : s.missing_marks
-                              ? `${s.missing_marks} mark(s) missing`
-                              : "Ready to submit"}
-                        {s.i_teach ? " · you teach" : ""}
+                        {status}
+                        {s.i_teach ? " · you teach" : s.teachers.length ? ` · ${s.teachers[0]}` : ""}
                       </span>
                     </span>
+                  </>
+                );
+                const cls = `flex max-w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs transition-colors ${tone}`;
+                const title = s.signoff.returned_reason ? `Returned: ${s.signoff.returned_reason}` : s.teachers.join(", ") || undefined;
+                if (unmapped) {
+                  return s.i_teach ? (
+                    <Link
+                      key={s.subject_id}
+                      to={`/grades/subjects/${s.subject_id}`}
+                      data-testid={`subject-${s.subject_id}`}
+                      title="Map this subject's assessments to CW / HW / MD / EOT"
+                      className={`${cls} hover:bg-gray-50 dark:hover:bg-white/5`}
+                    >
+                      {body}
+                    </Link>
+                  ) : (
+                    <div key={s.subject_id} data-testid={`subject-${s.subject_id}`} title={title} className={cls}>
+                      {body}
+                    </div>
+                  );
+                }
+                return canOpen ? (
+                  <button
+                    key={s.subject_id}
+                    type="button"
+                    onClick={() => setSignoff(s)}
+                    data-testid={`subject-${s.subject_id}`}
+                    title={title}
+                    className={`${cls} hover:brightness-[0.98] hover:bg-gray-50 dark:hover:bg-white/5`}
+                  >
+                    {body}
                   </button>
+                ) : (
+                  <div key={s.subject_id} data-testid={`subject-${s.subject_id}`} title={title} className={cls}>
+                    {body}
+                  </div>
                 );
               })}
               {data.subjects.length === 0 && (
@@ -404,11 +462,11 @@ export default function ReportCardWorkbenchPage() {
           {shown.length === 0 ? (
             <EmptyState title="No students in this view" description="Pick another filter above." />
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[#0b0d12]">
               <table className="min-w-full text-sm" data-testid="workbench-matrix">
-                <thead className="bg-gray-50 text-xs text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark">
+                <thead className="bg-gray-50 text-xs text-text-secondary-light dark:bg-[#141821] dark:text-text-secondary-dark">
                   <tr>
-                    <th className="sticky left-0 z-10 bg-gray-50 px-3 py-2 text-left dark:bg-slate-900">
+                    <th className="sticky left-0 z-10 bg-gray-50 px-3 py-2 text-left dark:bg-[#141821]">
                       <input
                         type="checkbox"
                         checked={allShownPicked}
@@ -436,8 +494,17 @@ export default function ReportCardWorkbenchPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-white/5">
                   {shown.map((s) => (
-                    <tr key={s.card.id} className={picked.has(s.card.id) ? "bg-blue-50/60 dark:bg-blue-900/10" : "hover:bg-gray-50 dark:hover:bg-white/[0.03]"}>
-                      <td className="sticky left-0 z-10 bg-inherit px-3 py-2">
+                    <tr
+                      key={s.card.id}
+                      className={`group ${picked.has(s.card.id) ? "bg-blue-50 dark:bg-[#111a2e]" : "bg-white hover:bg-gray-50 dark:bg-[#0b0d12] dark:hover:bg-[#12151c]"}`}
+                    >
+                      <td
+                        className={`sticky left-0 z-10 px-3 py-2 ${
+                          picked.has(s.card.id)
+                            ? "bg-blue-50 dark:bg-[#111a2e]"
+                            : "bg-white group-hover:bg-gray-50 dark:bg-[#0b0d12] dark:group-hover:bg-[#12151c]"
+                        }`}
+                      >
                         <label className="flex items-center gap-2">
                           <input
                             type="checkbox"

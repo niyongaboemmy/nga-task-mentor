@@ -92,6 +92,8 @@ export interface WorkbenchSubject {
   teachers: string[];
   i_teach: boolean;
   mapped_cards: number;
+  /** Cards in the class (mapped_cards of total_cards have this subject mapped). */
+  total_cards?: number;
   missing_marks: number;
   signoff: { status: "open" | "submitted"; submitted_by: string | null; submitted_at: string | null; returned_reason: string | null };
 }

@@ -3,6 +3,7 @@ import axios from "axios";
 import { Op } from "sequelize";
 import { ReportCard } from "../models/ReportCard.model";
 import { ReportCardAssessment } from "../models/ReportCardAssessment.model";
+import { SubjectAssessmentMapping } from "../models/SubjectAssessmentMapping.model";
 import {
   ReportCardSnapshot,
   ReportCardTransition,
@@ -547,6 +548,7 @@ export const getWorkbench = async (req: Request, res: Response) => {
     const cards = studentIds.map((id) => byStudent.get(id)!).filter(Boolean);
 
     const classSubjects = directory.class_group_subjects.get(classGroupId) ?? [];
+    await syncSubjectMappings(cards, classSubjects, term, year);
     const computed = new Map<number, CardGrades>();
     for (const c of cards) computed.set(c.id!, await computeCardGrades(c, scheme.category_weights));
     const subjectIds = new Set<number>(classSubjects);
@@ -584,6 +586,7 @@ export const getWorkbench = async (req: Request, res: Response) => {
           teachers: teachers.map((t) => t.name),
           i_teach: myId != null && teachers.some((t) => t.mis_user_id === myId),
           mapped_cards: mapped,
+          total_cards: cards.length,
           missing_marks: missing,
           signoff: {
             status: s?.status ?? "open",
@@ -684,6 +687,47 @@ export const getWorkbench = async (req: Request, res: Response) => {
     sendControllerError(res, error, "getWorkbench");
   }
 };
+
+/**
+ * A subject's saved mapping reaches a card only through the fan-out at save
+ * time, which covers the students MIS listed as enrolled then. Cards created
+ * later (the workbench makes a draft for every roster student) or students
+ * MIS didn't list would never get it. Copy each class subject's canonical
+ * mapping onto the class's DRAFT cards that have no rows for that subject.
+ */
+export async function syncSubjectMappings(cards: ReportCard[], subjectIds: number[], term: string, year: string): Promise<number> {
+  const drafts = cards.filter((c) => isEditable(c.status));
+  if (drafts.length === 0 || subjectIds.length === 0) return 0;
+  const canonical = await SubjectAssessmentMapping.findAll({
+    where: { subject_id: { [Op.in]: subjectIds }, term, academic_year: year },
+    attributes: ["subject_id", "assessment_type", "assessment_id", "category"],
+  });
+  if (canonical.length === 0) return 0;
+  const bySubject = new Map<number, SubjectAssessmentMapping[]>();
+  for (const m of canonical) bySubject.set(m.subject_id, [...(bySubject.get(m.subject_id) ?? []), m]);
+  const existing = await ReportCardAssessment.findAll({
+    where: { report_card_id: { [Op.in]: drafts.map((c) => c.id!) }, subject_id: { [Op.in]: [...bySubject.keys()] } },
+    attributes: ["report_card_id", "subject_id"],
+  });
+  const has = new Set(existing.map((e) => `${e.report_card_id}:${e.subject_id}`));
+  const rows: Array<Record<string, unknown>> = [];
+  for (const card of drafts) {
+    for (const [sid, list] of bySubject) {
+      if (has.has(`${card.id}:${sid}`)) continue;
+      for (const m of list) {
+        rows.push({
+          report_card_id: card.id!,
+          subject_id: sid,
+          assessment_type: m.assessment_type,
+          assessment_id: m.assessment_id,
+          category: m.category,
+        });
+      }
+    }
+  }
+  if (rows.length) await ReportCardAssessment.bulkCreate(rows as any);
+  return rows.length;
+}
 
 // ─── GET /api/report-cycles ──────────────────────────────────────────────────
 
