@@ -320,7 +320,7 @@ describe("report card document view", () => {
       {
         name: "Core modules",
         subjects: [
-          { subject_id: 1, name: "Networking Fundamentals", group: "Core modules", teacher: "Ntabomvura L.", categories: { CW: 14, HW: 9, MD: 21, EOT: 45 }, total: 89, grade: "A", remark: "", passed: true, class_average: 77, missing_marks: 0 },
+          { subject_id: 1, name: "Networking Fundamentals", group: "Core modules", teacher: "Ntabomvura L.", categories: { CW: 13.33, HW: 9, MD: 21, EOT: 45 }, total: 88.33, grade: "A", remark: "", passed: true, class_average: 77.06, missing_marks: 0 },
         ],
       },
     ],
@@ -336,10 +336,10 @@ describe("report card document view", () => {
     render(<ReportCardDocumentView doc={doc("published")} verificationUrl="https://x/verify?v=2" />);
     const d = screen.getByTestId("report-card-document");
     expect(within(d).getByAltText("New Generation Coding Academy")).toBeInTheDocument();
-    for (const t of ["1487250119", "Core modules", "Networking Fundamentals", "Ntabomvura L.", "77", "Excused", "Principal"]) {
+    for (const t of ["1487250119", "Core modules", "Networking Fundamentals", "Ntabomvura L.", "77.06", "13.33", "88.33", "Excused", "Principal"]) {
       expect(within(d).getByText(t)).toBeInTheDocument();
     }
-    expect(d).toHaveTextContent("86.6%");
+    expect(d).toHaveTextContent("86.64%"); // exact, never rounded
     expect(d).toHaveTextContent("3rd");
     expect(d).toHaveTextContent("of 40");
     expect(d).toHaveTextContent("Next term begins on Monday, 20 April 2026");

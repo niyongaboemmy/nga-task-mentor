@@ -39,8 +39,9 @@ export function logoPath(logo: string | null | undefined): string | null {
   return fs.existsSync(p) ? p : null;
 }
 
-const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0);
-const r0 = (n: number | null | undefined) => (n == null ? "" : String(Math.round(n)));
+/** Exact marks, never rounded to whole numbers: up to 2 decimals (the precision marks are stored at), trailing zeros dropped. */
+export const exact = (n: number | null | undefined) => (n == null ? "" : String(Number(n.toFixed(2))));
+const pct = (n: number, d: number) => (d > 0 ? exact((n / d) * 100) : "0");
 
 export interface PdfOptions {
   /** e.g. https://taskmentor.amashuri.com — the QR points at {base}/api/public/verify/report-card/{uuid}?v= */
@@ -161,16 +162,16 @@ export async function renderReportCardPdf(doc: ReportCardDocument, opts: PdfOpti
     const hasCodes = doc.groups.some((g) => g.subjects.some((x) => x.code));
     type Col = { key: string; label: string; sub?: string; width: number; align: "left" | "center" };
     const cols: Col[] = [
-      ...(hasCodes ? [{ key: "code", label: "Code", width: 58, align: "left" as const }] : []),
+      ...(hasCodes ? [{ key: "code", label: "Code", width: 52, align: "left" as const }] : []),
       { key: "name", label: "Module", width: 0, align: "left" },
-      { key: "CW", label: "CW", sub: `/${w.CW}`, width: 27, align: "center" },
-      { key: "HW", label: "HW", sub: `/${w.HW}`, width: 27, align: "center" },
-      { key: "MD", label: "MD", sub: `/${w.MD}`, width: 27, align: "center" },
-      { key: "EOT", label: "EOT", sub: `/${w.EOT}`, width: 27, align: "center" },
-      { key: "TOT", label: "Mark", sub: "/100", width: 36, align: "center" },
+      { key: "CW", label: "CW", sub: `/${w.CW}`, width: 31, align: "center" },
+      { key: "HW", label: "HW", sub: `/${w.HW}`, width: 31, align: "center" },
+      { key: "MD", label: "MD", sub: `/${w.MD}`, width: 31, align: "center" },
+      { key: "EOT", label: "EOT", sub: `/${w.EOT}`, width: 31, align: "center" },
+      { key: "TOT", label: "Mark", sub: "/100", width: 42, align: "center" },
       { key: "GR", label: "Grade", width: 36, align: "center" },
       ...(showRank ? [{ key: "RK", label: "Pos.", sub: "in class", width: 38, align: "center" as const }] : []),
-      ...(showCA ? [{ key: "CA", label: "Class", sub: "avg", width: 34, align: "center" as const }] : []),
+      ...(showCA ? [{ key: "CA", label: "Class", sub: "avg", width: 36, align: "center" as const }] : []),
       ...(showComp ? [{ key: "DEC", label: "Decision", width: 62, align: "center" as const }] : []),
     ];
     const nameIdx = cols.findIndex((c) => c.key === "name");
@@ -229,7 +230,8 @@ export async function renderReportCardPdf(doc: ReportCardDocument, opts: PdfOpti
         const cell = (v: string, c: Col, o: { font?: string; color?: string; size?: number } = {}) => {
           pdf.font(o.font ?? F.normal).fontSize(o.size ?? 7.8);
           const th = pdf.heightOfString(v || " ", { width: c.width - 10 });
-          pdf.fillColor(o.color ?? C.text).text(v, x + 5, y + Math.max(4, (h - th) / 2), { width: c.width - 10, align: c.align, height: h - 4, ellipsis: true });
+          // +1: glyphs sit high in their line box; this lines numbers up with the pills.
+          pdf.fillColor(o.color ?? C.text).text(v, x + 5, y + Math.max(4, (h - th) / 2) + 1, { width: c.width - 10, align: c.align, height: h - 4, ellipsis: true });
         };
         const pill = (text: string, c: Col, bg: string, fg: string, pw: number) => {
           const px = x + (c.width - pw) / 2;
@@ -242,17 +244,17 @@ export async function renderReportCardPdf(doc: ReportCardDocument, opts: PdfOpti
             pdf.font(F.normal).fontSize(7.8).fillColor(C.ink).text(s.name, x + 5, top, { width: nameW - 10, height: 20, ellipsis: true });
             if (teacherLine) pdf.font(F.normal).fontSize(6.4).fillColor(C.muted).text(s.teacher!, x + 5, top + nameH + 1, { width: nameW - 10, lineBreak: false, ellipsis: true });
           } else if (c.key === "code") cell(s.code ?? "", c, { color: C.muted, size: 7 });
-          else if (c.key === "TOT") cell(s.total == null ? "" : `${Math.round(s.total)}${partial ? "*" : ""}`, c, { font: F.bold, size: 8.6, color: failing ? C.red : C.ink });
+          else if (c.key === "TOT") cell(s.total == null ? "" : `${exact(s.total)}${partial ? "*" : ""}`, c, { font: F.bold, size: 8.6, color: failing ? C.red : C.ink });
           else if (c.key === "GR") {
             if (s.grade) pill(s.grade, c, failing ? C.redSoft : C.navySoft, failing ? C.red : C.navy, 22);
           } else if (c.key === "RK") cell(s.rank != null ? `${s.rank}/${s.rank_of}` : "", c, { color: C.text, size: 7.6 });
-          else if (c.key === "CA") cell(r0(s.class_average), c, { color: C.muted });
+          else if (c.key === "CA") cell(exact(s.class_average), c, { color: C.muted });
           else if (c.key === "DEC") {
             if (s.competent != null) {
               if (s.competent) pill("Competent", c, "#E7F6EE", "#05603A", 52);
               else pill("NYC", c, C.redSoft, C.red, 34);
             }
-          } else cell(r0(s.categories[c.key as "CW"]), c);
+          } else cell(exact(s.categories[c.key as "CW"]), c);
           x += c.width;
         }
         pdf.moveTo(M, y + h).lineTo(M + W, y + h).lineWidth(0.4).stroke(C.line);
@@ -275,13 +277,13 @@ export async function renderReportCardPdf(doc: ReportCardDocument, opts: PdfOpti
     const sm = doc.summary;
     const ord = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
     const tiles: Array<[string, string, string?]> = [
-      ["Average", sm.average != null ? `${sm.average.toFixed(1)}%` : "—", sm.remark ?? undefined],
+      ["Average", sm.average != null ? `${exact(sm.average)}%` : "—", sm.remark ?? undefined],
       ...(doc.scheme.show_position && sm.position != null ? [["Position in class", ord(sm.position), `of ${sm.position_of}`] as [string, string, string]] : []),
       ["Grade", sm.grade ?? "—"],
       ...(showComp
         ? [["Competent", `${sm.modules_competent ?? 0}/${(sm.modules_competent ?? 0) + (sm.modules_nyc ?? 0)}`] as [string, string]]
         : [["Modules passed", `${sm.subjects_passed}/${sm.subjects_counted}`] as [string, string]]),
-      ...(showCA && sm.class_average != null ? [["Class average", `${sm.class_average.toFixed(1)}%`] as [string, string]] : []),
+      ...(showCA && sm.class_average != null ? [["Class average", `${exact(sm.class_average)}%`] as [string, string]] : []),
     ];
     ensure(48);
     const gap = 8;
@@ -298,7 +300,11 @@ export async function renderReportCardPdf(doc: ReportCardDocument, opts: PdfOpti
       pdf.font(F.bold).fontSize(15).fillColor(primary ? C.white : C.navy).text(v, x + 10, y + 17, { width: tw - 20, lineBreak: false });
       if (sub) {
         const vw = pdf.font(F.bold).fontSize(15).widthOfString(v);
-        pdf.font(F.normal).fontSize(7.2).fillColor(primary ? "#DCE6F2" : C.muted).text(sub, x + 14 + vw, y + 23, { width: tw - vw - 24, lineBreak: false, ellipsis: true });
+        const sw = pdf.font(F.normal).fontSize(7.2).widthOfString(sub);
+        pdf.fillColor(primary ? "#DCE6F2" : C.muted);
+        // Beside the value when it fits; otherwise on the label line, right-aligned, so it never wraps.
+        if (vw + 4 + sw <= tw - 20) pdf.text(sub, x + 14 + vw, y + 23, { lineBreak: false });
+        else pdf.text(sub, x + 10, y + 7, { width: tw - 20, align: "right", lineBreak: false });
       }
     });
     y += 48;

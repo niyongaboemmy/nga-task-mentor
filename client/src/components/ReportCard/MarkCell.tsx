@@ -32,7 +32,8 @@ export interface MarkCellProps {
   weights?: { CW: number; HW: number; MD: number; EOT: number };
 }
 
-const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+/** Exact, never rounded to whole numbers: up to 2 decimals, trailing zeros dropped. */
+const fmt = (n: number) => String(Number(n.toFixed(2)));
 
 export default function MarkCell({ cell, studentName, moduleName, moduleCode, threshold, weights = DEFAULT_WEIGHTS }: MarkCellProps) {
   const [open, setOpen] = useState(false);
@@ -101,12 +102,12 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
         aria-label={label}
         aria-expanded={open}
         title={hover}
-        className={`group/cell relative inline-flex min-w-[52px] flex-col items-center rounded-lg px-1.5 py-1 transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-blue-500/10 ${
+        className={`group/cell relative inline-flex min-w-[60px] flex-col items-center rounded-lg px-1.5 py-1 transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-blue-500/10 ${
           open ? "bg-blue-50 dark:bg-blue-500/10" : ""
         }`}
       >
         <span className={`flex items-baseline gap-0.5 tabular-nums ${tone}`}>
-          <span className="text-[13px] font-semibold">{total != null ? Math.round(total) : "—"}</span>
+          <span className="text-[13px] font-semibold">{total != null ? fmt(total) : "—"}</span>
           {total != null && <span className="text-[10px] font-medium opacity-60">%</span>}
           {missing > 0 && (
             <span className="ml-0.5 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-amber-100 px-1 text-[9px] font-bold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">

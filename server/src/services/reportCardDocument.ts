@@ -194,7 +194,7 @@ export async function resolveSubjectNames(req: Request, subjectIds: number[]): P
  * unique (e.g. SFEPE301_1789738744651), which is not part of the code.
  */
 export const displayCode = (code: string | null | undefined): string | null =>
-  code ? code.replace(/_\d{6,}$/, "").trim() || null : null;
+  code ? code.replace(/_\d{6,}$/, "").trim().toUpperCase() || null : null;
 
 /**
  * RTB module category from its code: CCM… complementary, GEN… general, any
