@@ -121,22 +121,32 @@ export function letterFor(score: number, bands: readonly GradeBand[] = cachedGra
 export interface Branding {
   name: string;
   address_line: string;
+  /** Contacts printed under the name (phone, email, website). */
+  contact_line?: string;
+  /** A built-in logo (assets/branding/<logo>-logo-horizontal.png); null = none. */
+  logo?: "nga" | null;
 }
 
+/** NGA as its issued documents name it, with the official logo. */
 export const NGA_BRANDING: Branding = {
-  name: "NATIONAL GRAMMAR ACADEMY",
-  address_line: "P.O. Box 1234, Kigali, Rwanda  |  www.nga.ac.rw",
+  name: "New Generation Coding Academy",
+  address_line: "Kigali, Rwanda",
+  contact_line: "Tel: +250 789 552 671  ·  info@nga.ac.rw  ·  www.nga.ac.rw",
+  logo: "nga",
 };
 
 /** Report-card header for the current tenant. */
 export async function getBranding(): Promise<Branding> {
   const tenant = currentTenantOrNull();
   const stored = (await readSetting(BRANDING_KEY)) as Partial<Branding> | null;
-  const base: Branding =
-    !tenant || tenant.isPrimary ? NGA_BRANDING : { name: tenant.name.toUpperCase(), address_line: "" };
+  const primary = !tenant || tenant.isPrimary;
+  const base: Branding = primary ? NGA_BRANDING : { name: tenant!.name, address_line: "", contact_line: "", logo: null };
+  const text = (v: unknown, dflt: string | undefined) => (typeof v === "string" ? v.trim() : dflt ?? "");
   return {
     name: typeof stored?.name === "string" && stored.name.trim() ? stored.name.trim() : base.name,
-    address_line: typeof stored?.address_line === "string" ? stored.address_line.trim() : base.address_line,
+    address_line: text(stored?.address_line, base.address_line),
+    contact_line: text(stored?.contact_line, base.contact_line),
+    logo: primary ? "nga" : null,
   };
 }
 
