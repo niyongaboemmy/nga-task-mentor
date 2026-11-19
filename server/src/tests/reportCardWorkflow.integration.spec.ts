@@ -388,6 +388,19 @@ describe("report card workflow", () => {
     expect(diff.body.data.changes[0]).toMatchObject({ subject_id: SUBJ, approved: 70, now: 30 });
   });
 
+  it("locks approved marks: the assessment and the student's score can't change", async () => {
+    const edit = await auth(request(app).patch(`/api/manual-assessments/${assessmentId}`).send({ title: `WF exam renamed ${RUN}` }));
+    expect(edit.status).toBe(423);
+    expect(edit.body).toMatchObject({ code: "MARKS_APPROVED" });
+    expect(edit.body.message).toContain("on 1 approved report card");
+    const del = await auth(request(app).delete(`/api/manual-assessments/${assessmentId}`));
+    expect(del.status).toBe(423);
+    const score = await auth(request(app).post(`/api/manual-assessments/${assessmentId}/scores`).send({ scores: [{ student_id: misId, score: 95 }] }));
+    expect(score.status).toBe(423);
+    expect(score.body.message).toContain("This student's report card is approved");
+    expect((await ManualAssessment.findByPk(assessmentId))!.title).toBe(`WF exam ${RUN}`);
+  });
+
   it("publishes, and the student sees the frozen card", async () => {
     expect(resultOf(await transition("publish"))).toMatchObject({ ok: true, status: "published" });
     const res = await auth(request(app).get(`/api/report-cards/student/${misId}?${q}`), studentToken);
@@ -416,6 +429,9 @@ describe("report card workflow", () => {
     expect(v1.body).toMatchObject({ verified: false, superseded: true });
     // Editable again.
     expect((await auth(request(app).post("/api/report-cards/attributes/save").send(attributesBody()))).status).toBe(200);
+    // ...and so are its marks (same 30 the regrade above set).
+    const score = await auth(request(app).post(`/api/manual-assessments/${assessmentId}/scores`).send({ scores: [{ student_id: misId, score: 30 }] }));
+    expect(score.status).toBe(200);
   });
 
   it("re-approves as version 2 and releases on schedule", async () => {

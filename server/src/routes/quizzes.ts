@@ -69,6 +69,7 @@ import {
   createQuizSchema,
   updateQuizSchema,
 } from "../validations/quiz.validation";
+import { guard, byParam, ownWork, quizOfQuestion, quizSubmission, withStudents } from "../services/approvalLock";
 
 const router = Router();
 
@@ -142,9 +143,9 @@ router
   .put(
     authorizePermission("QUIZZES_EDIT"),
     validateBody(updateQuizSchema),
-    updateQuiz,
+    guard("assessment", byParam("quiz", "id")), updateQuiz,
   )
-  .delete(authorizePermission("QUIZZES_DELETE"), deleteQuiz);
+  .delete(authorizePermission("QUIZZES_DELETE"), guard("assessment", byParam("quiz", "id")), deleteQuiz);
 
 // Question routes
 router.get("/:quizId/questions", authorizePermission("QUIZZES_VIEW"), getQuizQuestions);
@@ -168,23 +169,23 @@ router.post(
 router.post(
   "/:quizId/questions",
   authorizePermission("QUIZZES_EDIT"),
-  createQuestion,
+  guard("assessment", byParam("quiz", "quizId")), createQuestion,
 );
-router.put("/questions/:id", authorizePermission("QUIZZES_EDIT"), updateQuestion);
+router.put("/questions/:id", authorizePermission("QUIZZES_EDIT"), guard("assessment", quizOfQuestion), updateQuestion);
 router.delete(
   "/questions/:id",
   authorizePermission("QUIZZES_EDIT"),
-  deleteQuestion,
+  guard("assessment", quizOfQuestion), deleteQuestion,
 );
 router.put(
   "/:quizId/questions/reorder",
   authorizePermission("QUIZZES_EDIT"),
-  reorderQuestions,
+  guard("assessment", byParam("quiz", "quizId")), reorderQuestions,
 );
 router.post(
   "/:quizId/questions/bulk",
   authorizePermission("QUIZZES_EDIT"),
-  bulkImportQuestions,
+  guard("assessment", byParam("quiz", "quizId")), bulkImportQuestions,
 );
 router.post(
   "/generate-test-cases",
@@ -203,28 +204,28 @@ router.post(
 );
 
 // Quiz submission routes
-router.post("/submissions", authorizePermission("QUIZZES_ATTEMPT"), createQuizSubmission);
+router.post("/submissions", authorizePermission("QUIZZES_ATTEMPT"), guard("mark", ownWork("quiz", { body: "quiz_id" })), createQuizSubmission);
 router.patch(
   "/submissions/:id",
   authorizePermission("QUIZZES_ATTEMPT", "QUIZZES_GRADE"),
-  updateQuizSubmission,
+  guard("mark", quizSubmission("id")), updateQuizSubmission,
 );
 router.post(
   "/submissions/:id/reset",
   authorizePermission("QUIZZES_GRADE", "QUIZZES_EDIT"),
-  resetQuizSubmission,
+  guard("mark", quizSubmission("id")), resetQuizSubmission,
 );
 router.delete(
   "/submissions/:submissionId/delete",
   authorizePermission("QUIZZES_GRADE", "QUIZZES_EDIT"),
-  deleteQuizSubmission,
+  guard("mark", quizSubmission("submissionId")), deleteQuizSubmission,
 );
 router.delete(
   "/:quizId/submissions/all",
   authorizePermission("QUIZZES_DELETE"),
-  deleteAllQuizSubmissions,
+  guard("assessment", byParam("quiz", "quizId")), deleteAllQuizSubmissions,
 );
-router.post("/:quizId/start", authorizePermission("QUIZZES_ATTEMPT"), startQuizAttempt);
+router.post("/:quizId/start", authorizePermission("QUIZZES_ATTEMPT"), guard("mark", ownWork("quiz", { param: "quizId" })), startQuizAttempt);
 router.get(
   "/attempts/:submissionId",
   authorizePermission("QUIZZES_ATTEMPT"),
@@ -273,7 +274,7 @@ router.post(
     kind: "quiz",
     submission_id: intOrNull(req.params.submissionId),
   })),
-  gradeSubmission,
+  guard("mark", quizSubmission("submissionId")), gradeSubmission,
 );
 router.put(
   "/submissions/:submissionId/feedback",
@@ -285,7 +286,7 @@ router.put(
 router.post(
   "/:quizId/submissions/initialize-manual",
   authorizePermission("QUIZZES_GRADE", "QUIZZES_EDIT"),
-  initializeManualSubmission,
+  guard("mark", withStudents("quiz", "quizId", (req) => ({ local: [Number(req.body?.student_id)] }))), initializeManualSubmission,
 );
 
 // Paper answer sheets: print, scan, review, save (services/paperSheets.ts)
@@ -294,7 +295,7 @@ router.post(
   "/:quizId/paper-results",
   authorizePermission("QUIZZES_GRADE"),
   trackOnSuccess("tm.quiz.paper_results", (req) => ({ quiz_id: intOrNull(req.params.quizId) })),
-  savePaperResults,
+  guard("mark", withStudents("quiz", "quizId", (req) => ({ local: (Array.isArray(req.body?.results) ? req.body.results : []).map((r: { studentId?: unknown }) => Number(r?.studentId)) }))), savePaperResults,
 );
 
 // Quiz submissions and analytics

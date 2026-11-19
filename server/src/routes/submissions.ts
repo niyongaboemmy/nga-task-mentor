@@ -17,6 +17,7 @@ import { submissionFile } from "../middleware/submissionUpload";
 import { validateBody } from "../middleware/validation.middleware";
 import { draftFeedbackSchema } from "../validations/assignmentAi.validation";
 import { draftSubmissionFeedback } from "../controllers/submissionAi.controller";
+import { guard, ownWork, assignmentSubmission } from "../services/approvalLock";
 
 const router = Router();
 
@@ -32,7 +33,7 @@ router.post(
   trackOnSuccess("tm.assignment.submit", (req) => ({
     assignment_id: intOrNull(req.params.assignmentId),
   })),
-  createSubmission,
+  guard("mark", ownWork("assignment", { param: "assignmentId" })), createSubmission,
 );
 
 // Submissions grouped by subject + type, role-scoped, paginated (redesigned page)
@@ -52,11 +53,11 @@ router
   .put(
     authorizePermission("SUBMISSIONS_VIEW_OWN", "SUBMISSIONS_VIEW_ALL"),
     submissionFile,
-    updateSubmission,
+    guard("mark", assignmentSubmission("id")), updateSubmission,
   )
   .delete(
     authorizePermission("SUBMISSIONS_VIEW_OWN", "SUBMISSIONS_VIEW_ALL"),
-    deleteSubmission,
+    guard("mark", assignmentSubmission("id")), deleteSubmission,
   );
 
 // Get submissions (for assignments or users)
@@ -81,7 +82,7 @@ router.patch(
     kind: "assignment",
     submission_id: intOrNull(req.params.id),
   })),
-  gradeSubmission,
+  guard("mark", assignmentSubmission("id")), gradeSubmission,
 );
 
 // AI marking draft for the teacher (nothing saved; see submissionAi.controller.ts)
