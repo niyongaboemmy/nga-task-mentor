@@ -1,0 +1,302 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import type { WorkbenchData, WorkbenchStudent } from "../services/reportCardWorkflowApi";
+import type { ReportCardDocument } from "../services/reportCardApi";
+
+// The report card workflow UI: the class workbench (bulk review/approve/
+// publish, reasons, partial results), the sign-off dialog and the document
+// view. The rules themselves are the server's (reportCardWorkflow.ts).
+
+const { api, toast } = vi.hoisted(() => ({
+  api: {
+    workbench: vi.fn(),
+    transition: vi.fn(),
+    cycles: vi.fn(),
+    signoffPreview: vi.fn(),
+    signoff: vi.fn(),
+    importAttendance: vi.fn(),
+    history: vi.fn(),
+    diff: vi.fn(),
+  },
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+vi.mock("../services/reportCardWorkflowApi", async () => {
+  const actual = await vi.importActual<typeof import("../services/reportCardWorkflowApi")>("../services/reportCardWorkflowApi");
+  return { ...actual, ReportCardWorkflowApi: { ...actual.ReportCardWorkflowApi, ...api } };
+});
+vi.mock("../contexts/AuthContext", () => ({
+  useAuth: () => ({ user: { id: 1, currentAcademicTerm: { name: "Term 2" }, currentAcademicYear: { name: "2025-2026" } } }),
+}));
+vi.mock("../hooks/useTermYearSelector", () => ({
+  useTermYearSelector: () => ({
+    years: [{ academic_year_id: 1, name: "2025-2026" }],
+    terms: [{ academic_term_id: 2, name: "Term 2" }],
+    loading: false,
+    academicYear: "2025-2026",
+    term: "Term 2",
+    setAcademicYear: vi.fn(),
+    setTerm: vi.fn(),
+  }),
+}));
+vi.mock("react-toastify", () => ({ toast: { success: (...a: unknown[]) => toast.success(...a), error: (...a: unknown[]) => toast.error(...a) } }));
+vi.mock("../components/ReportCard/ReportCardPreview", () => ({ default: () => <div data-testid="preview-modal" /> }));
+
+import ReportCardWorkbenchPage from "../pages/ReportCardWorkbenchPage";
+import ReportCardsPage from "../pages/ReportCardsPage";
+import SubmitMarksDialog from "../components/ReportCard/SubmitMarksDialog";
+import { ReportCardDocumentView } from "../components/ReportCard/ReportCardDocumentView";
+import { pickOption } from "./helpers/select";
+
+const student = (id: number, name: string, status: WorkbenchStudent["card"]["status"], over: Partial<WorkbenchStudent> = {}): WorkbenchStudent => ({
+  student_id: id,
+  name,
+  registration_number: `REG-${id}`,
+  gender: "F",
+  card: {
+    id: 100 + id,
+    uuid: `u${id}`,
+    status,
+    version: status === "approved" || status === "published" ? 1 : 0,
+    reviewed_at: null,
+    approved_at: null,
+    published_at: null,
+    publish_at: null,
+    returned_reason: null,
+    editable: status === "draft",
+  },
+  subjects: { 9: { total: 72, missing: 0 } },
+  average: 72,
+  has_comment: true,
+  attributes_rated: 8,
+  attendance_days: 60,
+  attendance_source: "imported",
+  blockers: [],
+  warnings: [],
+  changed_since_approval: 0,
+  actions: [],
+  ...over,
+});
+
+const workbench = (students: WorkbenchStudent[]): WorkbenchData => ({
+  class_group: { id: 5, name: "Grade 10 A", grade_name: "Grade 10", program_name: "SPES" },
+  term: "Term 2",
+  academic_year: "2025-2026",
+  cycle: { id: 1, marks_due_at: null, review_due_at: null, publish_at: null, next_term_begins_on: "2026-04-20" },
+  scheme: { attributes: Array.from({ length: 8 }, (_, i) => `A${i}`), pass_mark: 50, require_distinct_approver: false },
+  subjects: [
+    {
+      subject_id: 9,
+      name: "Maths",
+      teachers: ["T. Uwase"],
+      i_teach: true,
+      mapped_cards: students.length,
+      missing_marks: 0,
+      signoff: { status: "open", submitted_by: null, submitted_at: null, returned_reason: null },
+    },
+  ],
+  students,
+  counts: { draft: 1, reviewed: 1, approved: 0, published: 1, scheduled: 0, ready: 1 },
+  blockers: [{ code: "NO_COMMENT", students: 1, example: "Class teacher's comment is empty" }],
+  can: { review: true, approve: true, publish: true, edit_settings: true },
+  roster_complete: true,
+});
+
+const renderWorkbench = () =>
+  render(
+    <MemoryRouter initialEntries={["/report-cards/5?term=Term%202&year=2025-2026"]}>
+      <Routes>
+        <Route path="/report-cards/:classGroupId" element={<ReportCardWorkbenchPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+beforeEach(() => {
+  Object.values(api).forEach((f) => f.mockReset());
+  toast.success.mockReset();
+  toast.error.mockReset();
+});
+
+describe("report card workbench", () => {
+  const rows = [
+    student(1, "Aline Uwase", "draft"),
+    student(2, "Bob Nkurunziza", "reviewed"),
+    student(3, "Cara Ishimwe", "published", { changed_since_approval: 1 }),
+    student(4, "Dan Mugabo", "draft", { has_comment: false, blockers: [{ code: "NO_COMMENT", message: "Class teacher's comment is empty" }] }),
+  ];
+
+  it("shows the class, its blockers, subject sign-off and every student's card", async () => {
+    api.workbench.mockResolvedValue({ success: true, data: workbench(rows) });
+    renderWorkbench();
+    expect(await screen.findByRole("heading", { name: /Grade 10 A/ })).toBeInTheDocument();
+    expect(api.workbench).toHaveBeenCalledWith({ class_group_id: 5, term: "Term 2", academic_year: "2025-2026" });
+    expect(screen.getByText(/Class teacher's comment is empty/)).toBeInTheDocument();
+    expect(screen.getByTestId("subject-9")).toHaveTextContent("Ready to submit");
+    const matrix = screen.getByTestId("workbench-matrix");
+    for (const r of rows) expect(within(matrix).getByText(r.name)).toBeInTheDocument();
+    expect(within(matrix).getByText("1 changed")).toBeInTheDocument();
+  });
+
+  it("offers only the actions that fit the selection and approves in bulk", async () => {
+    api.workbench.mockResolvedValue({ success: true, data: workbench(rows) });
+    api.transition.mockResolvedValue({ success: true, message: "1 report card updated (approve)", data: { action: "approve", ok: 1, failed: 0, results: [{ report_card_id: 102, ok: true }] } });
+    renderWorkbench();
+    fireEvent.click(await screen.findByLabelText("Select Bob Nkurunziza"));
+    const bar = screen.getByTestId("bulk-actions");
+    expect(within(bar).getByRole("button", { name: /Approve \(1\)/ })).toBeEnabled();
+    expect(within(bar).getByRole("button", { name: /Publish/ })).toBeDisabled();
+    fireEvent.click(within(bar).getByRole("button", { name: /Approve \(1\)/ }));
+    await waitFor(() => expect(api.transition).toHaveBeenCalledWith({ card_ids: [102], action: "approve" }));
+    expect(toast.success).toHaveBeenCalledWith("1 report card updated (approve)");
+  });
+
+  it("asks for a reason before reopening and shows refused cards", async () => {
+    api.workbench.mockResolvedValue({ success: true, data: workbench(rows) });
+    api.transition.mockResolvedValue({
+      success: false,
+      message: "0 of 1 report cards updated",
+      data: { action: "reopen", ok: 0, failed: 1, results: [{ report_card_id: 103, ok: false, code: "FORBIDDEN", message: "You can't reopen this student's report card" }] },
+    });
+    renderWorkbench();
+    fireEvent.click(await screen.findByLabelText("Select Cara Ishimwe"));
+    fireEvent.click(within(screen.getByTestId("bulk-actions")).getByRole("button", { name: /Reopen to draft/ }));
+    const confirm = await screen.findAllByRole("button", { name: "Reopen to draft" });
+    expect(confirm[confirm.length - 1]).toBeDisabled();
+    fireEvent.change(screen.getByPlaceholderText(/wrong class/), { target: { value: "EOT mark corrected" } });
+    fireEvent.click(confirm[confirm.length - 1]);
+    await waitFor(() => expect(api.transition).toHaveBeenCalledWith({ card_ids: [103], action: "reopen", reason: "EOT mark corrected" }));
+    expect(await screen.findByText("You can't reopen this student's report card")).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalled();
+  });
+
+  it("filters to cards ready to review", async () => {
+    api.workbench.mockResolvedValue({ success: true, data: workbench(rows) });
+    renderWorkbench();
+    await screen.findByTestId("workbench-matrix");
+    fireEvent.click(screen.getByRole("tab", { name: /Ready to review/ }));
+    const matrix = screen.getByTestId("workbench-matrix");
+    expect(within(matrix).getByText("Aline Uwase")).toBeInTheDocument();
+    expect(within(matrix).queryByText("Dan Mugabo")).toBeNull();
+  });
+
+  it("explains a failed load and retries", async () => {
+    api.workbench.mockRejectedValueOnce({ response: { data: { message: "MIS is down" } } });
+    api.workbench.mockResolvedValueOnce({ success: true, data: workbench(rows) });
+    renderWorkbench();
+    expect(await screen.findByText("MIS is down")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByTestId("workbench-matrix")).toBeInTheDocument();
+  });
+});
+
+describe("report cards classes page", () => {
+  it("lists classes with progress and links to their workbench", async () => {
+    api.cycles.mockResolvedValue({
+      success: true,
+      data: {
+        term: "Term 2",
+        academic_year: "2025-2026",
+        can: { review: true, approve: true, publish: true, edit_settings: true },
+        classes: [
+          { class_group_id: 5, name: "Grade 10 A", grade_name: "Grade 10", program_name: "SPES", students: 30, counts: { draft: 10, reviewed: 5, approved: 0, published: 15, not_started: 0 }, subjects_total: 12, subjects_submitted: 9, i_teach: true, cycle: null },
+        ],
+      },
+    });
+    render(
+      <MemoryRouter>
+        <ReportCardsPage />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("Grade 10 A")).toBeInTheDocument();
+    expect(screen.getByText("15 of 30 cards published")).toBeInTheDocument();
+    expect(screen.getByText("Subjects submitted 9/12")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open workbench/ })).toHaveAttribute("href", "/report-cards/5?term=Term%202&year=2025-2026");
+  });
+});
+
+describe("submit marks dialog", () => {
+  const props = { open: true, onClose: vi.fn(), classGroupId: 5, className: "Grade 10 A", subjectId: 9, subjectName: "Maths", term: "Term 2", academicYear: "2025-2026" };
+
+  it("makes every missing mark recorded or resolved before submitting", async () => {
+    api.signoffPreview.mockResolvedValue({
+      success: true,
+      data: {
+        status: "open",
+        returned_reason: "Wrong EOT for two students",
+        locked_cards: 0,
+        missing: [{ student_id: 1, name: "Aline", report_card_id: 101, assessment_type: "manual", assessment_id: 7, title: "EOT exam", category: "EOT" }],
+      },
+    });
+    api.signoff.mockResolvedValue({ success: true, message: "Marks submitted for review" });
+    render(<SubmitMarksDialog {...props} />);
+    expect(await screen.findByText(/Wrong EOT for two students/)).toBeInTheDocument();
+    expect(screen.getByTestId("submit-marks")).toBeDisabled();
+    pickOption(screen.getByRole("combobox", { name: "Aline: EOT exam" }), "absent");
+    expect(screen.getByTestId("submit-marks")).toBeEnabled();
+    fireEvent.click(screen.getByTestId("submit-marks"));
+    await waitFor(() =>
+      expect(api.signoff).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "submit",
+          resolutions: [{ report_card_id: 101, assessment_type: "manual", assessment_id: 7, status: "absent" }],
+        }),
+      ),
+    );
+    expect(toast.success).toHaveBeenCalledWith("Marks submitted for review");
+  });
+});
+
+describe("report card document view", () => {
+  const doc = (status: "draft" | "published"): ReportCardDocument => ({
+    schema: 1,
+    card: { id: 1, uuid: "u", version: status === "published" ? 2 : 0, status, term: "Term 2", academic_year: "2025-2026", approved_at: status === "published" ? "2026-04-01T00:00:00Z" : null, published_at: null },
+    school: { name: "NATIONAL GRAMMAR ACADEMY", address_line: "Kigali" },
+    student: { id: 1, name: "Aline Uwase", registration_number: "1487250119", gender: "F", class_group_id: 5, class_name: "Grade10", grade_name: null, program_name: "SPES YEAR 1" },
+    scheme: {
+      category_weights: { CW: 15, HW: 10, MD: 25, EOT: 50 },
+      pass_mark: 50,
+      bands: [
+        { min: 90, letter: "A*", remark: "" },
+        { min: 80, letter: "A", remark: "" },
+        { min: 0, letter: "U", remark: "" },
+      ],
+      show_position: true,
+      show_class_average: true,
+      show_subject_teacher: true,
+      head_title: "Principal",
+    },
+    groups: [
+      {
+        name: "Core modules",
+        subjects: [
+          { subject_id: 1, name: "Networking Fundamentals", group: "Core modules", teacher: "Ntabomvura L.", categories: { CW: 14, HW: 9, MD: 21, EOT: 45 }, total: 89, grade: "A", remark: "", passed: true, class_average: 77, missing_marks: 0 },
+        ],
+      },
+    ],
+    summary: { average: 86.64, grade: "A", remark: "", total_marks: 89, subjects_counted: 1, subjects_passed: 1, subjects_failed: 0, position: 3, position_of: 40, class_average: 80 },
+    attendance: { present: 3, absent: 0, excused: 0, late: 2, sick: 0, total: 5, source: "imported" },
+    attributes: [{ attribute_name: "Punctuality", rating: "Excellent" }],
+    comments: { class_teacher: "Keep it up.", head_teacher: null },
+    next_term_begins_on: "2026-04-20",
+    grades: [],
+  });
+
+  it("lays the card out like the school's: class, reg. no., groups, CA, teacher, summary, attendance %, next term", () => {
+    render(<ReportCardDocumentView doc={doc("published")} verificationUrl="https://x/verify?v=2" />);
+    const d = screen.getByTestId("report-card-document");
+    for (const t of ["1487250119", "Core modules", "Networking Fundamentals", "Ntabomvura L.", "77", "Excused absence", "Signature of Principal"]) {
+      expect(within(d).getByText(t)).toBeInTheDocument();
+    }
+    expect(d).toHaveTextContent("86.64%");
+    expect(d).toHaveTextContent("Position 3 of 40");
+    expect(d).toHaveTextContent("Next term begins on Monday, 20 April 2026");
+    expect(d).toHaveTextContent("Version 2");
+    expect(within(d).getByText("60")).toBeInTheDocument(); // present 3 of 5 days
+    expect(d).not.toHaveTextContent("PROVISIONAL");
+  });
+
+  it("watermarks a draft as provisional", () => {
+    render(<ReportCardDocumentView doc={doc("draft")} />);
+    expect(screen.getByTestId("report-card-document")).toHaveTextContent("PROVISIONAL");
+  });
+});

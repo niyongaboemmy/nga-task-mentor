@@ -10,6 +10,8 @@ import { ReportCard } from "./ReportCard.model";
 
 export type AssessmentType = "quiz" | "assignment" | "manual";
 export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT";
+/** auto = the recorded mark; absent = 0; exempt = left out (resolved at subject sign-off). */
+export type CardMarkStatus = "auto" | "absent" | "exempt";
 
 export interface IReportCardAssessmentAttributes {
   id?: number;
@@ -18,6 +20,7 @@ export interface IReportCardAssessmentAttributes {
   assessment_type: AssessmentType;
   assessment_id: number;
   category: AssessmentCategory;
+  mark_status?: CardMarkStatus;
   created_at?: Date;
   updated_at?: Date;
 }
@@ -95,6 +98,9 @@ export class ReportCardAssessment extends Model<
     },
   })
   public category!: AssessmentCategory;
+
+  @Column({ type: DataType.ENUM("auto", "absent", "exempt"), allowNull: false, defaultValue: "auto", field: "mark_status" })
+  public mark_status!: CardMarkStatus;
 
   @BelongsTo(() => ReportCard, "report_card_id")
   public reportCard!: ReportCard;

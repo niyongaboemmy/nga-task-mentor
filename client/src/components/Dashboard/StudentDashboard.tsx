@@ -210,7 +210,7 @@ const StudentDashboard: React.FC = () => {
   if (loading) return <Skeleton />;
   if (!overview) {
     return (
-      <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-8 text-center">
+      <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl p-8 text-center">
         <AlertTriangle className="w-8 h-8 mx-auto text-amber-500 mb-2" />
         <p className="text-text-primary-light dark:text-text-primary-dark font-medium">{error ?? "Couldn't load your dashboard."}</p>
         <button
@@ -275,7 +275,7 @@ const StudentDashboard: React.FC = () => {
   const suggestions = standing?.suggestions ?? [];
 
   const reportCard = (
-    <Panel id="report-card" title="My Report Cards" icon={<FileText className="w-4 h-4" />} iconColor="indigo">
+    <Panel id="report-card" title="My Report Cards" icon={<FileText className="w-4 h-4" />} iconColor="blue">
       <ReportCardPanel />
     </Panel>
   );
@@ -305,7 +305,7 @@ const StudentDashboard: React.FC = () => {
           onClick={() => load()}
           disabled={refreshing}
           aria-label="Refresh"
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium bg-card-light dark:bg-card-dark/40 shadow-sm hover:shadow text-text-primary-light dark:text-text-primary-dark disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium bg-card-light dark:bg-card-dark/40 text-text-primary-light dark:text-text-primary-dark disabled:opacity-60"
         >
           <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
           <span className="hidden sm:inline">Refresh</span>
@@ -321,7 +321,7 @@ const StudentDashboard: React.FC = () => {
 
       {overview.subjects.length === 0 ? (
         <>
-          <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-10 text-center">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl p-10 text-center">
             <BookOpen className="w-8 h-8 mx-auto text-blue-500 mb-2" />
             <p className="font-medium text-text-primary-light dark:text-text-primary-dark">You're not enrolled in any subject for this period</p>
             <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-1">Check the academic period in the top bar, or ask your class teacher.</p>
@@ -462,7 +462,7 @@ const StudentDashboard: React.FC = () => {
               title="My subjects"
               subtitle="You (bar) vs class average (tick) · tap to open"
               icon={<BookOpen className="w-4 h-4" />}
-              iconColor="indigo"
+              iconColor="blue"
               className="lg:col-span-2"
             >
               {subjectRows.length > 0 ? (
@@ -537,7 +537,7 @@ const SnapCard: React.FC<{ title: string; icon?: React.ReactNode; center?: boole
     initial={{ opacity: 0, y: 8 }}
     animate={{ opacity: 1, y: 0 }}
     whileHover={{ y: -2 }}
-    className={`bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm hover:shadow-md transition-shadow p-3 sm:p-4 h-full ${className}`}
+    className={`bg-card-light dark:bg-card-dark/30 rounded-2xl p-3 sm:p-4 h-full ${className}`}
   >
     <div className="flex items-center gap-1.5 mb-2 text-text-secondary-light dark:text-text-secondary-dark">
       {icon}

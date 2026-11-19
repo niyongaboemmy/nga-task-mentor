@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { ReportCardDocumentView } from "./ReportCardDocumentView";
+import { statusMeta } from "../../services/reportCardApi";
 import { QRCodeSVG } from "qrcode.react";
 import { X, Download, Printer, Loader2, AlertCircle, RefreshCw, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -244,7 +246,7 @@ function ReportCardSkeleton() {
         padding: "40px 44px",
         boxSizing: "border-box" as const,
         borderRadius: 4,
-        boxShadow: "0 25px 60px rgba(0,0,0,0.5)",
+        border: "1px solid #334155",
       }}
     >
       {/* Header bar */}
@@ -1005,11 +1007,13 @@ export default function ReportCardPreview({
       const url = URL.createObjectURL(blob);
       const a   = document.createElement("a");
       a.href     = url;
-      a.download = `ReportCard-${studentName.replace(/\s+/g, "_")}-${data.report_card.term}-${data.report_card.academic_year}.pdf`;
+      const issued = data.report_card.status === "approved" || data.report_card.status === "published";
+      a.download = `ReportCard-${studentName.replace(/\s+/g, "_")}-${data.report_card.term}-${data.report_card.academic_year}${issued ? `-v${data.report_card.version ?? 1}` : "-PROVISIONAL"}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      toast.success("Report card PDF downloaded.");
     } catch {
       toast.error("PDF download failed. Please try again.");
     } finally {
@@ -1026,7 +1030,7 @@ export default function ReportCardPreview({
   };
 
   const verificationUrl = data
-    ? `${verificationBaseUrl}/verify/report-card/${data.report_card.uuid}`
+    ? `${verificationBaseUrl}/verify/report-card/${data.report_card.uuid}${data.report_card.version ? `?v=${data.report_card.version}` : ""}`
     : verificationBaseUrl;
 
   return (
@@ -1051,6 +1055,16 @@ export default function ReportCardPreview({
               <span className="text-white font-semibold text-sm hidden xs:inline">{provisional ? "Provisional Report Card" : "Report Card"}</span>
               {provisional && (
                 <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-semibold">Not final</span>
+              )}
+              {!provisional && data && (
+                <span
+                  className="px-2 py-0.5 rounded-full bg-white/10 text-slate-200 text-[11px] font-semibold"
+                  title={statusMeta(data.report_card.status).hint}
+                  data-testid="preview-status"
+                >
+                  {statusMeta(data.report_card.status).label}
+                  {data.report_card.version ? ` · v${data.report_card.version}` : ""}
+                </span>
               )}
               {data && (
                 <span className="text-xs text-slate-400 truncate max-w-[160px] sm:max-w-none">
@@ -1113,7 +1127,7 @@ export default function ReportCardPreview({
                 onClick={handleDownloadPdf}
                 disabled={!data || downloading}
                 data-track="tm.report_card.download_pdf"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-40 shadow-sm shadow-blue-500/20"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-40"
               >
                 {downloading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1169,18 +1183,22 @@ export default function ReportCardPreview({
             >
               <div
                 style={{
-                  boxShadow: "0 25px 60px rgba(0,0,0,0.5)",
+                  border: "1px solid #334155",
                   borderRadius: 4,
                   overflow: "hidden",
                 }}
               >
-                <ReportCardDocument
-                  data={data}
-                  studentName={studentName}
-                  subjectNames={{ ...subjectNames, ...data.subject_names }}
-                  verificationUrl={verificationUrl}
-                  preview={provisional ? previewMeta : undefined}
-                />
+                {!provisional && data.document ? (
+                  <ReportCardDocumentView doc={data.document} verificationUrl={verificationUrl} />
+                ) : (
+                  <ReportCardDocument
+                    data={data}
+                    studentName={studentName}
+                    subjectNames={{ ...subjectNames, ...data.subject_names }}
+                    verificationUrl={verificationUrl}
+                    preview={provisional ? previewMeta : undefined}
+                  />
+                )}
               </div>
             </div>
           )}

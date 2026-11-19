@@ -71,7 +71,7 @@ const KIND_META: Record<AssessmentStat["kind"], { label: string; tab: OverviewTa
   assignment: {
     label: "Assignment",
     tab: "assignments",
-    cls: "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300",
+    cls: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
   },
   manual: {
     label: "Recorded",
@@ -225,11 +225,12 @@ function useReportCardReadiness(
     })
       .then((res) => {
         if (cancelled) return;
-        const counts: Readiness = { not_started: 0, draft: 0, saved: 0, approved: 0 };
+        const counts: Readiness = { not_started: 0, draft: 0, reviewed: 0, approved: 0, published: 0 };
         const byId = new Map(res.data.students.map((s) => [s.student_id, s.status]));
         for (const id of studentIds) {
           const status = byId.get(id) ?? null;
-          counts[status ?? "not_started"] += 1;
+          const k = (status && status in counts ? status : status ? "draft" : "not_started") as keyof Readiness;
+          counts[k] += 1;
         }
         setReadiness(counts);
       })
@@ -246,8 +247,9 @@ function useReportCardReadiness(
 }
 
 const READINESS_SEGMENTS: Array<{ key: keyof Readiness; label: string; color: string }> = [
-  { key: "approved", label: "Approved", color: "#2563eb" },
-  { key: "saved", label: "Saved", color: "#60a5fa" },
+  { key: "published", label: "Published", color: "#059669" },
+  { key: "approved", label: "Approved", color: "#1d4ed8" },
+  { key: "reviewed", label: "Reviewed", color: "#60a5fa" },
   { key: "draft", label: "Draft", color: "#f59e0b" },
   { key: "not_started", label: "Not started", color: "#9ca3af" },
 ];
@@ -442,7 +444,7 @@ export default function CourseOverviewPanel({
     if (derived.graded.length === 0) {
       return `${report.assessments.length} assessment${report.assessments.length !== 1 ? "s" : ""} set, but no marks recorded yet.`;
     }
-    const band = bandMeta(bandOf(report.classAverage)).label.toLowerCase();
+    const band = bandMeta(bandOf(report.classAverage ?? 0)).label.toLowerCase();
     const parts = [`Class average ${report.classAverage}% (${band})`];
     if (report.atRiskCount > 0) {
       parts.push(`${report.atRiskCount} student${report.atRiskCount !== 1 ? "s" : ""} below 50%`);
@@ -464,7 +466,7 @@ export default function CourseOverviewPanel({
       {/* At a glance */}
       <motion.div
         variants={itemVariants}
-        className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-500/10 dark:to-indigo-500/5 border border-blue-100 dark:border-blue-500/20"
+        className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-blue-50 dark:from-blue-500/10 dark:to-blue-500/5 border border-blue-100 dark:border-blue-500/20"
       >
         <span className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0">
           <Sparkles className="w-5 h-5" />
@@ -505,7 +507,9 @@ export default function CourseOverviewPanel({
               suffix="%"
               progress={report.classAverage}
               caption={
-                derived.trend === null
+                report.medianPct == null
+                  ? "No marks yet"
+                  : derived.trend === null
                   ? `Median ${report.medianPct}%`
                   : `Median ${report.medianPct}% · ${derived.trend >= 0 ? "▲" : "▼"} ${Math.abs(derived.trend)} pts on last assessment`
               }

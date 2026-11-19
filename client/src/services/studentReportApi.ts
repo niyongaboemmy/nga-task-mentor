@@ -70,7 +70,8 @@ export interface StudentOverview {
   subjects: SubjectView[];
   /** Subjects with at least one mark — the only ones that can be averaged. */
   graded: SubjectView[];
-  overallAverage: number;
+  /** Mean of the graded subjects; null when nothing is marked yet (not 0%). */
+  overallAverage: number | null;
   /** Share of markable work that has actually been marked. */
   progress: number;
   markedCount: number;
@@ -115,7 +116,7 @@ export const buildStudentOverview = (rows: SubjectRow[]): StudentOverview => {
   const overallAverage =
     graded.length > 0
       ? round1(graded.reduce((acc, s) => acc + s.percentage, 0) / graded.length)
-      : 0;
+      : null;
 
   const totalItems = subjects.reduce((acc, s) => acc + s.items.length, 0);
   const markedCount = subjects.reduce((acc, s) => acc + s.markedCount, 0);
@@ -149,7 +150,7 @@ export const buildStudentOverview = (rows: SubjectRow[]): StudentOverview => {
 const buildRecommendations = (
   subjects: SubjectView[],
   graded: SubjectView[],
-  overallAverage: number,
+  overallAverage: number | null,
   overdueCount: number,
 ): Recommendation[] => {
   const out: Recommendation[] = [];
@@ -244,7 +245,7 @@ const buildRecommendations = (
     });
   }
 
-  if (out.length === 0 && graded.length > 0 && overallAverage >= 50) {
+  if (out.length === 0 && overallAverage !== null && overallAverage >= 50) {
     out.push({
       id: "on-track",
       tone: "good",

@@ -502,7 +502,7 @@ export interface ProgrammeRow {
 export interface ReportCardStats {
   term: string | null;
   academic_year: string | null;
-  cards: { draft: number; saved: number; approved: number; total: number };
+  cards: { draft: number; reviewed: number; approved: number; published: number; total: number };
 }
 
 export interface AdminInsights {
@@ -764,7 +764,7 @@ export function buildAdminInsights(input: {
       needing_support: support,
       excelling: studentRows.filter((s) => s.status === "excelling").length,
       report_cards_mapped: mappedCount,
-      report_cards_approved: input.reportCards.cards.approved,
+      report_cards_approved: input.reportCards.cards.published,
     },
     teachers,
     class_groups,

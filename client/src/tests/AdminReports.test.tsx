@@ -117,7 +117,7 @@ const insights = (): AdminInsights => ({
     unmapped: [{ id: 19, name: "Subject 19", code: "S19", teachers: ["Idle Teacher"], published: 0 }],
     students_without_marks: 20,
   },
-  report_cards: { term: "Term 1", academic_year: "2026 - 2027", cards: { draft: 10, saved: 5, approved: 30, total: 45 }, subjects_mapped: 12, subjects_total: 20 },
+  report_cards: { term: "Term 1", academic_year: "2026 - 2027", cards: { draft: 10, reviewed: 5, approved: 0, published: 30, total: 45 }, subjects_mapped: 12, subjects_total: 20 },
   decisions: [
     { id: "admin-teachers-inactive", severity: "warning", title: "1 teacher with no published work", message: "Idle Teacher has nothing published.", subject_id: null, action: { label: "See teachers", url: "#teachers" } },
   ],

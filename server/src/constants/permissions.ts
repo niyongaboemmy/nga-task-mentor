@@ -125,6 +125,7 @@ export const PERMISSIONS: readonly PermissionDefinition[] = [
   { key: "REPORT_CARDS_CREATE", category: "REPORT_CARDS", description: "Create/build report cards" },
   { key: "REPORT_CARDS_EDIT", category: "REPORT_CARDS", description: "Edit report cards" },
   { key: "REPORT_CARDS_APPROVE", category: "REPORT_CARDS", description: "Approve submitted report cards" },
+  { key: "REPORT_CARDS_REVIEW", category: "REPORT_CARDS", description: "Review report cards before approval (class teacher / Director of Studies)" },
   // Access control v2 (report-card chain, plan §10.2): granted to admin only
   // locally; legacy code paths never check them (see migration 20260927120000).
   { key: "REPORT_CARDS_COMMENT", category: "REPORT_CARDS", description: "Write the class-teacher comment on report cards" },

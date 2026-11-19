@@ -192,7 +192,7 @@ export interface AdminInsights {
   report_cards: {
     term: string | null;
     academic_year: string | null;
-    cards: { draft: number; saved: number; approved: number; total: number };
+    cards: { draft: number; reviewed: number; approved: number; published: number; total: number };
     subjects_mapped: number;
     subjects_total: number;
   };

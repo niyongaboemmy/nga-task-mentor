@@ -35,6 +35,12 @@ vi.mock("react-redux", () => ({
 
 vi.mock("../store/slices/courseSlice", () => ({ fetchCourses: () => ({ type: "noop" }) }));
 
+const downloadCsv = vi.fn();
+vi.mock("../utils/csvExport", async () => {
+  const actual = await vi.importActual<typeof import("../utils/csvExport")>("../utils/csvExport");
+  return { ...actual, downloadCsv: (...args: unknown[]) => downloadCsv(...args) };
+});
+
 const payload: SubjectGradesPayload = {
   course_id: 9,
   quizzes: [{ id: 1, title: "Unit quiz", max_score: 20, date: "2026-09-09" }],
@@ -97,6 +103,7 @@ describe("CourseReportsPage", () => {
   beforeEach(() => {
     fetchSubjectGrades.mockReset().mockResolvedValue(payload);
     can.mockReset().mockReturnValue(true); // teacher/admin by default
+    downloadCsv.mockReset();
   });
 
   it("shows the class view with recorded assessments alongside quizzes", async () => {
@@ -131,6 +138,33 @@ describe("CourseReportsPage", () => {
     // No class-wide analytics leak into the student view.
     expect(screen.queryByText("Grade sheet")).not.toBeInTheDocument();
     expect(screen.queryByTestId("chart-averages")).not.toBeInTheDocument();
+  });
+
+  it("shows — rather than 0% when students are enrolled but nothing is marked", async () => {
+    const blank = (id: number, name: string) => ({
+      ...payload.students[1],
+      student: { id, name, email: `${id}@nga.ac.rw` },
+      quizzes: [{ quiz_id: 1, score: null, submitted: false, max_score: 20 }],
+      assessments: [{ assessment_id: 3, score: null, recorded: false, max_score: 100 }],
+      summary: { ...payload.students[1].summary, total_points_earned: 0, total_percentage: 0 },
+    });
+    fetchSubjectGrades.mockResolvedValue({ ...payload, students: [blank(1, "Ada Byron"), blank(2, "Grace Hopper")] });
+    renderPage();
+    expect(await screen.findByText("No marks yet · active students only")).toBeInTheDocument();
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText(/^0%$/)).not.toBeInTheDocument();
+  });
+
+  it("exports through the Excel-safe writer with empty cells for missing marks", async () => {
+    renderPage();
+    await screen.findByText("Development of Web User Interface");
+    fireEvent.click(screen.getByRole("button", { name: /Export CSV/ }));
+    expect(downloadCsv).toHaveBeenCalledTimes(1);
+    const [filename, rows] = downloadCsv.mock.calls[0] as [string, string[][]];
+    expect(filename).toBe("SPEWI302-grades.csv");
+    const grace = rows.find((r) => r[0] === "Grace Hopper")!;
+    // Grace sat the midterm but not the quiz: the quiz cell is empty, not "-" or "0%".
+    expect(grace).toEqual(["Grace Hopper", "grace@nga.ac.rw", "", "30%", "30%", "At risk"]);
   });
 
   it("offers a way forward when the subject has no data", async () => {

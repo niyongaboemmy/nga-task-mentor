@@ -42,20 +42,27 @@ export const attributesSaveSchema = z.object({
   term: z.string().trim().min(1, "term is required").max(50),
   academic_year: z.string().trim().min(1, "academic_year is required").max(20),
   class_teacher_comment: z.string().trim().max(2000).optional().nullable(),
-  attendance_present: z.number().int().min(0, "attendance_present cannot be negative").default(0),
-  attendance_absent: z.number().int().min(0, "attendance_absent cannot be negative").default(0),
-  attendance_late: z.number().int().min(0, "attendance_late cannot be negative").default(0),
-  attributes: z.array(attributeItemSchema).min(1, "At least one attribute is required"),
+  /** Written only by reviewers/approvers (ignored for anyone else). */
+  head_teacher_comment: z.string().trim().max(2000).optional().nullable(),
+  // Day counts for the term; omitted = unchanged.
+  attendance_present: z.number().int().min(0, "attendance_present cannot be negative").max(400).optional(),
+  attendance_absent: z.number().int().min(0, "attendance_absent cannot be negative").max(400).optional(),
+  attendance_late: z.number().int().min(0, "attendance_late cannot be negative").max(400).optional(),
+  attendance_excused: z.number().int().min(0, "attendance_excused cannot be negative").max(400).optional(),
+  attendance_sick: z.number().int().min(0, "attendance_sick cannot be negative").max(400).optional(),
+  attendance_source: z.enum(["manual", "imported"] as const).optional(),
+  attributes: z.array(attributeItemSchema).min(1, "At least one attribute is required").max(16),
 });
 
 export const generatePdfSchema = z.object({
   report_card_id: z.number().int().positive("report_card_id must be a positive integer"),
 });
 
-// Status transition: instructor may set draft↔saved; admin may set any state.
-// Role enforcement is done in the controller, not here.
+// Legacy status change, mapped onto workflow actions in the controller
+// ("saved" = the old "marked complete", now a review).
 export const updateStatusSchema = z.object({
-  status: z.enum(["draft", "saved", "approved"] as const),
+  status: z.enum(["draft", "saved", "reviewed", "approved", "published"] as const),
+  reason: z.string().trim().max(500).optional(),
 });
 
 export type BuilderSavePayload = z.infer<typeof builderSaveSchema>;

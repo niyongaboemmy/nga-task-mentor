@@ -92,6 +92,7 @@ export const TM_MANIFEST = defineManifest({
     REPORT_CARDS_CREATE: W("Create report cards", "ASSESSMENT"),
     REPORT_CARDS_EDIT: W("Enter report-card marks", "ASSESSMENT"),
     REPORT_CARDS_COMMENT: W("Write the class-teacher comment", "ASSESSMENT"),
+    REPORT_CARDS_REVIEW: W("Review report cards", "ASSESSMENT"),
     REPORT_CARDS_APPROVE: W("Approve report cards", "ASSESSMENT"),
     REPORT_CARDS_PUBLISH: W("Publish report cards", "ASSESSMENT"),
     REPORT_CARDS_EXPORT_PDF: W("Export report cards (PDF)", "ASSESSMENT"),

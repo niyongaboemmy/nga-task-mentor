@@ -35,6 +35,8 @@ export const upsertScoresSchema = z.object({
     z.object({
       student_id: z.number().int().positive(),
       score: z.number().min(0),
+      /** absent = 0 on report cards; exempt = left out. The score is ignored for both. */
+      status: z.enum(["scored", "absent", "exempt"] as const).optional(),
     }),
   ).min(1, "At least one score entry is required"),
 });

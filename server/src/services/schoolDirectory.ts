@@ -61,6 +61,8 @@ export interface SchoolDirectory {
   subject_class_groups: Map<number, number[]>;
   /** subject id -> its teachers this year */
   subject_teachers: Map<number, DirectoryTeacher[]>;
+  /** "classGroupId:subjectId" -> who teaches that subject to that class group */
+  class_subject_teachers: Map<string, DirectoryTeacher[]>;
   /** class group id -> subject ids taught to it this year */
   class_group_subjects: Map<number, number[]>;
   /** class group id -> student MIS ids */
@@ -111,6 +113,7 @@ export async function loadSchoolDirectory(
     rosters_complete: false,
     subject_class_groups: new Map(),
     subject_teachers: new Map(),
+    class_subject_teachers: new Map(),
     class_group_subjects: new Map(),
     rosters: new Map(),
     assignments_available: false,
@@ -148,7 +151,7 @@ export async function loadSchoolDirectory(
   const assignmentRows: any[] = assignmentsRes?.data?.data ?? [];
   const subjectGroups = new Map<number, Set<number>>();
   const subjectTeachers = new Map<number, Map<number, DirectoryTeacher>>();
-  const teachers: Array<[number, DirectoryTeacher]> = [];
+  const teachers: Array<[number, DirectoryTeacher, number | null]> = [];
   const groupSubjects = new Map<number, Set<number>>();
   for (const a of assignmentRows) {
     // Without a year filter the list spans every year; keep the requested one.
@@ -178,7 +181,7 @@ export async function loadSchoolDirectory(
       teachers.push([sid, {
         mis_user_id: tid,
         name: String(a.teacher_name ?? "").trim() || a.teacher_username || `Teacher #${tid}`,
-      }]);
+      }, Number.isFinite(cg) ? cg : null]);
     }
   }
 
@@ -206,10 +209,16 @@ export async function loadSchoolDirectory(
   } catch (e: any) {
     console.warn("schoolDirectory: local status lookup failed:", e.message);
   }
-  for (const [sid, t] of teachers) {
+  const classSubjectTeachers = new Map<string, Map<number, DirectoryTeacher>>();
+  for (const [sid, t, cg] of teachers) {
     if (inactive.has(t.mis_user_id)) continue;
     if (!subjectTeachers.has(sid)) subjectTeachers.set(sid, new Map());
     subjectTeachers.get(sid)!.set(t.mis_user_id, t);
+    if (cg != null) {
+      const key = `${cg}:${sid}`;
+      if (!classSubjectTeachers.has(key)) classSubjectTeachers.set(key, new Map());
+      classSubjectTeachers.get(key)!.set(t.mis_user_id, t);
+    }
   }
 
   const students = new Map<number, DirectoryStudent>();
@@ -246,6 +255,7 @@ export async function loadSchoolDirectory(
     subject_teachers: new Map(
       [...subjectTeachers].map(([k, v]) => [k, [...v.values()].sort((a, b) => a.name.localeCompare(b.name))]),
     ),
+    class_subject_teachers: new Map([...classSubjectTeachers].map(([k, v]) => [k, [...v.values()]])),
     class_group_subjects: new Map([...groupSubjects].map(([k, v]) => [k, [...v]])),
     rosters,
     assignments_available: assignmentsRes != null,

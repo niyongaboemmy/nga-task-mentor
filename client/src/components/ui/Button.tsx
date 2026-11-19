@@ -13,6 +13,8 @@ interface ButtonProps {
   className?: string;
   icon?: React.ReactNode;
   title?: string;
+  /** Passed through: aria-* and data-* attributes (labels for icon-only buttons, test ids). */
+  [attr: `aria-${string}` | `data-${string}`]: string | boolean | undefined;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -27,17 +29,18 @@ export const Button: React.FC<ButtonProps> = ({
   className = "",
   icon,
   title,
+  ...attrs
 }) => {
   const baseClasses =
     "inline-flex items-center justify-center font-medium rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
   const variantClasses = {
     primary:
-      "bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500 shadow-lg hover:shadow-xl",
+      "bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500",
     secondary:
       "bg-gray-100 hover:bg-gray-200 text-gray-700 focus:ring-gray-500 border border-gray-200 dark:bg-gray-800/50 dark:text-white dark:border-gray-800/50 dark:hover:bg-gray-800",
     danger:
-      "bg-red-600 hover:bg-red-700 text-white focus:ring-red-500 shadow-lg hover:shadow-xl",
+      "bg-red-600 hover:bg-red-700 text-white focus:ring-red-500",
     ghost:
       "bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-gray-500",
   };
@@ -61,6 +64,7 @@ export const Button: React.FC<ButtonProps> = ({
       className={classes}
       title={title}
       aria-label={iconOnly ? title : undefined}
+      {...attrs}
     >
       {loading && (
         <svg

@@ -104,7 +104,7 @@ async function loadAdminData(req: Request, fresh: boolean): Promise<AdminData> {
   ]);
   const mapped = new Map<number, number>();
   for (const r of mappingRows as any[]) mapped.set(Number(r.subject_id), Number(r.items));
-  const cards = { draft: 0, saved: 0, approved: 0, total: 0 };
+  const cards = { draft: 0, reviewed: 0, approved: 0, published: 0, total: 0 };
   for (const r of cardRows as any[]) {
     const n = Number(r.n);
     if (r.status in cards) (cards as any)[r.status] += n;

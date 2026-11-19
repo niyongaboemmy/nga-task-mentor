@@ -2,6 +2,7 @@ import {
   CATEGORY_WEIGHTS,
   calculateSubjectGrade,
   type AssessmentCategory,
+  type CategoryWeights,
   type AssessmentScore,
   type SubjectGrade,
 } from "./reportCardGrader.service";
@@ -91,6 +92,7 @@ export function suggestedCategory(assessmentType: string | null | undefined): As
 export function buildProvisionalCard(
   subjects: PreviewSubjectInput[],
   scores: Map<string, { raw_score: number; max_score: number }>,
+  weights: CategoryWeights = CATEGORY_WEIGHTS,
 ): ProvisionalCard {
   const grades: SubjectGrade[] = [];
   const out: PreviewSubject[] = [];
@@ -100,7 +102,7 @@ export function buildProvisionalCard(
     const pending: PreviewSubject["pending"] = [];
     const categories: PreviewSubject["categories"] = {};
     for (const item of s.items) {
-      const cat = (categories[item.category] ??= { expected: 0, recorded: 0, weight: CATEGORY_WEIGHTS[item.category] });
+      const cat = (categories[item.category] ??= { expected: 0, recorded: 0, weight: weights[item.category] });
       cat.expected++;
       const score = scores.get(`${item.assessment_type}:${item.assessment_id}`);
       if (score) {
@@ -117,10 +119,10 @@ export function buildProvisionalCard(
       }
     }
 
-    const grade = recordedScores.length ? calculateSubjectGrade(s.subject_id, recordedScores) : null;
+    const grade = recordedScores.length ? calculateSubjectGrade(s.subject_id, recordedScores, weights) : null;
     if (grade) grades.push(grade);
     const weightCovered = grade
-      ? (Object.keys(grade.categories) as AssessmentCategory[]).reduce((n, c) => n + CATEGORY_WEIGHTS[c], 0)
+      ? (Object.keys(grade.categories) as AssessmentCategory[]).reduce((n, c) => n + weights[c], 0)
       : 0;
     const expected = s.items.length;
     out.push({

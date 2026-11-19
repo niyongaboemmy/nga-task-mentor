@@ -121,7 +121,8 @@ describe("buildStudentOverview", () => {
 
   it("handles a student with no enrolments at all", () => {
     const overview = buildStudentOverview([]);
-    expect(overview.overallAverage).toBe(0);
+    // No marks is "no data" (shown as —), not a 0% average.
+    expect(overview.overallAverage).toBeNull();
     expect(overview.progress).toBe(0);
     expect(overview.recommendations).toEqual([]);
   });

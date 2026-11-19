@@ -66,6 +66,32 @@ export async function loadStudentScores(
   identity: StudentIdentity,
   items: Array<{ assessment_type: string; assessment_id: number }>,
 ): Promise<Map<ScoreKey, RawScore>> {
+  return (await loadStudentMarks(identity, items)).scores;
+}
+
+export type MarkResolution = "absent" | "exempt";
+
+/**
+ * A card mapping row's mark for the grader: an "absent" resolution (card
+ * level, or the recorded mark's own status) is 0; "exempt" is left out;
+ * otherwise the recorded score, or nothing when none is recorded yet.
+ */
+export function resolveMark(
+  key: ScoreKey,
+  marks: { scores: Map<ScoreKey, RawScore>; statuses: Map<ScoreKey, MarkResolution> },
+  cardStatus?: string | null,
+): RawScore | null {
+  const status = cardStatus === "absent" || cardStatus === "exempt" ? cardStatus : marks.statuses.get(key);
+  if (status === "exempt") return null;
+  if (status === "absent") return { raw_score: 0, max_score: marks.scores.get(key)?.max_score ?? 1 };
+  return marks.scores.get(key) ?? null;
+}
+
+/** Scores (as loadStudentScores) plus marks recorded as absent or exempt. */
+export async function loadStudentMarks(
+  identity: StudentIdentity,
+  items: Array<{ assessment_type: string; assessment_id: number }>,
+): Promise<{ scores: Map<ScoreKey, RawScore>; statuses: Map<ScoreKey, MarkResolution>; valid: Set<ScoreKey> }> {
   const ids = (type: string) => [...new Set(items.filter((i) => i.assessment_type === type).map((i) => i.assessment_id))];
   // A deleted quiz still mapped on a card no longer counts.
   const quizIds = ids("quiz").length
@@ -107,7 +133,7 @@ export async function loadStudentScores(
     manualIds.length && identity.manualIds.length
       ? ManualAssessmentScore.findAll({
           where: { student_id: { [Op.in]: identity.manualIds }, manual_assessment_id: { [Op.in]: manualIds } },
-          attributes: ["manual_assessment_id", "student_id", "score"],
+          attributes: ["manual_assessment_id", "student_id", "score", "status"],
           raw: true,
         })
       : [],
@@ -135,12 +161,26 @@ export async function loadStudentScores(
   const sorted = [...(manualScores as any[])].sort(
     (a, b) => Number(Number(b.student_id) === primary) - Number(Number(a.student_id) === primary),
   );
+  const statuses = new Map<ScoreKey, MarkResolution>();
   for (const s of sorted) {
     const key: ScoreKey = `manual:${s.manual_assessment_id}`;
-    if (out.has(key)) continue;
+    if (out.has(key) || statuses.has(key)) continue;
     const max = maxById.get(Number(s.manual_assessment_id));
+    if (s.status === "absent" || s.status === "exempt") {
+      statuses.set(key, s.status);
+      // Absent scores 0 against the assessment's max; exempt has no score.
+      if (s.status === "absent" && max !== undefined && max > 0) out.set(key, { raw_score: 0, max_score: max });
+      continue;
+    }
     const raw = parseFloat(String(s.score));
     if (max !== undefined && max > 0 && Number.isFinite(raw)) out.set(key, { raw_score: raw, max_score: max });
   }
-  return out;
+  // Assessments that still count: a deleted quiz or a "part of" assignment
+  // is neither a score nor a missing mark.
+  const valid = new Set<ScoreKey>([
+    ...quizIds.map((id) => `quiz:${id}` as ScoreKey),
+    ...assignmentIds.map((id) => `assignment:${id}` as ScoreKey),
+    ...(manualAssessments as any[]).map((m) => `manual:${Number(m.id)}` as ScoreKey),
+  ]);
+  return { scores: out, statuses, valid };
 }
