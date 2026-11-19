@@ -369,6 +369,24 @@ export const ReportCardWorkflowApi = {
   async workbench(params: { class_group_id: number; term: string; academic_year: string }): Promise<{ success: boolean; data: WorkbenchData }> {
     return (await axios.get("/report-cycles/workbench", { params })).data;
   },
+  /** Every card of the class in one PDF, ranking order: ranking cover + one card per page. */
+  async classPdf(params: { class_group_id: number; term: string; academic_year: string }): Promise<Blob> {
+    try {
+      return (await axios.get("/report-cycles/class-pdf", { params, responseType: "blob" })).data as Blob;
+    } catch (e) {
+      // A blob error body hides the server's message: read it back out.
+      const data = (e as { response?: { data?: unknown } })?.response?.data;
+      if (data instanceof Blob) {
+        try {
+          const body = JSON.parse(await data.text()) as { message?: string };
+          if (body?.message) throw new Error(body.message);
+        } catch (inner) {
+          if (inner instanceof Error && inner.message && !(inner instanceof SyntaxError)) throw inner;
+        }
+      }
+      throw e;
+    }
+  },
   async saveSettings(body: { class_group_ids: number[]; term: string; academic_year: string } & Partial<CycleSettings>) {
     return (await axios.put("/report-cycles/settings", body)).data as { success: boolean; message: string };
   },

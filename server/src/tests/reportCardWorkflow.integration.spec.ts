@@ -247,6 +247,27 @@ describe("report card workflow", () => {
     }
   });
 
+  it("prints the class's cards in one PDF: a ranking cover, then one page per card", async () => {
+    const res = await auth(request(app).get(`/api/report-cycles/class-pdf?class_group_id=${CG}&${q}`))
+      .buffer(true)
+      .parse((r, cb) => {
+        const chunks: Buffer[] = [];
+        r.on("data", (c: Buffer) => chunks.push(c));
+        r.on("end", () => cb(null, Buffer.concat(chunks)));
+      });
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toContain("application/pdf");
+    expect(res.headers["content-disposition"]).toContain(`ReportCards-WF_Class_${RUN}`);
+    const pdf = (res.body as Buffer).toString("latin1");
+    expect(pdf.startsWith("%PDF")).toBe(true);
+    expect((pdf.match(/\/Type \/Page[^s]/g) ?? []).length).toBe(2); // cover + 1 student
+  });
+
+  it("refuses a class PDF without the class and term", async () => {
+    const res = await auth(request(app).get(`/api/report-cycles/class-pdf?${q}`));
+    expect(res.status).toBe(400);
+  });
+
   it("lists the class among the term's cycles", async () => {
     const res = await auth(request(app).get(`/api/report-cycles?${q}`));
     expect(res.status).toBe(200);

@@ -4,6 +4,7 @@ import { validateBody } from "../middleware/validation.middleware";
 import {
   listCycles,
   getWorkbench,
+  getClassPdf,
   putCycleSettings,
   previewSignoff,
   signoffSubject,
@@ -26,6 +27,7 @@ const MANAGERS = ["REPORT_CARDS_VIEW_ALL", "REPORT_CARDS_REVIEW", "REPORT_CARDS_
 
 router.get("/", authorizePermission(...MANAGERS), listCycles);
 router.get("/workbench", authorizePermission(...MANAGERS), getWorkbench);
+router.get("/class-pdf", authorizePermission(...MANAGERS), getClassPdf);
 router.put(
   "/settings",
   authorizePermission("REPORT_CARDS_APPROVE", "REPORT_CARDS_REVIEW"),

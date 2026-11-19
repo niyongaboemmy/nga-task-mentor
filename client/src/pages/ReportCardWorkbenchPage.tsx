@@ -9,6 +9,7 @@ import {
   Download,
   Eye,
   FileClock,
+  FileText,
   History,
   Lock,
   MessageSquareText,
@@ -26,6 +27,7 @@ import Tooltip from "../components/ui/Tooltip";
 import ReportCardPreview from "../components/ReportCard/ReportCardPreview";
 import SubmitMarksDialog from "../components/ReportCard/SubmitMarksDialog";
 import MarkCell from "../components/ReportCard/MarkCell";
+import ClassPdfPreview from "../components/ReportCard/ClassPdfPreview";
 import { CycleDatesModal, ProgressBar } from "./ReportCardsPage";
 import { statusMeta, ReportCardApiService } from "../services/reportCardApi";
 import {
@@ -104,6 +106,7 @@ export default function ReportCardWorkbenchPage() {
   const [drawer, setDrawer] = useState<WorkbenchStudent | null>(null);
   const [preview, setPreview] = useState<WorkbenchStudent | null>(null);
   const [datesOpen, setDatesOpen] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
   const [importing, setImporting] = useState(false);
 
   const load = useCallback(async () => {
@@ -249,6 +252,9 @@ export default function ReportCardWorkbenchPage() {
           <>
             <Button variant="secondary" size="sm" onClick={() => void load()} loading={loading} aria-label="Refresh">
               <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setPdfOpen(true)} disabled={!data || !data.students.length}>
+              <FileText className="h-4 w-4" /> Preview PDF
             </Button>
             <Button variant="secondary" size="sm" onClick={importAttendance} loading={importing} disabled={!data}>
               <Download className="h-4 w-4" /> Import attendance
@@ -828,6 +834,18 @@ export default function ReportCardWorkbenchPage() {
       )}
 
       <CardHistoryDrawer student={drawer} onClose={() => setDrawer(null)} subjectName={(id) => nameById.get(id) ?? `Subject #${id}`} />
+
+      {data && (
+        <ClassPdfPreview
+          isOpen={pdfOpen}
+          onClose={() => setPdfOpen(false)}
+          classGroupId={classGroupId}
+          className={data.class_group.name}
+          term={term}
+          academicYear={year}
+          students={data.students.length}
+        />
+      )}
 
       {data && (
         <CycleDatesModal

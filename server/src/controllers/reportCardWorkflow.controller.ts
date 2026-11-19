@@ -34,7 +34,8 @@ import {
   type CardGrades,
   type ReportCardDocument,
 } from "../services/reportCardDocument";
-import { activeSnapshot, supersedeSnapshots, writeSnapshot } from "../services/reportCardSnapshot.service";
+import { activeSnapshot, frozenDocument, supersedeSnapshots, verificationBase, writeSnapshot } from "../services/reportCardSnapshot.service";
+import { renderClassReportCardsPdf } from "../services/reportCardDocumentPdf";
 import { loadSchoolDirectory, type SchoolDirectory } from "../services/schoolDirectory";
 import { getReportCardScheme, setReportCardScheme, getGradingBands } from "../services/tenantSettings";
 import { getMisToken, resolveAcademicYearId, resolveAcademicTermIdByName } from "../utils/misUtils";
@@ -1119,3 +1120,50 @@ export const importAttendance = async (req: Request, res: Response) => {
   }
 };
 
+
+// ─── GET /api/report-cycles/class-pdf ────────────────────────────────────────
+// Every visible card of a class for a term in one PDF, in ranking order: a
+// ranking cover, then one card per page. Approved/published cards print their
+// frozen snapshot; the rest render live with the PROVISIONAL watermark.
+
+export const getClassPdf = async (req: Request, res: Response) => {
+  try {
+    const classGroupId = Number(req.query.class_group_id);
+    const term = String(req.query.term ?? "").trim();
+    const year = String(req.query.academic_year ?? "").trim();
+    if (!Number.isInteger(classGroupId) || classGroupId <= 0 || !term || !year) {
+      return res.status(400).json({ success: false, message: "class_group_id, term and academic_year are required" });
+    }
+    const directory = await directoryFor(req);
+    const group = directory.class_groups.find((g) => g.id === classGroupId);
+    const roster = directory.rosters.get(classGroupId) ?? [];
+    const visible = await filterCardStudents(req, roster, ["REPORT_CARDS_VIEW_ALL", "REPORT_CARDS_REVIEW", "REPORT_CARDS_APPROVE", "REPORT_CARDS_COMMENT"], {
+      minDepth: "detail",
+    });
+    const cards = visible.length ? await ReportCard.findAll({ where: { student_id: { [Op.in]: visible }, term, academic_year: year } }) : [];
+    if (!cards.length) {
+      return res.status(404).json({ success: false, message: "No report cards for this class and term yet. Open the class to create them." });
+    }
+    // Positions are within the whole class, whoever can see which card.
+    const cohort = await ReportCard.findAll({ where: { class_group_id: classGroupId, term, academic_year: year } });
+    const live = cards.filter((c) => !isFrozen(c.status));
+    const docsLive = live.length ? await buildCardDocuments(req, live, { directory, cohort: cohort.length ? cohort : cards }) : new Map<number, ReportCardDocument>();
+    const docs: ReportCardDocument[] = [];
+    for (const c of cards) {
+      const d = isFrozen(c.status) ? await frozenDocument(req, c) : docsLive.get(c.id!);
+      if (d) docs.push(d);
+    }
+    const className = group?.name ?? cards.find((c) => c.class_name)?.class_name ?? `Class #${classGroupId}`;
+    const pdf = await renderClassReportCardsPdf(docs, { class_name: className, term, academic_year: year }, { verificationBaseUrl: verificationBase() });
+    const safe = (v: string) => v.replace(/[^\p{L}\p{N}]+/gu, "_").replace(/^_+|_+$/g, "") || "class";
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="ReportCards-${safe(className)}-${safe(term)}-${safe(year)}.pdf"`,
+      "Content-Length": pdf.length,
+      "Cache-Control": "no-store",
+    });
+    res.status(200).send(pdf);
+  } catch (error) {
+    sendControllerError(res, error, "getClassPdf");
+  }
+};

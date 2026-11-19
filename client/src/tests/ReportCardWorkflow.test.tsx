@@ -18,8 +18,9 @@ const { api, toast } = vi.hoisted(() => ({
     importAttendance: vi.fn(),
     history: vi.fn(),
     diff: vi.fn(),
+    classPdf: vi.fn(),
   },
-  toast: { success: vi.fn(), error: vi.fn() },
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 vi.mock("../services/reportCardWorkflowApi", async () => {
   const actual = await vi.importActual<typeof import("../services/reportCardWorkflowApi")>("../services/reportCardWorkflowApi");
@@ -39,7 +40,9 @@ vi.mock("../hooks/useTermYearSelector", () => ({
     setTerm: vi.fn(),
   }),
 }));
-vi.mock("react-toastify", () => ({ toast: { success: (...a: unknown[]) => toast.success(...a), error: (...a: unknown[]) => toast.error(...a) } }));
+vi.mock("react-toastify", () => ({
+  toast: { success: (...a: unknown[]) => toast.success(...a), error: (...a: unknown[]) => toast.error(...a), info: (...a: unknown[]) => toast.info(...a) },
+}));
 vi.mock("../components/ReportCard/ReportCardPreview", () => ({ default: () => <div data-testid="preview-modal" /> }));
 
 import ReportCardWorkbenchPage from "../pages/ReportCardWorkbenchPage";
@@ -207,6 +210,30 @@ describe("report card workbench", () => {
     expect(missing).toHaveTextContent("Loops homework 3");
     expect(missing).toHaveTextContent("Assignment · HW (Homework)");
     expect(within(missing).getByRole("link", { name: /Loops homework 3/ })).toHaveAttribute("href", "/assignments/55");
+  });
+
+  it("previews the class's cards as one PDF in ranking order, and downloads it", async () => {
+    const created = vi.fn(() => "blob:class-pdf");
+    Object.assign(URL, { createObjectURL: created, revokeObjectURL: vi.fn() });
+    api.workbench.mockResolvedValue({ success: true, data: workbench(rows) });
+    api.classPdf.mockResolvedValue(new Blob(["%PDF-1.3"], { type: "application/pdf" }));
+    renderWorkbench();
+    fireEvent.click(await screen.findByRole("button", { name: /Preview PDF/ }));
+    await waitFor(() => expect(api.classPdf).toHaveBeenCalledWith({ class_group_id: 5, term: "Term 2", academic_year: "2025-2026" }));
+    const dialog = await screen.findByText(/in ranking order/);
+    expect(dialog).toBeInTheDocument();
+    expect(await screen.findByTestId("class-pdf-frame")).toHaveAttribute("src", "blob:class-pdf");
+    fireEvent.click(within(screen.getByTestId("class-pdf-toolbar")).getByRole("button", { name: /Download/ }));
+    expect(toast.success).toHaveBeenCalledWith("Class report cards downloaded");
+  });
+
+  it("shows why the class PDF couldn't be built", async () => {
+    api.workbench.mockResolvedValue({ success: true, data: workbench(rows) });
+    api.classPdf.mockRejectedValue(new Error("No report cards for this class and term yet. Open the class to create them."));
+    renderWorkbench();
+    fireEvent.click(await screen.findByRole("button", { name: /Preview PDF/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("No report cards for this class and term yet");
+    expect(toast.error).toHaveBeenCalledWith("No report cards for this class and term yet. Open the class to create them.");
   });
 
   it("filters to cards ready to review", async () => {
