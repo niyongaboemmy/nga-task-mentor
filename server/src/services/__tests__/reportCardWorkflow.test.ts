@@ -14,6 +14,7 @@ import { calculateSubjectGrade } from "../reportCardGrader.service";
 import { resolveMark } from "../../utils/reportCardScores";
 import { rankAverages, rankValues, categoryFromCode, displayCode } from "../reportCardDocument";
 import { diffDocumentTotals } from "../../controllers/reportCardWorkflow.controller";
+import { rankOrder, exact } from "../reportCardDocumentPdf";
 
 const ready: ReadinessFacts = {
   unsubmitted_subjects: [],
@@ -238,5 +239,20 @@ describe("RTB modules", () => {
     expect(s.competence_thresholds).toEqual({ specific: 70, general: 50, complementary: 50 });
     expect(s).toMatchObject({ show_position: true, show_subject_rank: true, show_competence: true });
     expect(normalizeScheme({ competence_thresholds: { specific: 120 } })).toMatch(/Competence threshold/);
+  });
+});
+
+describe("class PDF order and exact marks", () => {
+  const d = (name: string, position: number | null, average: number | null) => ({ student: { name }, summary: { position, average } }) as any;
+  it("puts cards in ranking order, unranked last, ties by average then name", () => {
+    const out = rankOrder([d("Zed", null, 60), d("Bea", 2, 80), d("Ann", 2, 80), d("Cy", 1, 90), d("Dan", null, null)]);
+    expect(out.map((x) => x.student.name)).toEqual(["Cy", "Ann", "Bea", "Zed", "Dan"]);
+  });
+  it("never rounds marks to whole numbers", () => {
+    expect(exact(96.43)).toBe("96.43");
+    expect(exact(13.3333)).toBe("13.33");
+    expect(exact(88.5)).toBe("88.5");
+    expect(exact(70)).toBe("70");
+    expect(exact(null)).toBe("");
   });
 });

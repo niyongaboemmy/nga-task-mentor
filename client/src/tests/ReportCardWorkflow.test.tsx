@@ -18,8 +18,9 @@ const { api, toast } = vi.hoisted(() => ({
     importAttendance: vi.fn(),
     history: vi.fn(),
     diff: vi.fn(),
+    classPdf: vi.fn(),
   },
-  toast: { success: vi.fn(), error: vi.fn() },
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 vi.mock("../services/reportCardWorkflowApi", async () => {
   const actual = await vi.importActual<typeof import("../services/reportCardWorkflowApi")>("../services/reportCardWorkflowApi");
@@ -39,7 +40,9 @@ vi.mock("../hooks/useTermYearSelector", () => ({
     setTerm: vi.fn(),
   }),
 }));
-vi.mock("react-toastify", () => ({ toast: { success: (...a: unknown[]) => toast.success(...a), error: (...a: unknown[]) => toast.error(...a) } }));
+vi.mock("react-toastify", () => ({
+  toast: { success: (...a: unknown[]) => toast.success(...a), error: (...a: unknown[]) => toast.error(...a), info: (...a: unknown[]) => toast.info(...a) },
+}));
 vi.mock("../components/ReportCard/ReportCardPreview", () => ({ default: () => <div data-testid="preview-modal" /> }));
 
 import ReportCardWorkbenchPage from "../pages/ReportCardWorkbenchPage";
@@ -209,6 +212,43 @@ describe("report card workbench", () => {
     expect(within(missing).getByRole("link", { name: /Loops homework 3/ })).toHaveAttribute("href", "/assignments/55");
   });
 
+  it("previews the class's cards as one PDF in ranking order, and downloads it", async () => {
+    const created = vi.fn(() => "blob:class-pdf");
+    Object.assign(URL, { createObjectURL: created, revokeObjectURL: vi.fn() });
+    api.workbench.mockResolvedValue({ success: true, data: workbench(rows) });
+    api.classPdf.mockResolvedValue(new Blob(["%PDF-1.3"], { type: "application/pdf" }));
+    renderWorkbench();
+    fireEvent.click(await screen.findByRole("button", { name: /Preview PDF/ }));
+    await waitFor(() => expect(api.classPdf).toHaveBeenCalledWith({ class_group_id: 5, term: "Term 2", academic_year: "2025-2026" }));
+    const dialog = await screen.findByText(/in ranking order/);
+    expect(dialog).toBeInTheDocument();
+    expect(await screen.findByTestId("class-pdf-frame")).toHaveAttribute("src", "blob:class-pdf");
+    fireEvent.click(within(screen.getByTestId("class-pdf-toolbar")).getByRole("button", { name: /Download/ }));
+    expect(toast.success).toHaveBeenCalledWith("Class report cards downloaded");
+  });
+
+  it("shows why the class PDF couldn't be built", async () => {
+    api.workbench.mockResolvedValue({ success: true, data: workbench(rows) });
+    api.classPdf.mockRejectedValue(new Error("No report cards for this class and term yet. Open the class to create them."));
+    renderWorkbench();
+    fireEvent.click(await screen.findByRole("button", { name: /Preview PDF/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("No report cards for this class and term yet");
+    expect(toast.error).toHaveBeenCalledWith("No report cards for this class and term yet. Open the class to create them.");
+  });
+
+  it("guides the approval flow: steps with progress, and reviewing the ready cards in one click after a confirm", async () => {
+    api.workbench.mockResolvedValue({ success: true, data: workbench(rows) });
+    api.transition.mockResolvedValue({ success: true, message: "1 report card updated (review)", data: { action: "review", ok: 1, failed: 0, results: [] } });
+    renderWorkbench();
+    const flow = await screen.findByTestId("approval-flow");
+    for (const k of ["marks", "comments", "review", "approve", "publish"]) expect(within(flow).getByTestId(`flow-step-${k}`)).toBeInTheDocument();
+    const review = within(flow).getByTestId("flow-step-review");
+    fireEvent.click(within(review).getByRole("button", { name: /Review \d+ ready/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Mark reviewed" }));
+    await waitFor(() => expect(api.transition).toHaveBeenCalledWith(expect.objectContaining({ action: "review" })));
+    expect(toast.success).toHaveBeenCalled();
+  });
+
   it("filters to cards ready to review", async () => {
     api.workbench.mockResolvedValue({ success: true, data: workbench(rows) });
     renderWorkbench();
@@ -247,10 +287,17 @@ describe("report cards classes page", () => {
         <ReportCardsPage />
       </MemoryRouter>,
     );
-    expect(await screen.findByText("Grade 10 A")).toBeInTheDocument();
-    expect(screen.getByText("15 of 30 cards published")).toBeInTheDocument();
-    expect(screen.getByText("Subjects submitted 9/12")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Open workbench/ })).toHaveAttribute("href", "/report-cards/5?term=Term%202&year=2025-2026");
+    const link = await screen.findByRole("link", { name: "Grade 10 A" });
+    expect(link).toHaveAttribute("href", "/report-cards/5?term=Term%202&year=2025-2026");
+    expect(screen.getByTestId("school-pipeline")).toHaveTextContent("15 of 30 cards published");
+    // 9 of 12 subjects in: the class is still collecting marks, and that's the school's next step.
+    const card = screen.getByTestId("class-5");
+    expect(card).toHaveTextContent("Collecting marks");
+    expect(card).toHaveTextContent("9/12");
+    expect(card).toHaveTextContent("Collect marks");
+    expect(screen.getByTestId("next-step")).toHaveTextContent("Next: 1 class collecting marks");
+    fireEvent.click(screen.getByRole("button", { name: /Ready to review/ }));
+    expect(screen.queryByTestId("class-5")).toBeNull();
   });
 });
 

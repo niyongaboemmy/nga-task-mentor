@@ -46,7 +46,7 @@ export const Drawer: React.FC<{
         role="dialog"
         aria-modal="true"
         aria-label={typeof title === "string" ? title : undefined}
-        className={`relative flex h-full w-full ${width} flex-col bg-white shadow-2xl outline-none dark:bg-slate-900`}
+        className={`relative flex h-full w-full ${width} flex-col bg-white shadow-2xl outline-none dark:bg-gray-900`}
       >
         <div className="flex items-center justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-white/10">
           <h2 className="min-w-0 truncate text-base font-semibold text-text-primary-light dark:text-text-primary-dark">{title}</h2>

@@ -15,6 +15,7 @@ import {
   updateManualAssessmentSchema,
   upsertScoresSchema,
 } from "../validations/manualAssessment.validation";
+import { guard, byParam, withStudents } from "../services/approvalLock";
 
 const router = Router();
 
@@ -37,13 +38,13 @@ router.patch(
   "/:id",
   authorizePermission("MANUAL_ASSESSMENTS_EDIT"),
   validate(updateManualAssessmentSchema),
-  updateManualAssessment,
+  guard("assessment", byParam("manual", "id")), updateManualAssessment,
 );
 
 router.delete(
   "/:id",
   authorizePermission("MANUAL_ASSESSMENTS_DELETE"),
-  deleteManualAssessment,
+  guard("assessment", byParam("manual", "id")), deleteManualAssessment,
 );
 
 router.get(
@@ -61,7 +62,7 @@ router.post(
     assessment_id: intOrNull(req.params.id),
     count: Array.isArray(req.body?.scores) ? req.body.scores.length : null,
   })),
-  upsertScores,
+  guard("mark", withStudents("manual", "id", (req) => ({ mis: (Array.isArray(req.body?.scores) ? req.body.scores : []).map((s: { student_id?: unknown }) => Number(s?.student_id)) }))), upsertScores,
 );
 
 export default router;

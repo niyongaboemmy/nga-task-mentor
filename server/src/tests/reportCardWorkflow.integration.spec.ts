@@ -22,6 +22,7 @@ import { clearSchoolDirectoryCache } from "../services/schoolDirectory";
 import { clearSubjectNameCache } from "../services/reportCardDocument";
 import { clearReportAnalyticsCache } from "../controllers/reportAnalytics.controller";
 import { NGA_ATTRIBUTES } from "../services/tenantSettings";
+import { Assignment } from "../models/Assignment.model";
 
 /**
  * The report card workflow end to end against the dev DB, MIS mocked:
@@ -247,6 +248,65 @@ describe("report card workflow", () => {
     }
   });
 
+  it("prints the class's cards in one PDF: a ranking cover, then one page per card", async () => {
+    const res = await auth(request(app).get(`/api/report-cycles/class-pdf?class_group_id=${CG}&${q}`))
+      .buffer(true)
+      .parse((r, cb) => {
+        const chunks: Buffer[] = [];
+        r.on("data", (c: Buffer) => chunks.push(c));
+        r.on("end", () => cb(null, Buffer.concat(chunks)));
+      });
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toContain("application/pdf");
+    expect(res.headers["content-disposition"]).toContain(`ReportCards-WF_Class_${RUN}`);
+    const pdf = (res.body as Buffer).toString("latin1");
+    expect(pdf.startsWith("%PDF")).toBe(true);
+    expect((pdf.match(/\/Type \/Page[^s]/g) ?? []).length).toBe(2); // cover + 1 student
+  });
+
+  it("refuses a class PDF without the class and term", async () => {
+    const res = await auth(request(app).get(`/api/report-cycles/class-pdf?${q}`));
+    expect(res.status).toBe(400);
+  });
+
+  it("refuses to map an assignment whose marks are part of another assessment", async () => {
+    const part = await Assignment.create({
+      title: `WF Section C ${RUN}`,
+      description: "part of the exam",
+      due_date: new Date(),
+      max_score: 15,
+      submission_type: "text",
+      course_id: SUBJ,
+      created_by: student.id,
+      status: "published",
+      marks_scope: "part_of",
+      part_of_title: "Mid term exam",
+    } as any);
+    try {
+      const before = await SubjectAssessmentMapping.count({ where: { subject_id: SUBJ, term: TERM, academic_year: YEAR } });
+      const res = await auth(
+        request(app)
+          .post("/api/report-cards/subject-mapping/save")
+          .send({
+            subject_id: SUBJ,
+            term: TERM,
+            academic_year: YEAR,
+            assessments: [
+              { assessment_type: "manual", assessment_id: assessmentId, category: "EOT" },
+              { assessment_type: "assignment", assessment_id: part.id, category: "MD" },
+            ],
+          }),
+      );
+      expect(res.status).toBe(400);
+      expect(res.body).toMatchObject({ code: "PART_OF_ANOTHER_ASSESSMENT" });
+      expect(res.body.message).toContain(`"WF Section C ${RUN}" (part of Mid term exam)`);
+      // Nothing was rewritten.
+      expect(await SubjectAssessmentMapping.count({ where: { subject_id: SUBJ, term: TERM, academic_year: YEAR } })).toBe(before);
+    } finally {
+      await part.destroy({ force: true } as any);
+    }
+  });
+
   it("lists the class among the term's cycles", async () => {
     const res = await auth(request(app).get(`/api/report-cycles?${q}`));
     expect(res.status).toBe(200);
@@ -328,6 +388,19 @@ describe("report card workflow", () => {
     expect(diff.body.data.changes[0]).toMatchObject({ subject_id: SUBJ, approved: 70, now: 30 });
   });
 
+  it("locks approved marks: the assessment and the student's score can't change", async () => {
+    const edit = await auth(request(app).patch(`/api/manual-assessments/${assessmentId}`).send({ title: `WF exam renamed ${RUN}` }));
+    expect(edit.status).toBe(423);
+    expect(edit.body).toMatchObject({ code: "MARKS_APPROVED" });
+    expect(edit.body.message).toContain("on 1 approved report card");
+    const del = await auth(request(app).delete(`/api/manual-assessments/${assessmentId}`));
+    expect(del.status).toBe(423);
+    const score = await auth(request(app).post(`/api/manual-assessments/${assessmentId}/scores`).send({ scores: [{ student_id: misId, score: 95 }] }));
+    expect(score.status).toBe(423);
+    expect(score.body.message).toContain("This student's report card is approved");
+    expect((await ManualAssessment.findByPk(assessmentId))!.title).toBe(`WF exam ${RUN}`);
+  });
+
   it("publishes, and the student sees the frozen card", async () => {
     expect(resultOf(await transition("publish"))).toMatchObject({ ok: true, status: "published" });
     const res = await auth(request(app).get(`/api/report-cards/student/${misId}?${q}`), studentToken);
@@ -356,6 +429,9 @@ describe("report card workflow", () => {
     expect(v1.body).toMatchObject({ verified: false, superseded: true });
     // Editable again.
     expect((await auth(request(app).post("/api/report-cards/attributes/save").send(attributesBody()))).status).toBe(200);
+    // ...and so are its marks (same 30 the regrade above set).
+    const score = await auth(request(app).post(`/api/manual-assessments/${assessmentId}/scores`).send({ scores: [{ student_id: misId, score: 30 }] }));
+    expect(score.status).toBe(200);
   });
 
   it("re-approves as version 2 and releases on schedule", async () => {

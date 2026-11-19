@@ -24,6 +24,7 @@ import { validateBody } from "../middleware/validation.middleware";
 import { generateRubricSchema } from "../validations/assignmentAi.validation";
 import { generateAssignmentRubric } from "../controllers/assignmentAi.controller";
 import { requireAi } from "../middleware/requireAi";
+import { guard, byParam, ownWork, withStudents } from "../services/approvalLock";
 
 const router = Router();
 
@@ -63,12 +64,12 @@ router
     isCourseInstructor,
     assignmentAttachments,
     timezoneMiddleware(["due_date"]),
-    updateAssignment,
+    guard("assessment", byParam("assignment", "id")), updateAssignment,
   )
   .delete(
     authorizePermission("ASSIGNMENTS_DELETE"),
     isCourseInstructor,
-    deleteAssignment,
+    guard("assessment", byParam("assignment", "id")), deleteAssignment,
   );
 
 // Publish assignment (legacy route - keeping for backward compatibility)
@@ -76,7 +77,7 @@ router.put(
   "/:id/publish",
   authorizePermission("ASSIGNMENTS_EDIT"),
   isCourseInstructor,
-  publishAssignment,
+  guard("assessment", byParam("assignment", "id")), publishAssignment,
 );
 
 // Marks status: counted, or part of another assessment
@@ -84,7 +85,7 @@ router.patch(
   "/:id/marks-scope",
   authorizePermission("ASSIGNMENTS_EDIT"),
   isCourseInstructor,
-  updateAssignmentMarksScope,
+  guard("assessment", byParam("assignment", "id")), updateAssignmentMarksScope,
 );
 
 // Update assignment status
@@ -92,7 +93,7 @@ router.patch(
   "/:id/status",
   authorizePermission("ASSIGNMENTS_EDIT"),
   isCourseInstructor,
-  updateAssignmentStatus,
+  guard("assessment", byParam("assignment", "id")), updateAssignmentStatus,
 );
 
 router.post(
@@ -100,7 +101,7 @@ router.post(
   submissionFile,
   authorizePermission("SUBMISSIONS_CREATE"),
   trackOnSuccess("tm.assignment.submit", (req) => ({ assignment_id: intOrNull(req.params.id) })),
-  submitAssignment,
+  guard("mark", ownWork("assignment", { param: "id" })), submitAssignment,
 );
 
 // Get submissions for an assignment - Students see only their own (controller-scoped),
@@ -119,14 +120,14 @@ router.post(
     kind: "assignment",
     assignment_id: intOrNull(req.params.assignmentId),
   })),
-  gradeUnsubmittedStudent,
+  guard("mark", withStudents("assignment", "assignmentId", (req) => ({ mis: [Number(req.body?.student_mis_id)] }))), gradeUnsubmittedStudent,
 );
 
 // Mark a student's work as submitted on their behalf, so it can be graded
 router.post(
   "/:assignmentId/students/:studentId/mark-submitted",
   authorizePermission("SUBMISSIONS_GRADE"),
-  markStudentSubmitted,
+  guard("mark", withStudents("assignment", "assignmentId", (req) => ({ local: [Number(req.params.studentId)] }))), markStudentSubmitted,
 );
 
 // Download submissions as zip (TODO: implement)

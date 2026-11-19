@@ -1,4 +1,5 @@
-import { Loader2 } from "lucide-react";
+import { Loader2, Puzzle } from "lucide-react";
+import Tooltip from "../ui/Tooltip";
 import type { AssessmentCategory } from "../../services/reportCardApi";
 import { CATEGORIES, CATEGORY_ORDER } from "./categoryMeta";
 import Select from "../ui/Select";
@@ -21,6 +22,11 @@ export interface AssessmentMappingControlProps {
   /** Shows a spinner and disables interaction while a save is in flight. */
   saving?: boolean;
   className?: string;
+  /**
+   * Set when the assessment can't go on a report card (an assignment whose
+   * marks are part of another assessment): shows why instead of the picker.
+   */
+  lockedReason?: string | null;
 }
 
 export default function AssessmentMappingControl({
@@ -29,8 +35,25 @@ export default function AssessmentMappingControl({
   disabled = false,
   saving = false,
   className = "",
+  lockedReason = null,
 }: AssessmentMappingControlProps) {
   const meta = category ? CATEGORIES[category] : null;
+
+  if (lockedReason) {
+    return (
+      <Tooltip label={lockedReason}>
+        <span
+          className={`inline-flex h-7 cursor-not-allowed items-center gap-1.5 rounded-full border border-dashed border-border-light px-2.5 text-[11px] font-semibold text-text-secondary-light dark:border-border-dark/50 dark:text-text-secondary-dark ${className}`}
+          aria-label={`Can't be mapped: ${lockedReason}`}
+          data-testid="mapping-locked"
+          tabIndex={0}
+        >
+          <Puzzle className="h-3.5 w-3.5" aria-hidden="true" />
+          Part of another
+        </span>
+      </Tooltip>
+    );
+  }
 
   return (
     <div className={`group relative inline-flex items-center ${className}`}>

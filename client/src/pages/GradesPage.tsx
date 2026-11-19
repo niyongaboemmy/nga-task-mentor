@@ -31,6 +31,7 @@ import {
 import { QuizGroupedApiService } from "../services/quizGroupedApi";
 import { AssignmentApiService } from "../services/assignmentApi";
 import { useAuth } from "../contexts/AuthContext";
+import { usePermissions } from "../hooks/usePermissions";
 import CreateAssessmentModal from "../components/Grades/CreateAssessmentModal";
 import Tooltip from "../components/ui/Tooltip";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
@@ -62,7 +63,12 @@ interface AssessmentRow {
   maxScore: number | null;
   recorded: number | null;
   manual?: ManualAssessment;
+  /** Set for an assignment whose marks are part of another assessment: never mapped. */
+  partOf?: string | null;
 }
+
+const partOfReason = (r: AssessmentRow) =>
+  `Its marks are part of ${r.partOf ? `"${r.partOf}"` : "another assessment"}, so it can't go on the report card. Map ${r.partOf ? "that assessment" : "the assessment it belongs to"} instead.`;
 
 const KIND_BADGE: Record<AssessmentKind, string> = {
   quiz: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
@@ -237,6 +243,65 @@ function MappingProgress({ mapped, total }: { mapped: number; total: number }) {
   );
 }
 
+// The way into report cards from Grades: one button for all subjects, with
+// how much of the term's work is mapped (only mapped work counts on cards).
+function ReportCardsShortcut({ mapped, total, subjectsLeft, loading }: { mapped: number; total: number; subjectsLeft: number; loading: boolean }) {
+  const pct = total ? Math.round((mapped / total) * 100) : 0;
+  const complete = total > 0 && mapped === total;
+  const r = 8;
+  const c = 2 * Math.PI * r;
+  const hint = loading
+    ? "Open report cards"
+    : total === 0
+      ? "Open report cards. No assessments to map yet."
+      : complete
+        ? `All ${total} assessments are mapped. Open report cards to review and publish.`
+        : `${total - mapped} assessment${total - mapped === 1 ? "" : "s"} in ${subjectsLeft} subject${subjectsLeft === 1 ? "" : "s"} not mapped yet: only mapped work counts on report cards.`;
+  return (
+    <Tooltip label={hint}>
+      <Link
+        to="/report-cards"
+        aria-label={`Report cards. ${hint}`}
+        data-testid="report-cards-shortcut"
+        className="group flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 py-1.5 pl-1.5 pr-3.5 text-sm font-medium text-blue-700 transition-colors hover:border-blue-300 hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20"
+      >
+        <span className="relative inline-flex h-7 w-7 items-center justify-center" aria-hidden="true">
+          {loading || total === 0 ? (
+            <ClipboardCheck className="h-4 w-4" />
+          ) : (
+            <>
+              <svg viewBox="0 0 20 20" className="absolute inset-0 h-7 w-7 -rotate-90">
+                <circle cx="10" cy="10" r={r} fill="none" strokeWidth="2.5" className="stroke-blue-200 dark:stroke-blue-500/25" />
+                <circle
+                  cx="10"
+                  cy="10"
+                  r={r}
+                  fill="none"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeDasharray={c}
+                  strokeDashoffset={c - (c * pct) / 100}
+                  className={`transition-all duration-500 ${complete ? "stroke-blue-600" : "stroke-orange-400"}`}
+                />
+              </svg>
+              <span className="text-[8px] font-bold tabular-nums">{pct}</span>
+            </>
+          )}
+        </span>
+        <span className="flex flex-col leading-tight">
+          <span>Report cards</span>
+          {!loading && total > 0 && (
+            <span className={`text-[10px] font-medium ${complete ? "text-blue-600/80 dark:text-blue-300/80" : "text-orange-600 dark:text-orange-300"}`}>
+              {complete ? "All work mapped" : `${mapped}/${total} mapped`}
+            </span>
+          )}
+        </span>
+        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+      </Link>
+    </Tooltip>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 const TABS = ["Assessments", "Comments", "Observations"] as const;
@@ -244,6 +309,7 @@ type Tab = (typeof TABS)[number];
 
 export default function GradesPage() {
   const { user } = useAuth();
+  const { can } = usePermissions();
   const navigate = useNavigate();
 
   const term         = user?.currentAcademicTerm?.name ?? "";
@@ -346,6 +412,7 @@ export default function GradesPage() {
           date: a.due_date,
           maxScore: a.max_score ? Number(a.max_score) : null,
           recorded: a.graded_count ?? null,
+          partOf: a.marks_scope === "part_of" ? (a.part_of_title ?? "") : null,
         })),
       );
 
@@ -477,13 +544,29 @@ export default function GradesPage() {
     return Array.from(byId.entries())
       .map(([courseId, rows]) => {
         const mapping = mappings.get(courseId) ?? [];
-        const mappedCount = rows.filter((r) =>
+        // "Part of another assessment" assignments can't be mapped, so they don't count either way.
+        const mappable = rows.filter((r) => r.partOf == null);
+        const mappedCount = mappable.filter((r) =>
           mapping.some((m) => m.assessment_type === r.kind && m.assessment_id === r.id),
         ).length;
-        return { courseId, course: courseMap.get(courseId), rows, mappedCount };
+        return { courseId, course: courseMap.get(courseId), rows, mappedCount, mappableCount: mappable.length };
       })
       .sort((a, b) => (a.course?.title ?? "").localeCompare(b.course?.title ?? ""));
   }, [courses, assessments, courseMap, mappings]);
+
+  // Across every subject: how much is mapped, for the Report cards shortcut.
+  const mappingTotals = useMemo(() => {
+    let mapped = 0;
+    let total = 0;
+    let subjectsLeft = 0;
+    for (const g of subjectGroups) {
+      mapped += g.mappedCount;
+      total += g.mappableCount;
+      if (g.mappedCount < g.mappableCount) subjectsLeft++;
+    }
+    return { mapped, total, subjectsLeft };
+  }, [subjectGroups]);
+  const canOpenReportCards = can(["REPORT_CARDS_VIEW_ALL", "REPORT_CARDS_REVIEW", "REPORT_CARDS_APPROVE", "REPORT_CARDS_COMMENT", "REPORT_CARDS_EDIT"]);
 
   // ── Lookup: what category (if any) an assessment row is mapped to ────────
   const getMappedCategory = useCallback(
@@ -504,6 +587,10 @@ export default function GradesPage() {
         toast.error("No active term/year to map against.");
         return;
       }
+      if (row.partOf != null) {
+        toast.error(partOfReason(row));
+        return;
+      }
       const previous = mappings.get(row.courseId) ?? [];
       const next = previous.filter((m) => !(m.assessment_type === row.kind && m.assessment_id === row.id));
       if (category) next.push({ assessment_type: row.kind, assessment_id: row.id, category });
@@ -518,8 +605,8 @@ export default function GradesPage() {
           assessments: next,
         });
         toast.success(category ? `Mapped to report-card category.` : "Mapping cleared.");
-      } catch {
-        toast.error("Failed to update mapping.");
+      } catch (e) {
+        toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to update mapping.");
         setMappings((prev) => new Map(prev).set(row.courseId, previous));
       } finally {
         setMappingSavingKey(null);
@@ -747,6 +834,9 @@ export default function GradesPage() {
                   <ChevronsUp className="w-4 h-4" />
                 </button>
               </Tooltip>
+              {canOpenReportCards && (
+                <ReportCardsShortcut mapped={mappingTotals.mapped} total={mappingTotals.total} subjectsLeft={mappingTotals.subjectsLeft} loading={mappingsLoading} />
+              )}
               <button
                 onClick={() => openAddModal()}
                 className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -818,9 +908,9 @@ export default function GradesPage() {
                         </div>
                       </button>
 
-                      {!mappingsLoading && g.rows.length > 0 && (
+                      {!mappingsLoading && g.mappableCount > 0 && (
                         <div className="hidden md:block flex-shrink-0">
-                          <MappingProgress mapped={g.mappedCount} total={g.rows.length} />
+                          <MappingProgress mapped={g.mappedCount} total={g.mappableCount} />
                         </div>
                       )}
 
@@ -831,14 +921,6 @@ export default function GradesPage() {
                         >
                           <BarChart3 className="w-3.5 h-3.5" />
                           Report
-                        </Link>
-                        <Link
-                          to={`/grades/subjects/${g.courseId}`}
-                          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
-                        >
-                          <ClipboardCheck className="w-3.5 h-3.5" />
-                          Report Card
-                          <ArrowRight className="w-3 h-3" />
                         </Link>
                         <Tooltip label="Add assessment to this subject">
                           <button
@@ -852,27 +934,18 @@ export default function GradesPage() {
                       </div>
                     </div>
 
-                    {/* Mobile-only Report Card shortcut + mapping progress */}
+                    {/* Mobile-only subject report shortcut + mapping progress */}
                     <div className="sm:hidden px-5 pb-3 -mt-1 space-y-2">
-                      {!mappingsLoading && g.rows.length > 0 && (
-                        <MappingProgress mapped={g.mappedCount} total={g.rows.length} />
+                      {!mappingsLoading && g.mappableCount > 0 && (
+                        <MappingProgress mapped={g.mappedCount} total={g.mappableCount} />
                       )}
-                      <div className="grid grid-cols-2 gap-2">
-                        <Link
-                          to={`/grades/subjects/${g.courseId}/report`}
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-surface-light dark:bg-surface-dark/60 text-text-secondary-light dark:text-text-secondary-dark hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
-                        >
-                          <BarChart3 className="w-3.5 h-3.5" />
-                          Report
-                        </Link>
-                        <Link
-                          to={`/grades/subjects/${g.courseId}`}
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
-                        >
-                          <ClipboardCheck className="w-3.5 h-3.5" />
-                          Report Card <ArrowRight className="w-3 h-3" />
-                        </Link>
-                      </div>
+                      <Link
+                        to={`/grades/subjects/${g.courseId}/report`}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-surface-light dark:bg-surface-dark/60 text-text-secondary-light dark:text-text-secondary-dark hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                      >
+                        <BarChart3 className="w-3.5 h-3.5" />
+                        Report
+                      </Link>
                     </div>
 
                     {/* Body */}
@@ -932,6 +1005,7 @@ export default function GradesPage() {
                                       </td>
                                       <td className="px-5 py-3">
                                         <AssessmentMappingControl
+                                          lockedReason={a.partOf != null ? partOfReason(a) : null}
                                           category={getMappedCategory(a)}
                                           saving={mappingSavingKey === a.key}
                                           onChange={(cat) => handleQuickMap(a, cat)}

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, CheckCircle2, ChevronRight, X, XCircle } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -41,15 +41,22 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
   const panel = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
 
-  useLayoutEffect(() => {
-    if (!open || !btn.current) return;
+  // Place the popover under (or above) its cell, inside the viewport.
+  const place = useCallback(() => {
+    if (!btn.current) return;
     const r = btn.current.getBoundingClientRect();
     const width = 288;
     const left = Math.min(Math.max(8, r.left + r.width / 2 - width / 2), window.innerWidth - width - 8);
-    const below = r.bottom + 8;
-    const top = below + 280 > window.innerHeight ? Math.max(8, r.top - 8 - 280) : below;
-    setPos({ top, left, maxHeight: Math.max(200, window.innerHeight - top - 8) });
-  }, [open]);
+    const spaceBelow = window.innerHeight - r.bottom - 16;
+    const spaceAbove = r.top - 16;
+    const below = spaceBelow >= 280 || spaceBelow >= spaceAbove;
+    const maxHeight = Math.max(180, below ? spaceBelow : spaceAbove);
+    setPos(below ? { top: r.bottom + 8, left, maxHeight } : { top: Math.max(8, r.top - 8 - Math.min(maxHeight, panel.current?.scrollHeight ?? 320)), left, maxHeight });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (open) place();
+  }, [open, place]);
 
   useEffect(() => {
     if (!open) return;
@@ -57,16 +64,31 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
       if (!panel.current?.contains(e.target as Node) && !btn.current?.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    const onScroll = () => setOpen(false);
+    // Scrolling inside the popover is reading it; scrolling the page moves the
+    // popover with its cell (closing only once the cell is scrolled away).
+    const onScroll = (e: Event) => {
+      if (panel.current && e.target instanceof Node && panel.current.contains(e.target)) return;
+      const r = btn.current?.getBoundingClientRect();
+      if (!r || r.bottom < 0 || r.top > window.innerHeight) setOpen(false);
+      else place();
+    };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
     window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", place);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
       window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", place);
     };
-  }, [open]);
+  }, [open, place]);
+
+  // Re-place once the content is measured (the "above" position needs its height).
+  useLayoutEffect(() => {
+    if (open && pos && panel.current) place();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, !!pos]);
 
   const total = cell?.total ?? null;
   const missing = cell?.missing ?? 0;
@@ -129,7 +151,7 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
             role="dialog"
             aria-label={`${moduleName} — ${studentName}`}
             style={{ top: pos.top, left: pos.left, width: 288, maxHeight: pos.maxHeight }}
-            className="fixed z-[1000] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 text-left text-sm dark:border-white/10 dark:bg-slate-900"
+            className="fixed z-[1000] overflow-y-auto overscroll-contain rounded-2xl border border-gray-200 bg-white p-4 text-left text-sm dark:border-white/10 dark:bg-gray-900"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -241,12 +263,12 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
                             <Link
                               to={m.href}
                               onClick={() => setOpen(false)}
-                              className="flex items-center gap-2 rounded-lg bg-white px-2 py-1.5 text-xs hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-slate-900 dark:hover:bg-blue-500/10"
+                              className="flex items-center gap-2 rounded-lg bg-white px-2 py-1.5 text-xs hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-gray-900 dark:hover:bg-blue-500/10"
                             >
                               {body}
                             </Link>
                           ) : (
-                            <div className="flex items-center gap-2 rounded-lg bg-white px-2 py-1.5 text-xs dark:bg-slate-900">{body}</div>
+                            <div className="flex items-center gap-2 rounded-lg bg-white px-2 py-1.5 text-xs dark:bg-gray-900">{body}</div>
                           )}
                         </li>
                       );
