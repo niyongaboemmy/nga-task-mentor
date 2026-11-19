@@ -115,6 +115,16 @@ export interface WorkbenchCell {
   /** Points per category (out of its weight); null = no marks in that category yet. */
   categories?: Record<"CW" | "HW" | "MD" | "EOT", number | null> | null;
   competent?: boolean | null;
+  /** The assessments behind `missing`: what still needs a mark, and where to record it. */
+  missing_items?: WorkbenchMissingItem[];
+}
+
+export interface WorkbenchMissingItem {
+  assessment_type: "quiz" | "assignment" | "manual" | string;
+  assessment_id: number;
+  category: string;
+  title: string;
+  href: string | null;
 }
 
 export interface WorkbenchStudent {
