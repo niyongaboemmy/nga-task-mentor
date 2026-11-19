@@ -207,7 +207,8 @@ describe("report card workflow", () => {
     ]);
     const me = d.students.find((s: any) => s.student_id === misId);
     expect(me.card).toMatchObject({ id: cardId, status: "draft", editable: true });
-    expect(me.subjects[SUBJ].total).toBe(35); // 70% of EOT (50)
+    expect(me.subjects[SUBJ].total).toBe(70); // 70% on the only assessed category (EOT): other categories have no marks, so they are left out
+    expect(me.subjects[SUBJ].covered).toBe(50);
     expect(await ReportCardAssessment.count({ where: { report_card_id: cardId } })).toBe(1);
     expect(d.subjects[0]).toMatchObject({ mapped_cards: 1, total_cards: 1 });
     expect(me.blockers.map((b: any) => b.code)).toEqual(expect.arrayContaining(["SUBJECT_NOT_SUBMITTED", "NO_COMMENT", "ATTRIBUTES_INCOMPLETE"]));
@@ -280,16 +281,16 @@ describe("report card workflow", () => {
     expect(snap!.pdf_sha256).toMatch(/^[0-9a-f]{64}$/);
     const doc = snap!.payload as any;
     expect(doc.student).toMatchObject({ name: `Aline Workflow ${RUN}`, registration_number: `REG-${RUN}`, class_name: `WF Class ${RUN}` });
-    expect(doc.groups[0].subjects[0]).toMatchObject({ total: 35, teacher: "Teacher Uwase", class_average: 35 });
-    expect(doc.summary).toMatchObject({ average: 35, position: 1, position_of: 1 });
+    expect(doc.groups[0].subjects[0]).toMatchObject({ total: 70, teacher: "Teacher Uwase", class_average: 70 });
+    expect(doc.summary).toMatchObject({ average: 70, position: 1, position_of: 1 });
 
     await setScore(30);
     const read = await auth(request(app).get(`/api/report-cards/student/${misId}?${q}`));
     expect(read.status).toBe(200);
-    expect(read.body.data.document.groups[0].subjects[0].total).toBe(35);
+    expect(read.body.data.document.groups[0].subjects[0].total).toBe(70);
     const diff = await auth(request(app).get(`/api/report-cards/${cardId}/diff`));
     expect(diff.body.data).toMatchObject({ frozen: true, version: 1 });
-    expect(diff.body.data.changes[0]).toMatchObject({ subject_id: SUBJ, approved: 35, now: 15 });
+    expect(diff.body.data.changes[0]).toMatchObject({ subject_id: SUBJ, approved: 70, now: 30 });
   });
 
   it("publishes, and the student sees the frozen card", async () => {
@@ -297,7 +298,7 @@ describe("report card workflow", () => {
     const res = await auth(request(app).get(`/api/report-cards/student/${misId}?${q}`), studentToken);
     expect(res.status).toBe(200);
     expect(res.body.data.report_card).toMatchObject({ status: "published", version: 1 });
-    expect(res.body.data.document.groups[0].subjects[0].total).toBe(35);
+    expect(res.body.data.document.groups[0].subjects[0].total).toBe(70);
     const pdf = await auth(request(app).post("/api/report-cards/generate-pdf").send({ report_card_id: cardId }), studentToken);
     expect(pdf.status).toBe(200);
     expect(pdf.headers["content-type"]).toContain("application/pdf");
@@ -308,7 +309,7 @@ describe("report card workflow", () => {
     const card = (await ReportCard.findByPk(cardId))!;
     const res = await request(app).get(`/api/public/verify/report-card/${card.uuid}?v=1`);
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ verified: true, data: { version: 1, average_score: 35 } });
+    expect(res.body).toMatchObject({ verified: true, data: { version: 1, average_score: 70 } });
   });
 
   it("reopens only with a reason, and the old version stops verifying", async () => {
@@ -328,7 +329,7 @@ describe("report card workflow", () => {
     const card = (await ReportCard.findByPk(cardId))!;
     expect(card.version).toBe(2);
     const v2 = (await ReportCardSnapshot.findOne({ where: { report_card_id: cardId, version: 2 } }))!;
-    expect((v2.payload as any).groups[0].subjects[0].total).toBe(15);
+    expect((v2.payload as any).groups[0].subjects[0].total).toBe(30);
 
     const at = new Date(Date.now() + 3600_000).toISOString();
     const scheduled = await transition("publish", { publish_at: at });
@@ -365,9 +366,9 @@ describe("report card workflow", () => {
     const d = res.body.data;
     expect(d.basis).toBe("issued");
     const me = d.broadsheet.students.find((s: any) => s.student_id === misId);
-    expect(me).toMatchObject({ average: 15, gender: "female", position: 1 });
+    expect(me).toMatchObject({ average: 30, gender: "female", position: 1 });
     expect(d.gender.overall.female.students).toBeGreaterThanOrEqual(1);
-    expect(d.performance.subjects.find((s: any) => s.subject_id === SUBJ)).toMatchObject({ n: 1, mean: 15, pass_rate: 0 });
+    expect(d.performance.subjects.find((s: any) => s.subject_id === SUBJ)).toMatchObject({ n: 1, mean: 30, pass_rate: 0 });
     expect(d.at_risk.find((s: any) => s.student_id === misId).reasons.join(" ")).toMatch(/below the pass mark/);
   });
 

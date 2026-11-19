@@ -602,10 +602,10 @@ export const getWorkbench = async (req: Request, res: Response) => {
       const g = computed.get(card.id!)!;
       const info = studentsById.get(card.student_id);
       const facts = readinessOf(card, g, submitted, classSubjects, names, scheme.attributes.length);
-      const totals: Record<number, { total: number | null; missing: number }> = {};
+      const totals: Record<number, { total: number | null; missing: number; covered: number | null }> = {};
       for (const sid of subjectIds) {
         const grade = g.grades.find((x) => x.subject_id === sid);
-        totals[sid] = { total: grade ? grade.total_score : null, missing: g.missingBySubject.get(sid) ?? 0 };
+        totals[sid] = { total: grade ? grade.total_score : null, missing: g.missingBySubject.get(sid) ?? 0, covered: grade ? grade.weight_covered : null };
       }
       const avg = g.grades.length ? Math.round((g.grades.reduce((a, x) => a + x.total_score, 0) / g.grades.length) * 100) / 100 : null;
       const snap = snapBy.get(card.id!);

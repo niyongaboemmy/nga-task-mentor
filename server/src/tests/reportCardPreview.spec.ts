@@ -50,7 +50,8 @@ describe("buildProvisionalCard", () => {
     const maths = card.subjects[0];
     // CW: only quiz 1 recorded (80% of 15 = 12). MD: 60% of 25 = 15. EOT pending.
     expect(card.grades).toHaveLength(1);
-    expect(card.grades[0].total_score).toBe(27);
+    // 27 points over the 40 assessed (EOT has no mark yet) is a mark of 67.5, not 27.
+    expect(card.grades[0]).toMatchObject({ points: 27, weight_covered: 40, total_score: 67.5 });
     expect(maths).toMatchObject({
       expected: 4,
       recorded: 2,

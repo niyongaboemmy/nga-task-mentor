@@ -115,7 +115,8 @@ export interface WorkbenchStudent {
     returned_reason: string | null;
     editable: boolean;
   };
-  subjects: Record<number, { total: number | null; missing: number }>;
+  /** total: mark out of 100 over the assessed work; covered: weight (of 100) that has marks. */
+  subjects: Record<number, { total: number | null; missing: number; covered?: number | null }>;
   average: number | null;
   has_comment: boolean;
   attributes_rated: number;
