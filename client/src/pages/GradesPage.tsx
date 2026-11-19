@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import MarksAttentionBar, { type AttentionFilter } from "../components/Grades/MarksAttentionBar";
+import { getMarksAttention, type MarksAttention } from "../services/instructorOverviewApi";
 import {
   Plus,
   Search,
@@ -326,6 +328,39 @@ export default function GradesPage() {
   // ── Grouping / search state ──────────────────────────────────────────────
   const [search, setSearch]             = useState("");
   const [expanded, setExpanded]         = useState<Set<number>>(new Set());
+
+  // ── Marks attention: unmapped marks + missing marks (server-computed) ─────
+  const [params, setParams] = useSearchParams();
+  const attentionFilter = (["unmapped", "missing"].includes(params.get("attention") ?? "") ? params.get("attention") : null) as AttentionFilter;
+  const setAttentionFilter = (f: AttentionFilter) => {
+    const next = new URLSearchParams(params);
+    if (f) next.set("attention", f);
+    else next.delete("attention");
+    setParams(next, { replace: true });
+  };
+  const [attention, setAttention] = useState<MarksAttention | null>(null);
+  const [attentionLoading, setAttentionLoading] = useState(false);
+  const [attentionError, setAttentionError] = useState(false);
+  const loadAttention = useCallback(async (fresh = false) => {
+    setAttentionLoading(true);
+    try {
+      setAttention(await getMarksAttention({ fresh }));
+      setAttentionError(false);
+    } catch {
+      setAttentionError(true);
+    } finally {
+      setAttentionLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    void loadAttention();
+    // Back from recording marks in another tab/page: refresh.
+    const onVisible = () => document.visibilityState === "visible" && void loadAttention(true);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [loadAttention]);
+  const attentionByKey = useMemo(() => new Map((attention?.items ?? []).map((i) => [`${i.kind}-${i.id}`, i])), [attention]);
+  const attentionBySubject = useMemo(() => new Map((attention?.subjects ?? []).map((x) => [x.subject_id, x])), [attention]);
   // Toggled from the "Subjects Missing Assessments" KPI card — turns a
   // static number into a real filter on the list below.
   const [showOnlyMissing, setShowOnlyMissing] = useState(false);
@@ -605,6 +640,7 @@ export default function GradesPage() {
           assessments: next,
         });
         toast.success(category ? `Mapped to report-card category.` : "Mapping cleared.");
+        void loadAttention(true);
       } catch (e) {
         toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to update mapping.");
         setMappings((prev) => new Map(prev).set(row.courseId, previous));
@@ -612,13 +648,24 @@ export default function GradesPage() {
         setMappingSavingKey(null);
       }
     },
-    [term, academicYear, mappings],
+    [term, academicYear, mappings, loadAttention],
   );
 
   // ── Search + "missing only" filter: auto-expands matches ─────────────────
   const q = search.trim().toLowerCase();
   const filteredGroups = useMemo(() => {
-    const base = showOnlyMissing ? subjectGroups.filter((g) => g.rows.length === 0) : subjectGroups;
+    let base = showOnlyMissing ? subjectGroups.filter((g) => g.rows.length === 0) : subjectGroups;
+    if (attentionFilter) {
+      base = base
+        .map((g) => ({
+          ...g,
+          rows: g.rows.filter((r) => {
+            const i = attentionByKey.get(r.key);
+            return !!i && (attentionFilter === "unmapped" ? i.unmapped : i.missing > 0);
+          }),
+        }))
+        .filter((g) => g.rows.length > 0);
+    }
     if (!q) return base;
     return base
       .map((g) => {
@@ -631,7 +678,7 @@ export default function GradesPage() {
         return { ...g, rows: matchingRows, matched: subjectMatches || matchingRows.length > 0 };
       })
       .filter((g) => g.matched);
-  }, [subjectGroups, q, showOnlyMissing]);
+  }, [subjectGroups, q, showOnlyMissing, attentionFilter, attentionByKey]);
 
   const totalFilteredAssessments = useMemo(
     () => filteredGroups.reduce((sum, g) => sum + g.rows.length, 0),
@@ -639,8 +686,8 @@ export default function GradesPage() {
   );
 
   const effectivelyExpanded = useCallback(
-    (courseId: number) => (q ? true : expanded.has(courseId)),
-    [q, expanded],
+    (courseId: number) => (q || attentionFilter ? true : expanded.has(courseId)),
+    [q, expanded, attentionFilter],
   );
 
   const toggleExpanded = (courseId: number) => {
@@ -785,6 +832,8 @@ export default function GradesPage() {
       {/* Tab: Assessments */}
       {activeTab === "Assessments" && (
         <div className="space-y-4">
+          <MarksAttentionBar data={attention} loading={attentionLoading} error={attentionError} active={attentionFilter} onFilter={setAttentionFilter} />
+
           {/* Toolbar */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
@@ -906,6 +955,24 @@ export default function GradesPage() {
                             {typeof enrolled === "number" ? ` · ${enrolled} student${enrolled !== 1 ? "s" : ""}` : ""}
                           </p>
                         </div>
+                        {(() => {
+                          const att = attentionBySubject.get(g.courseId);
+                          if (!att) return null;
+                          return (
+                            <span className="ml-2 hidden flex-wrap gap-1.5 sm:flex" data-testid={`subject-attention-${g.courseId}`}>
+                              {att.unmapped > 0 && (
+                                <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-700 dark:bg-orange-500/15 dark:text-orange-300">
+                                  {att.unmapped} to map
+                                </span>
+                              )}
+                              {att.incomplete > 0 && (
+                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                                  {att.incomplete} missing marks
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })()}
                       </button>
 
                       {!mappingsLoading && g.mappableCount > 0 && (
@@ -996,20 +1063,39 @@ export default function GradesPage() {
                                       </td>
                                       <td className="px-5 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">{a.maxScore ?? "—"}</td>
                                       <td className="px-5 py-3 text-sm">
-                                        <RecordedResultsButton
-                                          kind={a.kind}
-                                          recorded={recorded}
-                                          total={enrolled}
-                                          onClick={() => goToDetail(a)}
-                                        />
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                          <RecordedResultsButton
+                                            kind={a.kind}
+                                            recorded={recorded}
+                                            total={enrolled}
+                                            onClick={() => goToDetail(a)}
+                                          />
+                                          {(attentionByKey.get(a.key)?.missing ?? 0) > 0 && (
+                                            <span
+                                              className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
+                                              title="This assessment is over: record these marks, or mark the students absent/exempt."
+                                              data-testid={`missing-${a.key}`}
+                                            >
+                                              {attentionByKey.get(a.key)!.missing} missing
+                                            </span>
+                                          )}
+                                        </div>
                                       </td>
                                       <td className="px-5 py-3">
-                                        <AssessmentMappingControl
-                                          lockedReason={a.partOf != null ? partOfReason(a) : null}
-                                          category={getMappedCategory(a)}
-                                          saving={mappingSavingKey === a.key}
-                                          onChange={(cat) => handleQuickMap(a, cat)}
-                                        />
+                                        <div className="flex items-center gap-1.5">
+                                          <AssessmentMappingControl
+                                            lockedReason={a.partOf != null ? partOfReason(a) : null}
+                                            category={getMappedCategory(a)}
+                                            saving={mappingSavingKey === a.key}
+                                            onChange={(cat) => handleQuickMap(a, cat)}
+                                            className={attentionByKey.get(a.key)?.unmapped && !getMappedCategory(a) ? "rounded-full ring-2 ring-orange-400/70" : ""}
+                                          />
+                                          {attentionByKey.get(a.key)?.unmapped && !getMappedCategory(a) && (
+                                            <span className="text-[11px] font-semibold text-orange-600 dark:text-orange-300" data-testid={`needs-mapping-${a.key}`}>
+                                              Needs mapping
+                                            </span>
+                                          )}
+                                        </div>
                                       </td>
                                       <td className="px-5 py-3">
                                         {/* Viewing/recording results now lives on the Recorded

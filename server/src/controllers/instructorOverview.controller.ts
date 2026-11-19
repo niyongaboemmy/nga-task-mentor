@@ -2,6 +2,7 @@ import { tk } from "../tenancy/keys";
 import { filterActiveMisRows } from "../utils/activeUsers";
 import { Request, Response } from "express";
 import { staffReportCardAlerts } from "../services/reportCardAlerts";
+import { loadMarksAttention, marksAttentionAlerts, type MarksAttention } from "../services/marksAttention";
 import { Op } from "sequelize";
 import axios from "axios";
 import { Assignment } from "../models/Assignment.model";
@@ -307,14 +308,56 @@ export async function computeOverview(
   return result;
 }
 
+// ─── Marks attention: unmapped marks and missing marks, per teacher ─────────
+
+const attentionCache = new Map<string, { at: number; body: MarksAttention }>();
+const ATTENTION_TTL_MS = 60_000;
+
+/** The caller's marks attention for the current term (cached 60s, like the overview). */
+export async function marksAttentionFor(req: Request, opts: { fresh?: boolean; result?: OverviewResult } = {}): Promise<MarksAttention> {
+  const userId = (req as any).user?.id ?? 0;
+  const key = tk(`marks-attention:${userId}`);
+  const hit = attentionCache.get(key);
+  if (!opts.fresh && hit && Date.now() - hit.at < ATTENTION_TTL_MS) return hit.body;
+  const r = opts.result ?? (await computeOverview(req, { fresh: opts.fresh }));
+  const subjects = r.overview.subjects.map((s) => ({ id: s.subject_id, name: s.subject_name, code: s.subject_code, students: s.students }));
+  const body = await loadMarksAttention(req, subjects, r.term_id);
+  if (attentionCache.size > 500) attentionCache.clear();
+  attentionCache.set(key, { at: Date.now(), body });
+  return body;
+}
+
+export function clearMarksAttentionCache() {
+  attentionCache.clear();
+}
+
+/** GET /api/dashboard/instructor/marks-attention */
+export const getMarksAttention = async (req: Request, res: Response) => {
+  try {
+    const data = await marksAttentionFor(req, { fresh: req.query.fresh === "1" });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    sendControllerError(res, error, "getMarksAttention");
+  }
+};
+
 export const getInstructorOverview = async (req: Request, res: Response) => {
   try {
     const subjectId = req.query.subjectId ? Number(req.query.subjectId) : null;
-    const { overview, scope } = await computeOverview(req, { subjectId, fresh: req.query.fresh === "1" });
+    const result = await computeOverview(req, { subjectId, fresh: req.query.fresh === "1" });
+    const { overview, scope } = result;
     const cardAlerts = subjectId ? [] : await staffReportCardAlerts(req);
+    // Unmapped / missing marks: for teachers' own subjects (school-wide scope would flood the bell).
+    if (!subjectId && scope !== "all") {
+      const attention = await marksAttentionFor(req, { fresh: req.query.fresh === "1", result }).catch(() => null);
+      if (attention) cardAlerts.push(...marksAttentionAlerts(attention));
+    }
+    // Most severe first, whatever produced it (stable within a severity).
+    const rank: Record<string, number> = { critical: 0, warning: 1, info: 2, success: 3 };
+    const alerts = [...cardAlerts, ...overview.alerts].sort((a, b) => (rank[a.severity] ?? 9) - (rank[b.severity] ?? 9));
     return res.status(200).json({
       success: true,
-      data: { ...overview, alerts: cardAlerts.length ? [...cardAlerts, ...overview.alerts] : overview.alerts, scope },
+      data: { ...overview, alerts, scope },
     });
   } catch (error) {
     if (error instanceof SubjectOutOfScopeError) {

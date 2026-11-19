@@ -181,3 +181,36 @@ export function overviewToCsv(o: InstructorOverview): string {
 
 /** Loader for the top-bar bell. */
 export const loadInstructorAlerts = async () => (await getInstructorOverview(null)).alerts;
+
+// ─── Marks attention (services/marksAttention.ts on the server) ─────────────
+
+export type MarkKind = "quiz" | "assignment" | "manual";
+
+export interface MarksAttentionItem {
+  kind: MarkKind;
+  id: number;
+  title: string;
+  subject_id: number;
+  at: string | null;
+  recorded: number;
+  expected: number | null;
+  /** Students without a mark on an assessment that is over. */
+  missing: number;
+  /** Has marks but sits in no report-card category. */
+  unmapped: boolean;
+  url: string;
+}
+
+export interface MarksAttention {
+  term: string | null;
+  academic_year: string | null;
+  totals: { unmapped: number; incomplete: number; missing_marks: number };
+  subjects: Array<{ subject_id: number; name: string; code: string | null; unmapped: number; incomplete: number }>;
+  items: MarksAttentionItem[];
+}
+
+/** Marks not mapped to the report card, and finished assessments with missing marks, for the caller's subjects. */
+export async function getMarksAttention(opts: { fresh?: boolean } = {}): Promise<MarksAttention> {
+  const res = await axios.get("/dashboard/instructor/marks-attention", { params: opts.fresh ? { fresh: 1 } : {} });
+  return res.data.data;
+}

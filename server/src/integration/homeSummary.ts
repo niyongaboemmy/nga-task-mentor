@@ -18,7 +18,7 @@ import {
   reminderTargets,
   StudentTask,
 } from "../services/studentOverview.service";
-import { computeOverview } from "../controllers/instructorOverview.controller";
+import { computeOverview, marksAttentionFor } from "../controllers/instructorOverview.controller";
 import {
   alertTargets,
   CLOSING_SOON_HOURS,
@@ -52,7 +52,8 @@ import { buildAlerts as bankAlerts, emptyStats, THIN_BANK_THRESHOLD } from "../c
  *     T-25 instructor dashboard alerts (computeOverview + alertTargets) ·
  *     T-24 empty/thin question banks (Question Bank hub rules)
  *   report cards: C-06 class-teacher comment · P-05 approve/publish
- * Not here (yet): T-06 marks-not-entered and D-02 moderation (no
+ *     T-06 missing marks · T-26 marks not mapped (marksAttention)
+ * Not here (yet): D-02 moderation (no
  * closed-assessment/moderation state in the data model).
  */
 
@@ -909,6 +910,31 @@ async function instructorItems(ctx: Ctx): Promise<AttentionItem[]> {
     t.emptySubjects.map(subjectLabel),
     { label: "Create assignment", path: ctx.has("ASSIGNMENTS_CREATE") ? "/assignments/create" : "/dashboard" },
   );
+
+  // T-06 / T-26: marks that can't count on report cards yet (services/marksAttention.ts).
+  const attention = await marksAttentionFor(ctx.req).catch(() => null);
+  if (attention) {
+    const unmapped = attention.items.filter((i) => i.unmapped);
+    push(
+      "T-26",
+      "slipping",
+      unmapped.length,
+      `${plural(unmapped.length, "assessment")} with marks not mapped to the report card`,
+      "Unmapped marks count nowhere on report cards: put each in CW, HW, MD or EOT.",
+      countChips(unmapped.map((i) => ({ label: attention.subjects.find((x) => x.subject_id === i.subject_id)?.code || i.title }))),
+      { label: "Map marks", path: "/grades?attention=unmapped" },
+    );
+    const missing = attention.items.filter((i) => i.missing > 0);
+    push(
+      "T-06",
+      "slipping",
+      missing.length,
+      `${plural(missing.length, "assessment")} with missing marks (${plural(attention.totals.missing_marks, "student")})`,
+      "Record the missing marks, or mark those students absent/exempt, before report cards.",
+      missing.slice(0, MAX_ENTITIES).map((i) => `${i.title} ${i.recorded}/${i.expected}`),
+      { label: "Complete marks", path: "/grades?attention=missing" },
+    );
+  }
   return items;
 }
 
