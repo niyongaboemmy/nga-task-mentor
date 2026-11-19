@@ -207,6 +207,9 @@ describe("ReportCardSettingsPage", () => {
       show_subject_teacher: true,
       head_title: "Head teacher",
       require_distinct_approver: true,
+      show_subject_rank: true,
+      show_competence: true,
+      competence_thresholds: { specific: 70, general: 50, complementary: 50 },
     });
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Report card settings saved."));
     expect(screen.getByTestId("save-scheme")).toBeDisabled(); // saved: nothing left to save
@@ -270,6 +273,9 @@ describe("settings validation", () => {
       show_subject_teacher: true,
       head_title: "Principal",
       require_distinct_approver: false,
+      show_subject_rank: true,
+      show_competence: true,
+      thresholds: { specific: "70", general: "50", complementary: "50" },
     };
     expect(validateScheme(base)).toEqual([]);
     expect(validateScheme({ ...base, weights: { ...base.weights, CW: "-1" } })).toContain("The CW weight must be between 0 and 100.");

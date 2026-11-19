@@ -156,6 +156,9 @@ export async function getBranding(): Promise<Branding> {
 // grouped (core/specific modules), what the card shows, and the signatures.
 
 export type SchemeCategory = "CW" | "HW" | "MD" | "EOT";
+/** RTB module categories (TVET curricula group modules this way). */
+export type ModuleCategory = "specific" | "general" | "complementary";
+export const MODULE_CATEGORIES: ModuleCategory[] = ["specific", "general", "complementary"];
 
 export interface ReportCardScheme {
   /** Category weights out of 100 (must sum to 100). */
@@ -167,8 +170,18 @@ export interface ReportCardScheme {
   /** Subject groups in card order, e.g. "Core modules" / "Specific modules". */
   subject_groups: Array<{ name: string; subject_ids: number[] }>;
   show_position: boolean;
+  /** Each module's rank in the class. */
+  show_subject_rank: boolean;
   show_class_average: boolean;
   show_subject_teacher: boolean;
+  /** Competent / Not Yet Competent per module (RTB competence-based assessment). */
+  show_competence: boolean;
+  /**
+   * The mark (out of 100) a module needs to be "Competent", by RTB module
+   * category. RTB: competent at not less than 70% of the module score; TVET
+   * curricula set 50% for general and complementary modules.
+   */
+  competence_thresholds: Record<ModuleCategory, number>;
   /** Title printed under the head of school's signature line. */
   head_title: string;
   /** The approver must be a different person from the reviewer. */
@@ -193,9 +206,12 @@ export const DEFAULT_REPORT_CARD_SCHEME: Readonly<ReportCardScheme> = Object.fre
   pass_mark: 50,
   attributes: [...NGA_ATTRIBUTES],
   subject_groups: [],
-  show_position: false,
+  show_position: true,
+  show_subject_rank: true,
   show_class_average: true,
   show_subject_teacher: true,
+  show_competence: true,
+  competence_thresholds: { specific: 70, general: 50, complementary: 50 },
   head_title: "Principal",
   require_distinct_approver: false,
 });
@@ -235,6 +251,12 @@ export function normalizeScheme(raw: unknown): ReportCardScheme | string {
     subject_groups.push({ name, subject_ids: ids });
   }
   const bool = (v: unknown, dflt: boolean) => (typeof v === "boolean" ? v : dflt);
+  const thresholds = { ...d.competence_thresholds, ...((r.competence_thresholds as any) ?? {}) };
+  for (const k of MODULE_CATEGORIES) {
+    const t = Number(thresholds[k]);
+    if (!Number.isFinite(t) || t < 0 || t > 100) return `Competence threshold for ${k} modules must be between 0 and 100.`;
+    thresholds[k] = t;
+  }
   const head = String(r.head_title ?? d.head_title).trim().slice(0, 60) || d.head_title;
   return {
     category_weights: weights,
@@ -242,8 +264,11 @@ export function normalizeScheme(raw: unknown): ReportCardScheme | string {
     attributes,
     subject_groups,
     show_position: bool(r.show_position, d.show_position),
+    show_subject_rank: bool(r.show_subject_rank, d.show_subject_rank),
     show_class_average: bool(r.show_class_average, d.show_class_average),
     show_subject_teacher: bool(r.show_subject_teacher, d.show_subject_teacher),
+    show_competence: bool(r.show_competence, d.show_competence),
+    competence_thresholds: thresholds,
     head_title: head,
     require_distinct_approver: bool(r.require_distinct_approver, d.require_distinct_approver),
   };

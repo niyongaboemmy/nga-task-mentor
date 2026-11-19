@@ -47,6 +47,7 @@ import ReportCardsPage from "../pages/ReportCardsPage";
 import SubmitMarksDialog from "../components/ReportCard/SubmitMarksDialog";
 import { ReportCardDocumentView } from "../components/ReportCard/ReportCardDocumentView";
 import { pickOption } from "./helpers/select";
+import MarkCell from "../components/ReportCard/MarkCell";
 
 const student = (id: number, name: string, status: WorkbenchStudent["card"]["status"], over: Partial<WorkbenchStudent> = {}): WorkbenchStudent => ({
   student_id: id,
@@ -183,6 +184,26 @@ describe("report card workbench", () => {
     expect(unmapped.tagName).toBe("DIV");
   });
 
+  it("explains the marks: a legend, and a click shows how a mark is worked out", async () => {
+    const wb = workbench([
+      student(1, "Aline Uwase", "draft", {
+        subjects: { 9: { total: 74, missing: 1, covered: 50, points: 37, categories: { CW: 11, HW: 6, MD: 20, EOT: null }, competent: true } },
+      }),
+    ]);
+    wb.subjects[0] = { ...wb.subjects[0], code: "SPEWI302", category: "specific", threshold: 70 };
+    api.workbench.mockResolvedValue({ success: true, data: wb });
+    renderWorkbench();
+    expect(await screen.findByTestId("marks-legend")).toHaveTextContent("mark out of 100");
+    const matrix = screen.getByTestId("workbench-matrix");
+    expect(within(matrix).getByText("SPEWI302")).toBeInTheDocument();
+    fireEvent.click(within(matrix).getByRole("button", { name: /Maths: 74% over 50% of the term assessed, 1 mark\(s\) missing/ }));
+    const pop = await screen.findByRole("dialog", { name: /Maths — Aline Uwase/ });
+    expect(pop).toHaveTextContent("Competent");
+    expect(pop).toHaveTextContent("37 of the 50 points assessed so far = 74%");
+    expect(pop).toHaveTextContent("not yet");
+    expect(pop).toHaveTextContent("1 mapped mark is not recorded yet");
+  });
+
   it("filters to cards ready to review", async () => {
     api.workbench.mockResolvedValue({ success: true, data: workbench(rows) });
     renderWorkbench();
@@ -260,6 +281,17 @@ describe("submit marks dialog", () => {
   });
 });
 
+describe("mark cell", () => {
+  it("shows not-yet-competent marks and a dash without marks", () => {
+    const { rerender } = render(
+      <MarkCell cell={{ total: 48, missing: 0, covered: 100, points: 48, categories: { CW: 8, HW: 5, MD: 12, EOT: 23 }, competent: false }} studentName="A" moduleName="C" threshold={70} />,
+    );
+    expect(screen.getByRole("button", { name: /C: 48%/ })).toHaveTextContent("48%");
+    rerender(<MarkCell cell={undefined} studentName="A" moduleName="C" />);
+    expect(screen.getByLabelText("No marks")).toHaveTextContent("—");
+  });
+});
+
 describe("report card document view", () => {
   const doc = (status: "draft" | "published"): ReportCardDocument => ({
     schema: 1,
@@ -303,12 +335,37 @@ describe("report card document view", () => {
       expect(within(d).getByText(t)).toBeInTheDocument();
     }
     expect(d).toHaveTextContent("86.6%");
+    expect(d).toHaveTextContent("3rd");
     expect(d).toHaveTextContent("of 40");
     expect(d).toHaveTextContent("Next term begins on Monday, 20 April 2026");
     expect(d).toHaveTextContent("Version 2");
     expect(within(d).getByText("60%")).toBeInTheDocument(); // present 3 of 5 days
     expect(within(d).getByTestId("verify-qr")).toBeInTheDocument();
     expect(d).not.toHaveTextContent("PROVISIONAL");
+  });
+
+  it("shows RTB modules: code, decision, position in class, and expands a module's breakdown", () => {
+    const d0 = doc("published");
+    d0.groups[0] = {
+      name: "Specific modules",
+      subjects: [
+        { ...d0.groups[0].subjects[0], code: "SPENF301", category: "specific", points: 89, weight_covered: 100, threshold: 70, competent: true, rank: 2, rank_of: 18 },
+        { ...d0.groups[0].subjects[0], subject_id: 2, name: "Programming in C", code: "SFEPE301", category: "specific", total: 38, grade: "F", passed: false, points: 38, weight_covered: 100, threshold: 70, competent: false, rank: 17, rank_of: 18 },
+      ],
+    };
+    d0.summary = { ...d0.summary, modules_competent: 1, modules_nyc: 1 };
+    d0.scheme = { ...d0.scheme, show_subject_rank: true, show_competence: true, competence_thresholds: { specific: 70, general: 50, complementary: 50 } };
+    render(<ReportCardDocumentView doc={d0} verificationUrl="https://x/verify?v=2" />);
+    const d = screen.getByTestId("report-card-document");
+    expect(within(d).getByText("SPENF301")).toBeInTheDocument();
+    expect(within(d).getByText("Competent", { selector: "span" })).toBeInTheDocument();
+    expect(within(d).getByText("NYC")).toBeInTheDocument();
+    expect(within(d).getByText("2/18")).toBeInTheDocument();
+    expect(d).toHaveTextContent("Position in class3rdof 40");
+    expect(d).toHaveTextContent("Needs attention: Programming in C");
+    fireEvent.click(within(d).getByTestId("module-2"));
+    expect(d).toHaveTextContent("38 of 100 points = 38%");
+    expect(d).toHaveTextContent("17th of 18 in the class");
   });
 
   it("watermarks a draft as provisional", () => {

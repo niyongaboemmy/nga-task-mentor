@@ -25,6 +25,7 @@ import { Skeleton } from "../components/ui/Skeleton";
 import Tooltip from "../components/ui/Tooltip";
 import ReportCardPreview from "../components/ReportCard/ReportCardPreview";
 import SubmitMarksDialog from "../components/ReportCard/SubmitMarksDialog";
+import MarkCell from "../components/ReportCard/MarkCell";
 import { CycleDatesModal, ProgressBar } from "./ReportCardsPage";
 import { statusMeta, ReportCardApiService } from "../services/reportCardApi";
 import {
@@ -222,6 +223,14 @@ export default function ReportCardWorkbenchPage() {
     }
   };
 
+  const [showAllSubjects, setShowAllSubjects] = useState(false);
+  const subjectHasMarks = (sid: number) => students.some((st) => st.subjects[sid]?.total != null || (st.subjects[sid]?.missing ?? 0) > 0);
+  const matrixSubjects = useMemo(
+    () => (data?.subjects ?? []).filter((sub) => showAllSubjects || subjectHasMarks(sub.subject_id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data, showAllSubjects, students],
+  );
+  const hiddenSubjects = (data?.subjects.length ?? 0) - matrixSubjects.length;
   const nameById = useMemo(() => new Map((data?.subjects ?? []).map((s) => [s.subject_id, s.name])), [data]);
   const total = students.length;
 
@@ -458,6 +467,46 @@ export default function ReportCardWorkbenchPage() {
             })}
           </div>
 
+          {/* How to read the marks */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-xs text-text-secondary-light dark:border-white/10 dark:bg-white/[0.03] dark:text-text-secondary-dark">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2" data-testid="marks-legend">
+              <span>
+                <strong className="text-text-primary-light dark:text-text-primary-dark">73%</strong> mark out of 100, over the work assessed so far
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-[3px] w-9 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
+                  <span className="block h-full w-1/2 rounded-full bg-blue-500/80" />
+                </span>
+                share of the term assessed (CW {data.scheme.category_weights?.CW ?? 15} · HW {data.scheme.category_weights?.HW ?? 10} · MD{" "}
+                {data.scheme.category_weights?.MD ?? 25} · EOT {data.scheme.category_weights?.EOT ?? 50})
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-amber-100 px-1 text-[9px] font-bold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                  1
+                </span>
+                marks not recorded yet
+              </span>
+              <span>
+                <strong className="text-red-700 dark:text-red-400">48%</strong> not yet competent
+                {data.scheme.competence_thresholds
+                  ? ` (specific < ${data.scheme.competence_thresholds.specific}%, general/complementary < ${data.scheme.competence_thresholds.general}%)`
+                  : ""}
+              </span>
+              <span>Click a mark for its breakdown.</span>
+            </div>
+            {hiddenSubjects > 0 || showAllSubjects ? (
+              <label className="inline-flex cursor-pointer items-center gap-2 text-text-primary-light dark:text-text-primary-dark">
+                <input
+                  type="checkbox"
+                  checked={showAllSubjects}
+                  onChange={(e) => setShowAllSubjects(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                />
+                Show modules with no marks{hiddenSubjects > 0 ? ` (${hiddenSubjects})` : ""}
+              </label>
+            ) : null}
+          </div>
+
           {/* Matrix */}
           {shown.length === 0 ? (
             <EmptyState title="No students in this view" description="Pick another filter above." />
@@ -477,12 +526,21 @@ export default function ReportCardWorkbenchPage() {
                       Student
                     </th>
                     <th className="px-2 py-2 text-left">Status</th>
-                    {data.subjects.map((s) => (
-                      <th key={s.subject_id} className="max-w-[90px] px-2 py-2 text-center font-medium" title={s.name}>
-                        <span className="line-clamp-2">{s.name}</span>
+                    {matrixSubjects.map((s) => (
+                      <th
+                        key={s.subject_id}
+                        className="max-w-[104px] px-2 py-2 text-center align-bottom font-medium"
+                        title={`${s.name}${s.code ? ` (${s.code})` : ""} — mark in % (out of 100)${s.threshold != null ? `, competent from ${s.threshold}%` : ""}`}
+                      >
+                        {s.code && <span className="block text-[10px] font-semibold text-blue-700 dark:text-blue-300">{s.code}</span>}
+                        <span className="line-clamp-2 leading-tight">{s.name}</span>
+                        <span className="mt-0.5 block text-[10px] font-normal opacity-70">%{s.threshold != null ? ` · ≥${s.threshold}` : ""}</span>
                       </th>
                     ))}
-                    <th className="px-2 py-2 text-center">Avg</th>
+                    <th className="px-2 py-2 text-center align-bottom" title="Average of the module marks, in %">
+                      Avg
+                      <span className="mt-0.5 block text-[10px] font-normal opacity-70">%</span>
+                    </th>
                     <th className="px-2 py-2 text-center" title="Class teacher's comment">
                       <MessageSquareText className="mx-auto h-4 w-4" />
                     </th>
@@ -525,30 +583,18 @@ export default function ReportCardWorkbenchPage() {
                           {!s.card.editable && <Lock className="h-3 w-3 text-text-secondary-light" aria-label="Locked" />}
                         </div>
                       </td>
-                      {data.subjects.map((sub) => {
-                        const c = s.subjects[sub.subject_id];
-                        const failing = c?.total != null && c.total < data.scheme.pass_mark;
-                        return (
-                          <td key={sub.subject_id} className="px-2 py-2 text-center tabular-nums">
-                            {c?.total != null ? (
-                              <span
-                                className={failing ? "font-semibold text-red-700 dark:text-red-400" : "text-text-primary-light dark:text-text-primary-dark"}
-                                title={c.covered != null && c.covered < 100 ? `${c.total.toFixed(1)} over the ${c.covered}% of the term assessed so far (categories without marks are left out)` : `${c.total.toFixed(1)} / 100`}
-                              >
-                                {Math.round(c.total)}
-                                {c.covered != null && c.covered < 100 && <sup className="ml-px text-[9px] font-medium text-text-secondary-light">{c.covered}%</sup>}
-                              </span>
-                            ) : (
-                              <span className="text-text-secondary-light/60">—</span>
-                            )}
-                            {c?.missing ? (
-                              <span className="ml-0.5 text-[10px] font-semibold text-amber-600" title={`${c.missing} mark(s) not recorded`}>
-                                ·{c.missing}
-                              </span>
-                            ) : null}
-                          </td>
-                        );
-                      })}
+                      {matrixSubjects.map((sub) => (
+                        <td key={sub.subject_id} className="px-1 py-1.5 text-center">
+                          <MarkCell
+                            cell={s.subjects[sub.subject_id]}
+                            studentName={s.name}
+                            moduleName={sub.name}
+                            moduleCode={sub.code}
+                            threshold={sub.threshold}
+                            weights={data.scheme.category_weights}
+                          />
+                        </td>
+                      ))}
                       <td className="px-2 py-2 text-center font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
                         {s.average != null ? s.average.toFixed(1) : "—"}
                       </td>

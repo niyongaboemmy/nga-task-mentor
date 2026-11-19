@@ -20,6 +20,7 @@ import {
   letterFor,
   type Branding,
   type GradeBand,
+  type ModuleCategory,
   type ReportCardScheme,
 } from "./tenantSettings";
 import { getMisToken } from "../utils/misUtils";
@@ -56,6 +57,19 @@ export interface DocumentSubject {
   class_average: number | null;
   /** Marks mapped but neither recorded nor resolved absent/exempt. */
   missing_marks: number;
+  /** RTB module code (e.g. SPEWI302), when MIS has one. */
+  code?: string | null;
+  /** RTB module category, from the scheme's groups or the code prefix. */
+  category?: ModuleCategory | null;
+  /** Points earned (sum of category scores) over `weight_covered` assessed points. */
+  points?: number | null;
+  weight_covered?: number | null;
+  /** The mark this module needs to be Competent, and whether it is (null = no mark yet). */
+  threshold?: number | null;
+  competent?: boolean | null;
+  /** Rank in the class for this module (1 = best), of `rank_of` students with a mark. */
+  rank?: number | null;
+  rank_of?: number | null;
 }
 
 export interface ReportCardDocument {
@@ -89,6 +103,9 @@ export interface ReportCardDocument {
     show_class_average: boolean;
     show_subject_teacher: boolean;
     head_title: string;
+    show_subject_rank?: boolean;
+    show_competence?: boolean;
+    competence_thresholds?: Record<ModuleCategory, number>;
   };
   /** Subjects in card order, grouped (a single unnamed group when the school defines none). */
   groups: Array<{ name: string | null; subjects: DocumentSubject[] }>;
@@ -103,6 +120,8 @@ export interface ReportCardDocument {
     position: number | null;
     position_of: number | null;
     class_average: number | null;
+    modules_competent?: number;
+    modules_nyc?: number;
   };
   attendance: {
     present: number;
@@ -123,15 +142,19 @@ export interface ReportCardDocument {
 // ─── Subject names (MIS catalogue, cached briefly per tenant) ───────────────
 
 const SUBJECT_TTL_MS = 5 * 60 * 1000;
-const subjectNameCache = new Map<string, { at: number; names: Record<number, string> }>();
+interface SubjectInfo {
+  name: string;
+  code: string | null;
+}
+const subjectInfoCache = new Map<string, { at: number; info: Record<number, SubjectInfo> }>();
 
-/** MIS subject id -> name. Best effort: a missing name renders "Subject #id". */
-export async function resolveSubjectNames(req: Request, subjectIds: number[]): Promise<Record<number, string>> {
+/** MIS subject id -> name and module code (best effort, cached briefly per tenant). */
+export async function resolveSubjectInfo(req: Request, subjectIds: number[]): Promise<Record<number, SubjectInfo>> {
   if (subjectIds.length === 0) return {};
-  const key = tk("subject-names");
-  const hit = subjectNameCache.get(key);
-  let names = hit && Date.now() - hit.at < SUBJECT_TTL_MS ? hit.names : null;
-  if (!names || subjectIds.some((id) => !(id in names!))) {
+  const key = tk("subject-info");
+  const hit = subjectInfoCache.get(key);
+  let info = hit && Date.now() - hit.at < SUBJECT_TTL_MS ? hit.info : null;
+  if (!info || subjectIds.some((id) => !(id in info!))) {
     const token = getMisToken(req, { quiet: true });
     if (token) {
       try {
@@ -139,25 +162,73 @@ export async function resolveSubjectNames(req: Request, subjectIds: number[]): P
           headers: { Authorization: `Bearer ${token}` },
           params: { limit: 500 },
         });
-        names = { ...(names ?? {}) };
+        info = { ...(info ?? {}) };
         for (const s of response.data?.data || []) {
           const id = s.id ?? s.subject_id;
-          if (id != null) names[Number(id)] = s.name || s.subject_name || s.title || `Subject #${id}`;
+          if (id != null) {
+            info[Number(id)] = {
+              name: s.name || s.subject_name || s.title || `Subject #${id}`,
+              code: typeof s.code === "string" && s.code.trim() ? s.code.trim() : null,
+            };
+          }
         }
-        subjectNameCache.set(key, { at: Date.now(), names });
+        subjectInfoCache.set(key, { at: Date.now(), info });
       } catch (error: any) {
-        console.error("resolveSubjectNames: could not fetch MIS subjects:", error?.message ?? error);
+        console.error("resolveSubjectInfo: could not fetch MIS subjects:", error?.message ?? error);
       }
     }
   }
-  const out: Record<number, string> = {};
-  for (const id of subjectIds) if (names?.[id]) out[id] = names[id];
+  const out: Record<number, SubjectInfo> = {};
+  for (const id of subjectIds) if (info?.[id]) out[id] = info[id];
+  return out;
+}
+
+/** MIS subject id -> name. Best effort: a missing name renders "Subject #id". */
+export async function resolveSubjectNames(req: Request, subjectIds: number[]): Promise<Record<number, string>> {
+  const info = await resolveSubjectInfo(req, subjectIds);
+  return Object.fromEntries(Object.entries(info).map(([id, v]) => [Number(id), v.name]));
+}
+
+/**
+ * The module code as printed: MIS may append "_<timestamp>" to keep codes
+ * unique (e.g. SFEPE301_1789738744651), which is not part of the code.
+ */
+export const displayCode = (code: string | null | undefined): string | null =>
+  code ? code.replace(/_\d{6,}$/, "").trim() || null : null;
+
+/**
+ * RTB module category from its code: CCM… complementary, GEN… general, any
+ * other trade code (e.g. SPE…, SFE…) specific. Null without a code.
+ */
+export function categoryFromCode(code: string | null | undefined): ModuleCategory | null {
+  const c = displayCode(code)?.toUpperCase();
+  if (!c) return null;
+  if (c.startsWith("CCM")) return "complementary";
+  if (c.startsWith("GEN")) return "general";
+  if (/^[A-Z]{3,}/.test(c)) return "specific";
+  return null;
+}
+
+export const CATEGORY_LABEL: Record<ModuleCategory, string> = {
+  specific: "Specific modules",
+  general: "General modules",
+  complementary: "Complementary modules",
+};
+
+/** Competition ranking of values, highest first (null = unranked). */
+export function rankValues(entries: Array<{ id: number; value: number | null }>): Map<number, number> {
+  const ranked = entries.filter((e) => e.value != null).sort((a, b) => (b.value as number) - (a.value as number));
+  const out = new Map<number, number>();
+  ranked.forEach((e, i) => {
+    const prev = ranked[i - 1];
+    out.set(e.id, prev && prev.value === e.value ? out.get(prev.id)! : i + 1);
+  });
   return out;
 }
 
 /** Tests only. */
 export function clearSubjectNameCache() {
-  subjectNameCache.clear();
+  subjectInfoCache.clear();
 }
 
 // ─── Grades of one card ──────────────────────────────────────────────────────
@@ -329,7 +400,8 @@ export async function buildCardDocuments(
     g.grades.forEach((x) => allSubjectIds.add(x.subject_id));
     g.mappedSubjects.forEach((id) => allSubjectIds.add(id));
   }
-  const names = await resolveSubjectNames(req, [...allSubjectIds]);
+  const subjectInfo = await resolveSubjectInfo(req, [...allSubjectIds]);
+  const names = Object.fromEntries(Object.entries(subjectInfo).map(([id, v]) => [Number(id), v.name])) as Record<number, string>;
 
   // A cohort key: class group (stored or from the directory) + period.
   const classOf = (c: ReportCard) => c.class_group_id ?? info.get(c.student_id)?.class_group_id ?? null;
@@ -344,7 +416,17 @@ export async function buildCardDocuments(
     const totals = g.grades.map((x) => x.total_score);
     return totals.length ? round2(totals.reduce((a, b) => a + b, 0) / totals.length) : null;
   };
-  const cohortStats = new Map<string, { subjectAvg: Map<number, number>; ranks: Map<number, number>; size: number; classAvg: number | null }>();
+  const cohortStats = new Map<
+    string,
+    {
+      subjectAvg: Map<number, number>;
+      /** subject id -> (card id -> rank in that subject), and how many were ranked. */
+      subjectRanks: Map<number, { ranks: Map<number, number>; of: number }>;
+      ranks: Map<number, number>;
+      size: number;
+      classAvg: number | null;
+    }
+  >();
   for (const [k, members] of byCohort) {
     const sums = new Map<number, { sum: number; n: number }>();
     for (const m of members) {
@@ -357,8 +439,17 @@ export async function buildCardDocuments(
     }
     const avgs = members.map((m) => ({ id: m.id!, average: averageOf(computed.get(m.id!)!) }));
     const ranked = avgs.filter((a) => a.average != null);
+    const subjectRanks = new Map<number, { ranks: Map<number, number>; of: number }>();
+    for (const sid of sums.keys()) {
+      const entries = members.map((m) => ({
+        id: m.id!,
+        value: computed.get(m.id!)!.grades.find((x) => x.subject_id === sid)?.total_score ?? null,
+      }));
+      subjectRanks.set(sid, { ranks: rankValues(entries), of: entries.filter((e) => e.value != null).length });
+    }
     cohortStats.set(k, {
       subjectAvg: new Map([...sums].map(([sid, s]) => [sid, round2(s.sum / s.n)])),
+      subjectRanks,
       ranks: rankAverages(avgs),
       size: ranked.length,
       classAvg: ranked.length ? round2(ranked.reduce((a, b) => a + (b.average as number), 0) / ranked.length) : null,
@@ -373,11 +464,30 @@ export async function buildCardDocuments(
   const cycleOf = (c: ReportCard) =>
     cycles.find((y) => y.class_group_id === classOf(c) && y.term === c.term && y.academic_year === c.academic_year) ?? null;
 
-  const groupOf = (subjectId: number) =>
-    scheme.subject_groups.find((g) => g.subject_ids.includes(subjectId))?.name ?? null;
+  // Module category: the scheme's own groups when named like an RTB category,
+  // else the module code's prefix.
+  const categoryFromGroupName = (name: string | null | undefined): ModuleCategory | null => {
+    const n = (name ?? "").toLowerCase();
+    if (n.includes("complementary")) return "complementary";
+    if (n.includes("general")) return "general";
+    if (n.includes("specific") || n.includes("core")) return "specific";
+    return null;
+  };
+  const schemeGroupOf = (subjectId: number) => scheme.subject_groups.find((g) => g.subject_ids.includes(subjectId))?.name ?? null;
+  const categoryOf = (subjectId: number): ModuleCategory | null =>
+    categoryFromGroupName(schemeGroupOf(subjectId)) ?? categoryFromCode(subjectInfo[subjectId]?.code);
+  // Groups: the school's own when it defined any; otherwise RTB categories from codes.
+  const useSchemeGroups = scheme.subject_groups.length > 0;
+  const groupOf = (subjectId: number) => {
+    if (useSchemeGroups) return schemeGroupOf(subjectId);
+    const c = categoryOf(subjectId);
+    return c ? CATEGORY_LABEL[c] : null;
+  };
+  const CATEGORY_ORDER = Object.values(CATEGORY_LABEL);
   const groupOrder = (name: string | null) => {
-    const i = scheme.subject_groups.findIndex((g) => g.name === name);
-    return i === -1 ? scheme.subject_groups.length : i;
+    const list = useSchemeGroups ? scheme.subject_groups.map((g) => g.name) : CATEGORY_ORDER;
+    const i = list.indexOf(name ?? "");
+    return i === -1 ? list.length : i;
   };
 
   for (const card of cards) {
@@ -402,6 +512,8 @@ export async function buildCardDocuments(
       const categories = Object.fromEntries(
         CATS.map((c) => [c, grade?.categories[c]?.scaled_score ?? null]),
       ) as Record<Cat, number | null>;
+      const category = categoryOf(sid);
+      const threshold = scheme.competence_thresholds[category ?? "specific"] ?? scheme.pass_mark;
       return {
         subject_id: sid,
         name: names[sid] ?? `Subject #${sid}`,
@@ -414,6 +526,14 @@ export async function buildCardDocuments(
         passed: total != null ? total >= scheme.pass_mark : null,
         class_average: stats.subjectAvg.get(sid) ?? null,
         missing_marks: g.missingBySubject.get(sid) ?? 0,
+        code: displayCode(subjectInfo[sid]?.code),
+        category,
+        points: grade ? round2(grade.points) : null,
+        weight_covered: grade ? grade.weight_covered : null,
+        threshold,
+        competent: total != null ? total >= threshold : null,
+        rank: stats.subjectRanks.get(sid)?.ranks.get(card.id!) ?? null,
+        rank_of: stats.subjectRanks.get(sid)?.of ?? null,
       };
     });
     subjects.sort((a, b) => groupOrder(a.group) - groupOrder(b.group) || a.name.localeCompare(b.name));
@@ -479,6 +599,9 @@ export async function buildCardDocuments(
         show_position: scheme.show_position,
         show_class_average: scheme.show_class_average,
         show_subject_teacher: scheme.show_subject_teacher,
+        show_subject_rank: scheme.show_subject_rank,
+        show_competence: scheme.show_competence,
+        competence_thresholds: scheme.competence_thresholds,
         head_title: scheme.head_title,
       },
       groups,
@@ -493,6 +616,8 @@ export async function buildCardDocuments(
         position,
         position_of: position != null ? stats.size : null,
         class_average: stats.classAvg,
+        modules_competent: counted.filter((x) => x.competent === true).length,
+        modules_nyc: counted.filter((x) => x.competent === false).length,
       },
       attendance,
       attributes,

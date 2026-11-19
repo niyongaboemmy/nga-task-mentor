@@ -12,7 +12,7 @@ import {
 import { normalizeScheme, DEFAULT_REPORT_CARD_SCHEME, NGA_GRADING_BANDS, DEFAULT_GRADING_BANDS, letterFor } from "../tenantSettings";
 import { calculateSubjectGrade } from "../reportCardGrader.service";
 import { resolveMark } from "../../utils/reportCardScores";
-import { rankAverages } from "../reportCardDocument";
+import { rankAverages, rankValues, categoryFromCode, displayCode } from "../reportCardDocument";
 import { diffDocumentTotals } from "../../controllers/reportCardWorkflow.controller";
 
 const ready: ReadinessFacts = {
@@ -210,5 +210,33 @@ describe("class positions and approval diffs", () => {
       { subject_id: 2, name: "Physics", approved: 60, now: 64.5 },
       { subject_id: 3, name: "Subject #3", approved: null, now: 50 },
     ]);
+  });
+});
+
+describe("RTB modules", () => {
+  it("reads the category from the module code", () => {
+    expect(categoryFromCode("SPEWI302")).toBe("specific");
+    expect(categoryFromCode("SFEPE301_1789738744651")).toBe("specific");
+    expect(categoryFromCode("GENAM301")).toBe("general");
+    expect(categoryFromCode("CCMKN302")).toBe("complementary");
+    expect(categoryFromCode(null)).toBeNull();
+    expect(displayCode("SFEPE301_1789738744651")).toBe("SFEPE301");
+  });
+
+  it("ranks a module's marks across the class", () => {
+    const r = rankValues([
+      { id: 1, value: 70 },
+      { id: 2, value: 90 },
+      { id: 3, value: 70 },
+      { id: 4, value: null },
+    ]);
+    expect([r.get(2), r.get(1), r.get(3), r.get(4)]).toEqual([1, 2, 2, undefined]);
+  });
+
+  it("defaults to RTB competence: specific 70%, general/complementary 50%, ranks shown", () => {
+    const s: any = normalizeScheme({});
+    expect(s.competence_thresholds).toEqual({ specific: 70, general: 50, complementary: 50 });
+    expect(s).toMatchObject({ show_position: true, show_subject_rank: true, show_competence: true });
+    expect(normalizeScheme({ competence_thresholds: { specific: 120 } })).toMatch(/Competence threshold/);
   });
 });

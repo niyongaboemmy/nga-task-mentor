@@ -58,6 +58,9 @@ interface SchemeForm {
   show_subject_teacher: boolean;
   head_title: string;
   require_distinct_approver: boolean;
+  show_subject_rank: boolean;
+  show_competence: boolean;
+  thresholds: { specific: string; general: string; complementary: string };
 }
 
 interface SubjectOption {
@@ -119,6 +122,10 @@ export function validateScheme(f: SchemeForm): string[] {
     if (!name || name.length > 60) errors.push(`Subject group ${i + 1} needs a name of at most 60 characters.`);
   });
   if (f.head_title.trim().length > 60) errors.push("The head of school title is at most 60 characters.");
+  for (const k of ["specific", "general", "complementary"] as const) {
+    const t = num(f.thresholds[k]);
+    if (!Number.isFinite(t) || t < 0 || t > 100) errors.push(`The competence mark for ${k} modules must be between 0 and 100.`);
+  }
   return errors;
 }
 
@@ -137,6 +144,13 @@ const toForm = (s: ReportCardScheme): SchemeForm => ({
   show_subject_teacher: !!s.show_subject_teacher,
   head_title: s.head_title ?? "",
   require_distinct_approver: !!s.require_distinct_approver,
+  show_subject_rank: s.show_subject_rank !== false,
+  show_competence: s.show_competence !== false,
+  thresholds: {
+    specific: String(s.competence_thresholds?.specific ?? 70),
+    general: String(s.competence_thresholds?.general ?? 50),
+    complementary: String(s.competence_thresholds?.complementary ?? 50),
+  },
 });
 
 const fromForm = (f: SchemeForm): ReportCardScheme => ({
@@ -149,6 +163,9 @@ const fromForm = (f: SchemeForm): ReportCardScheme => ({
   show_subject_teacher: f.show_subject_teacher,
   head_title: f.head_title.trim(),
   require_distinct_approver: f.require_distinct_approver,
+  show_subject_rank: f.show_subject_rank,
+  show_competence: f.show_competence,
+  competence_thresholds: { specific: num(f.thresholds.specific), general: num(f.thresholds.general), complementary: num(f.thresholds.complementary) },
 });
 
 const toBandRows = (bands: GradeBand[]): BandRow[] =>
@@ -520,6 +537,40 @@ export default function ReportCardSettingsPage() {
             </label>
           </Section>
 
+          {/* Competence (RTB) */}
+          <Section
+            id="rc-competence"
+            title="Competence (RTB)"
+            hint="Each module is Competent when its mark (out of 100) reaches the threshold for its category, otherwise Not Yet Competent (NYC). RTB: competent from 70% of the module score; general and complementary modules commonly pass at 50%."
+          >
+            <div className="grid max-w-xl grid-cols-1 gap-3 sm:grid-cols-3">
+              {(
+                [
+                  ["specific", "Specific modules"],
+                  ["general", "General modules"],
+                  ["complementary", "Complementary modules"],
+                ] as const
+              ).map(([k, label]) => (
+                <label key={k} className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/80">{label} (%)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    inputMode="decimal"
+                    value={form.thresholds[k]}
+                    onChange={(e) => patch({ thresholds: { ...form.thresholds, [k]: e.target.value } })}
+                    aria-label={`Competence mark for ${label}`}
+                    className={`${INPUT} w-full`}
+                  />
+                </label>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+              A module's category comes from its subject group above (named Specific / General / Complementary) or, by default, its MIS code: CCM… complementary, GEN… general, other trade codes specific.
+            </p>
+          </Section>
+
           {/* 3. Attributes */}
           <Section
             id="rc-attributes"
@@ -708,6 +759,18 @@ export default function ReportCardSettingsPage() {
                 hint='E.g. "5th of 32".'
                 checked={form.show_position}
                 onChange={(v) => patch({ show_position: v })}
+              />
+              <Toggle
+                label="Show each module's position in class"
+                hint='E.g. "3/18" beside the module mark.'
+                checked={form.show_subject_rank}
+                onChange={(v) => patch({ show_subject_rank: v })}
+              />
+              <Toggle
+                label="Show Competent / NYC decision"
+                hint="The RTB competence decision for each module."
+                checked={form.show_competence}
+                onChange={(v) => patch({ show_competence: v })}
               />
               <Toggle
                 label="Approver must differ from reviewer"

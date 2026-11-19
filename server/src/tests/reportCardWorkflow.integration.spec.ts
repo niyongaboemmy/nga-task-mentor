@@ -123,7 +123,7 @@ beforeAll(async () => {
       ]);
     }
     if (u.match(/\/academics\/class-groups\/\d+\/students$/)) return ok([]);
-    if (u.endsWith("/academics/subjects")) return ok([{ id: SUBJ, name: `WF Maths ${RUN}` }]);
+    if (u.endsWith("/academics/subjects")) return ok([{ id: SUBJ, name: `WF Maths ${RUN}`, code: "SPEWM301_1789738744651" }]);
     if (u.includes(`/academics/subjects/${SUBJ}/terms/`)) return ok([{ id: misId, status: "active" }]);
     if (u.includes("/enrolled-subjects")) return ok([{ subject_id: SUBJ, subject_name: `WF Maths ${RUN}` }]);
     throw Object.assign(new Error(`unmocked ${u}`), { response: { status: 404 } });
@@ -282,6 +282,10 @@ describe("report card workflow", () => {
     const doc = snap!.payload as any;
     expect(doc.student).toMatchObject({ name: `Aline Workflow ${RUN}`, registration_number: `REG-${RUN}`, class_name: `WF Class ${RUN}` });
     expect(doc.groups[0].subjects[0]).toMatchObject({ total: 70, teacher: "Teacher Uwase", class_average: 70 });
+    // RTB: code (without MIS's uniqueness suffix), category, competence, rank in class.
+    expect(doc.groups[0].name).toBe("Specific modules");
+    expect(doc.groups[0].subjects[0]).toMatchObject({ code: "SPEWM301", category: "specific", threshold: 70, rank: 1, rank_of: 1 });
+    expect(doc.summary.modules_competent + doc.summary.modules_nyc).toBe(1);
     expect(doc.summary).toMatchObject({ average: 70, position: 1, position_of: 1 });
 
     await setScore(30);
