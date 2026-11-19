@@ -216,6 +216,37 @@ describe("report card workflow", () => {
     expect((await ReportCard.findByPk(cardId))!.class_group_id).toBe(CG);
   });
 
+  it("names the assessments behind a module's missing marks, with where to record them", async () => {
+    const quiz = await ManualAssessment.create({
+      course_id: SUBJ,
+      title: `WF class test ${RUN}`,
+      assessment_type: "class_work",
+      max_score: 20,
+      term: TERM,
+      academic_year: YEAR,
+      created_by: null,
+    } as any);
+    const row = await ReportCardAssessment.create({
+      report_card_id: cardId,
+      subject_id: SUBJ,
+      assessment_type: "manual",
+      assessment_id: quiz.id,
+      category: "CW",
+    } as any);
+    try {
+      const res = await auth(request(app).get(`/api/report-cycles/workbench?class_group_id=${CG}&${q}`));
+      expect(res.status).toBe(200);
+      const me = res.body.data.students.find((s: any) => s.student_id === misId);
+      expect(me.subjects[SUBJ].missing).toBe(1);
+      expect(me.subjects[SUBJ].missing_items).toEqual([
+        { assessment_type: "manual", assessment_id: quiz.id, category: "CW", title: `WF class test ${RUN}`, href: `/courses/${SUBJ}/grades` },
+      ]);
+    } finally {
+      await row.destroy();
+      await quiz.destroy();
+    }
+  });
+
   it("lists the class among the term's cycles", async () => {
     const res = await auth(request(app).get(`/api/report-cycles?${q}`));
     expect(res.status).toBe(200);

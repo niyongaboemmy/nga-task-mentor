@@ -187,7 +187,8 @@ describe("report card workbench", () => {
   it("explains the marks: a legend, and a click shows how a mark is worked out", async () => {
     const wb = workbench([
       student(1, "Aline Uwase", "draft", {
-        subjects: { 9: { total: 74, missing: 1, covered: 50, points: 37, categories: { CW: 11, HW: 6, MD: 20, EOT: null }, competent: true } },
+        subjects: { 9: { total: 74, missing: 1, covered: 50, points: 37, categories: { CW: 11, HW: 6, MD: 20, EOT: null }, competent: true,
+            missing_items: [{ assessment_type: "assignment", assessment_id: 55, category: "HW", title: "Loops homework 3", href: "/assignments/55" }] } },
       }),
     ]);
     wb.subjects[0] = { ...wb.subjects[0], code: "SPEWI302", category: "specific", threshold: 70 };
@@ -201,7 +202,11 @@ describe("report card workbench", () => {
     expect(pop).toHaveTextContent("Competent");
     expect(pop).toHaveTextContent("37 of the 50 points assessed so far = 74%");
     expect(pop).toHaveTextContent("not yet");
-    expect(pop).toHaveTextContent("1 mapped mark is not recorded yet");
+    const missing = within(pop).getByTestId("missing-marks");
+    expect(missing).toHaveTextContent("1 mark not recorded yet");
+    expect(missing).toHaveTextContent("Loops homework 3");
+    expect(missing).toHaveTextContent("Assignment · HW (Homework)");
+    expect(within(missing).getByRole("link", { name: /Loops homework 3/ })).toHaveAttribute("href", "/assignments/55");
   });
 
   it("filters to cards ready to review", async () => {

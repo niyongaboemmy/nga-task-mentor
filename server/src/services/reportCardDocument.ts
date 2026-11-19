@@ -239,6 +239,8 @@ export interface CardGrades {
   rawMappings: ReportCardAssessment[];
   /** subject id -> marks mapped but not recorded and not resolved. */
   missingBySubject: Map<number, number>;
+  /** subject id -> which mapped assessments those missing marks are. */
+  missingItems: Map<number, Array<{ assessment_type: string; assessment_id: number; category: string }>>;
   /** subject ids that have mappings on the card (with or without marks). */
   mappedSubjects: Set<number>;
 }
@@ -262,6 +264,7 @@ export async function computeCardGrades(reportCard: ReportCard, weights?: Catego
 
   const subjectMap = new Map<number, AssessmentScore[]>();
   const missingBySubject = new Map<number, number>();
+  const missingItems: CardGrades["missingItems"] = new Map();
   const mappedSubjects = new Set<number>();
   for (const mapping of assessmentMappings) {
     const type = mapping.assessment_type as AssessmentScore["assessment_type"];
@@ -271,7 +274,12 @@ export async function computeCardGrades(reportCard: ReportCard, weights?: Catego
     const score = resolveMark(key, marks, mapping.mark_status);
     if (!score) {
       const resolved = mapping.mark_status === "exempt" || marks.statuses.get(key) === "exempt";
-      if (!resolved) missingBySubject.set(mapping.subject_id, (missingBySubject.get(mapping.subject_id) ?? 0) + 1);
+      if (!resolved) {
+        missingBySubject.set(mapping.subject_id, (missingBySubject.get(mapping.subject_id) ?? 0) + 1);
+        const list = missingItems.get(mapping.subject_id) ?? [];
+        list.push({ assessment_type: type, assessment_id: mapping.assessment_id, category: mapping.category });
+        missingItems.set(mapping.subject_id, list);
+      }
       continue;
     }
     const list = subjectMap.get(mapping.subject_id) ?? [];
@@ -291,6 +299,7 @@ export async function computeCardGrades(reportCard: ReportCard, weights?: Catego
     attributes: attributes.map((a) => ({ id: a.id, attribute_name: a.attribute_name, rating: a.rating })),
     rawMappings: assessmentMappings,
     missingBySubject,
+    missingItems,
     mappedSubjects,
   };
 }
