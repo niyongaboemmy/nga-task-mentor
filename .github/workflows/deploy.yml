@@ -215,13 +215,28 @@ jobs:
             # deploy that overlapped this one before the concurrency group
             # existed): retry once from a verified cache with a clean
             # node_modules. A real build error fails the retry too.
-            if [ ! -f node_modules/typescript/lib/lib.es2023.d.ts ] || ! npm run build; then
+            #
+            # Built into dist-next and swapped in only when it succeeds: vite empties
+            # its outDir first, and on 2026-11-20 the box ran out of memory mid-build
+            # (OOM killer), leaving dist/ empty -- nginx served 404 until a manual
+            # upload. A failed build now leaves the live site as it was.
+            # The 1.5 GB heap cap makes V8 collect sooner instead of growing until
+            # the kernel kills it on this 4 GB box.
+            export NODE_OPTIONS="--max-old-space-size=1536"
+            rm -rf dist-next
+            if [ ! -f node_modules/typescript/lib/lib.es2023.d.ts ] || ! npm run build -- --outDir dist-next --emptyOutDir; then
               echo "Client build failed; verifying the npm cache and reinstalling once"
               npm cache verify
-              rm -rf node_modules
+              rm -rf node_modules dist-next
               npm ci --legacy-peer-deps
-              npm run build
+              npm run build -- --outDir dist-next --emptyOutDir
             fi
+            unset NODE_OPTIONS
+            [ -f dist-next/index.html ] || { echo "Client build produced no index.html; keeping the live dist"; exit 1; }
+            rm -rf dist-prev
+            [ -d dist ] && mv dist dist-prev
+            mv dist-next dist
+            rm -rf dist-prev
             cd ..
 
             pm2 restart taskmentor-server --update-env || pm2 start server/dist/index.js --name taskmentor-server --update-env
