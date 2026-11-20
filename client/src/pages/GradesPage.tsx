@@ -8,7 +8,6 @@ import {
   Pencil,
   Trash2,
   Eye,
-  Loader2,
   Users,
   BookOpen,
   School,
@@ -23,6 +22,7 @@ import {
   ArrowRight,
   CheckCircle2,
   X,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { CourseApiService } from "../services/courseApi";
@@ -44,6 +44,12 @@ import {
   type SubjectMappingItem,
 } from "../services/reportCardApi";
 import type { Course } from "../types/course.types";
+import { useReportCardStructure } from "../hooks/useReportCardStructure";
+import { suggestCategory } from "../components/Grades/mappingSuggestions";
+import SuggestMappingDialog from "../components/Grades/SuggestMappingDialog";
+import TemplatePreviewButton from "../components/ReportCard/templates/TemplatePreviewButton";
+import { toastWithUndo } from "../components/ui/UndoToast";
+import { Skeleton } from "../components/ui/Skeleton";
 
 // ─── Unified assessment row ───────────────────────────────────────────────────
 // Quizzes, assignments, and manual entries are three separate models on the
@@ -616,12 +622,46 @@ export default function GradesPage() {
   // mapping, patches the one row, and full-replaces it (the backend's
   // subject-mapping/save endpoint always replaces the whole set for that
   // subject/term/year).
-  const handleQuickMap = useCallback(
-    async (row: AssessmentRow, category: AssessmentCategory | null) => {
+  const { builder, structure } = useReportCardStructure();
+  const categoryLabel = useCallback((c: AssessmentCategory | null) => (c ? (structure.categories.find((x) => x.key === c)?.label ?? c) : null), [structure]);
+
+  /** Saves a subject's whole mapping set (optimistic; a failure puts the previous set back). */
+  const saveMappingSet = useCallback(
+    async (courseId: number, next: SubjectMappingItem[], previous: SubjectMappingItem[], savingKey: string): Promise<boolean> => {
       if (!term || !academicYear) {
         toast.error("No active term/year to map against.");
-        return;
+        return false;
       }
+      setMappings((prev) => new Map(prev).set(courseId, next));
+      setMappingSavingKey(savingKey);
+      try {
+        await ReportCardApiService.saveSubjectMapping({ subject_id: courseId, term, academic_year: academicYear, assessments: next });
+        void loadAttention(true);
+        return true;
+      } catch (e) {
+        toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to update mapping.");
+        setMappings((prev) => new Map(prev).set(courseId, previous));
+        return false;
+      } finally {
+        setMappingSavingKey(null);
+      }
+    },
+    [term, academicYear, loadAttention],
+  );
+
+  /** Puts a subject's previous mapping back (the Undo of a toast). */
+  const undoMapping = useCallback(
+    (courseId: number, previous: SubjectMappingItem[], current: SubjectMappingItem[]) => {
+      void saveMappingSet(courseId, previous, current, `undo-${courseId}`).then((ok) => ok && toast.success("Mapping restored."));
+    },
+    [saveMappingSet],
+  );
+
+  // ── Quick-map: assign/clear a single assessment's category without ───────
+  // opening the full Report Card Builder. Patches the one row and saves the
+  // subject's whole set (the server replaces it), with Undo on the toast.
+  const handleQuickMap = useCallback(
+    async (row: AssessmentRow, category: AssessmentCategory | null) => {
       if (row.partOf != null) {
         toast.error(partOfReason(row));
         return;
@@ -629,26 +669,36 @@ export default function GradesPage() {
       const previous = mappings.get(row.courseId) ?? [];
       const next = previous.filter((m) => !(m.assessment_type === row.kind && m.assessment_id === row.id));
       if (category) next.push({ assessment_type: row.kind, assessment_id: row.id, category });
-
-      setMappings((prev) => new Map(prev).set(row.courseId, next));
-      setMappingSavingKey(row.key);
-      try {
-        await ReportCardApiService.saveSubjectMapping({
-          subject_id: row.courseId,
-          term,
-          academic_year: academicYear,
-          assessments: next,
-        });
-        toast.success(category ? `Mapped to report-card category.` : "Mapping cleared.");
-        void loadAttention(true);
-      } catch (e) {
-        toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to update mapping.");
-        setMappings((prev) => new Map(prev).set(row.courseId, previous));
-      } finally {
-        setMappingSavingKey(null);
+      if (await saveMappingSet(row.courseId, next, previous, row.key)) {
+        toastWithUndo(category ? `"${row.title}" now counts as ${categoryLabel(category)}.` : `"${row.title}" taken off the report card.`, () =>
+          undoMapping(row.courseId, previous, next),
+        );
       }
     },
-    [term, academicYear, mappings, loadAttention],
+    [mappings, saveMappingSet, undoMapping, categoryLabel],
+  );
+
+  // ── Suggested mapping for a subject's unmapped work ──────────────────────
+  const [suggestFor, setSuggestFor] = useState<number | null>(null);
+  const unmappedRowsOf = useCallback(
+    (courseId: number, rows: AssessmentRow[]) => rows.filter((r) => r.partOf == null && !(mappings.get(courseId) ?? []).some((m) => m.assessment_type === r.kind && m.assessment_id === r.id)),
+    [mappings],
+  );
+  const suggestionOf = useCallback((r: AssessmentRow) => suggestCategory({ kind: r.kind, manualType: r.manual?.assessment_type ?? null }, builder), [builder]);
+  const applySuggestions = useCallback(
+    async (courseId: number, rows: AssessmentRow[], choices: Array<{ key: string; category: AssessmentCategory }>) => {
+      const previous = mappings.get(courseId) ?? [];
+      const byKey = new Map(rows.map((r) => [r.key, r]));
+      const next = [...previous];
+      for (const c of choices) {
+        const r = byKey.get(c.key);
+        if (r) next.push({ assessment_type: r.kind, assessment_id: r.id, category: c.category });
+      }
+      const ok = await saveMappingSet(courseId, next, previous, `suggest-${courseId}`);
+      if (ok) toastWithUndo(`Mapped ${choices.length} assessment${choices.length === 1 ? "" : "s"} to the report card.`, () => undoMapping(courseId, previous, next));
+      return ok;
+    },
+    [mappings, saveMappingSet, undoMapping],
   );
 
   // ── Search + "missing only" filter: auto-expands matches ─────────────────
@@ -886,6 +936,14 @@ export default function GradesPage() {
               {canOpenReportCards && (
                 <ReportCardsShortcut mapped={mappingTotals.mapped} total={mappingTotals.total} subjectsLeft={mappingTotals.subjectsLeft} loading={mappingsLoading} />
               )}
+              <span
+                data-testid="grades-builder-chip"
+                title={structure.description}
+                className="hidden items-center gap-1 rounded-full border border-gray-200 py-0.5 pl-3 pr-1 text-[11px] font-semibold text-text-secondary-light dark:border-border-dark/40 dark:text-text-secondary-dark lg:inline-flex"
+              >
+                {structure.label} builder
+                <TemplatePreviewButton builder={builder} label="Template" />
+              </span>
               <button
                 onClick={() => openAddModal()}
                 className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -898,8 +956,17 @@ export default function GradesPage() {
 
           {/* Subject cards */}
           {loading ? (
-            <div className="flex justify-center items-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+            <div className="space-y-3" data-testid="grades-skeleton">
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className="flex items-center gap-3 rounded-2xl border border-white bg-card-light px-5 py-4 dark:border-border-dark/30 dark:bg-card-dark/30">
+                  <Skeleton className="h-9 w-9 rounded-xl" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-3.5 w-56" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                  <Skeleton className="h-7 w-20 rounded-full" />
+                </div>
+              ))}
             </div>
           ) : filteredGroups.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-20 text-center">
@@ -982,6 +1049,19 @@ export default function GradesPage() {
                       )}
 
                       <div className="flex items-center gap-2 flex-shrink-0">
+                        {!mappingsLoading && unmappedRowsOf(g.courseId, g.rows).length > 0 && (
+                          <Tooltip label="Map this subject's unmapped work in one go, with suggested categories">
+                            <button
+                              type="button"
+                              onClick={() => setSuggestFor(g.courseId)}
+                              data-testid={`suggest-${g.courseId}`}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20"
+                            >
+                              <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                              Map {unmappedRowsOf(g.courseId, g.rows).length}
+                            </button>
+                          </Tooltip>
+                        )}
                         <Link
                           to={`/grades/subjects/${g.courseId}/report`}
                           className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-surface-light dark:bg-surface-dark/60 text-text-secondary-light dark:text-text-secondary-dark hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
@@ -1071,13 +1151,15 @@ export default function GradesPage() {
                                             onClick={() => goToDetail(a)}
                                           />
                                           {(attentionByKey.get(a.key)?.missing ?? 0) > 0 && (
-                                            <span
-                                              className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
-                                              title="This assessment is over: record these marks, or mark the students absent/exempt."
+                                            <button
+                                              type="button"
+                                              onClick={() => (a.kind === "manual" ? navigate(`/grades/${a.id}/marks?filter=todo`) : goToDetail(a))}
+                                              className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 transition-colors hover:bg-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25"
+                                              title={a.kind === "manual" ? "Open the students without a mark: record them, or mark them absent/exempt." : "This assessment is over: record these marks."}
                                               data-testid={`missing-${a.key}`}
                                             >
-                                              {attentionByKey.get(a.key)!.missing} missing
-                                            </span>
+                                              {attentionByKey.get(a.key)!.missing} missing →
+                                            </button>
                                           )}
                                         </div>
                                       </td>
@@ -1177,6 +1259,23 @@ export default function GradesPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
+
+      {suggestFor != null &&
+        (() => {
+          const g = subjectGroups.find((x) => x.courseId === suggestFor);
+          if (!g) return null;
+          const rows = unmappedRowsOf(g.courseId, g.rows);
+          return (
+            <SuggestMappingDialog
+              open
+              subjectName={g.course?.title ?? `Subject #${g.courseId}`}
+              structure={structure}
+              rows={rows.map((r) => ({ key: r.key, title: r.title, kindLabel: KIND_LABEL[r.kind], suggested: suggestionOf(r) }))}
+              onApply={(choices) => applySuggestions(g.courseId, rows, choices)}
+              onClose={() => setSuggestFor(null)}
+            />
+          );
+        })()}
     </div>
   );
 }
