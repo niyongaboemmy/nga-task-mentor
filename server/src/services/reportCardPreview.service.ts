@@ -3,6 +3,7 @@ import {
   calculateSubjectGrade,
   type AssessmentCategory,
   type CategoryWeights,
+  type ComponentWeights,
   type AssessmentScore,
   type SubjectGrade,
 } from "./reportCardGrader.service";
@@ -34,6 +35,8 @@ export interface PreviewItem {
   assessment_id: number;
   category: AssessmentCategory;
   title: string;
+  /** Kind of work (quiz, assignment, class_work, homework...), for component weights. */
+  component?: string;
 }
 
 export interface PreviewSubjectInput {
@@ -93,6 +96,8 @@ export function buildProvisionalCard(
   subjects: PreviewSubjectInput[],
   scores: Map<string, { raw_score: number; max_score: number }>,
   weights: CategoryWeights = CATEGORY_WEIGHTS,
+  /** How much each kind of work weighs inside a category, per subject (as on the card). */
+  componentWeightsFor?: (subjectId: number) => ComponentWeights | undefined,
 ): ProvisionalCard {
   const grades: SubjectGrade[] = [];
   const out: PreviewSubject[] = [];
@@ -113,13 +118,16 @@ export function buildProvisionalCard(
           category: item.category,
           raw_score: score.raw_score,
           max_score: score.max_score,
+          component: item.component,
         });
       } else {
         pending.push({ title: item.title, kind: item.assessment_type, category: item.category });
       }
     }
 
-    const grade = recordedScores.length ? calculateSubjectGrade(s.subject_id, recordedScores, weights) : null;
+    const grade = recordedScores.length
+      ? calculateSubjectGrade(s.subject_id, recordedScores, weights, componentWeightsFor?.(s.subject_id))
+      : null;
     if (grade) grades.push(grade);
     const weightCovered = grade ? grade.weight_covered : 0;
     const expected = s.items.length;

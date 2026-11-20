@@ -1,4 +1,5 @@
 import { COUNTED_MARKS } from "../models/Assignment.model";
+import { loadWeightingForRequest, weightedSubjectMark } from "../services/marksWeighting";
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import axios from "axios";
@@ -1241,6 +1242,7 @@ export const getStudentStanding = async (req: Request, res: Response) => {
         ...localUsers.map((u) => u.id),
       ]);
 
+    const weighting = await loadWeightingForRequest(req, courseIds.map(Number).filter((n) => !isNaN(n)));
     const payload = buildStandingPayload({
       target: { mis_user_id: targetMisId, user_id: localUser?.id ?? null },
       subjects: courses.map((c, i) => ({ ...c, roster: rosterIds[i] })),
@@ -1249,7 +1251,15 @@ export const getStudentStanding = async (req: Request, res: Response) => {
       submissions: submissions.map((s: any) => s.toJSON()),
       quizzes: quizzes.map((q: any) => q.toJSON()),
       quizSubmissions: quizSubmissions.map((s: any) => s.toJSON()),
+      // Weighted like the report card for subjects that map their work this term.
+      subjectMark: weighting.mapping.size
+        ? (courseId, items) =>
+            weightedSubjectMark(weighting, Number(courseId), items.map((i) => ({ type: i.type, id: i.id, component: i.component, raw: i.pct, max: 100 })))
+              ?.percentage ?? null
+        : undefined,
       recorded: manual.map((a) => ({
+        id: a.id!,
+        assessment_type: a.assessment_type ?? null,
         course_id: a.course_id,
         counts_to_final: a.add_to_final_grade !== false,
         max_score: Number(a.max_score) || 0,

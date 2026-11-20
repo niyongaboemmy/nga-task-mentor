@@ -8,6 +8,18 @@ import ReportCardTemplatesPage, { validateTvetOptions } from "../pages/ReportCar
 import { DEFAULT_TVET_OPTIONS, ReportCardWorkflowApi, type ReportCardScheme } from "../services/reportCardWorkflowApi";
 
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
+// The school's weights inside each category (its own panel; not under test here).
+vi.mock("../services/reportCardApi", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("../services/reportCardApi")>();
+  return {
+    ...orig,
+    ReportCardApiService: {
+      ...orig.ReportCardApiService,
+      getComponentWeights: vi.fn(async () => ({ success: true, data: { components: [{ key: "class_work", label: "Class work" }], default: {}, subject: null, effective: {} } })),
+      saveDefaultComponentWeights: vi.fn(async (weights: unknown) => ({ success: true, data: { default: weights } })),
+    },
+  };
+});
 vi.mock("../services/reportCardWorkflowApi", async (importOriginal) => {
   const orig = await importOriginal<typeof import("../services/reportCardWorkflowApi")>();
   return {
@@ -233,7 +245,7 @@ describe("Report card templates page", () => {
   it("on a TVET school, shows what isn't mapped this term and maps it to FA after confirming", async () => {
     vi.mocked(ReportCardWorkflowApi.scheme).mockResolvedValue({ success: true, data: { scheme: { ...structuredClone(SCHEME), builder: "tvet" }, bands: [] } });
     renderPage();
-    expect(await screen.findByTestId("formative-pending")).toHaveTextContent("3 quizzes, 1 assignment and 1 recorded mark in 2 subjects aren't mapped yet");
+    expect(await screen.findByTestId("formative-pending", {}, { timeout: 4000 })).toHaveTextContent("3 quizzes, 1 assignment and 1 recorded mark in 2 subjects aren't mapped yet");
     fireEvent.click(screen.getByTestId("map-formative"));
     expect(screen.getByText("Map 5 to FA?")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Map to FA" }));

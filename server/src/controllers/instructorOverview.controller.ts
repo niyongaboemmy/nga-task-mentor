@@ -1,4 +1,7 @@
 import { tk } from "../tenancy/keys";
+import { loadWeightingForRequest, weightedSubjectMark } from "../services/marksWeighting";
+import { fetchManualAssessments } from "../utils/manualAssessments";
+import { componentOfManual } from "../utils/reportCardScores";
 import { filterActiveMisRows } from "../utils/activeUsers";
 import { Request, Response } from "express";
 import { staffReportCardAlerts } from "../services/reportCardAlerts";
@@ -20,6 +23,8 @@ import {
   InstructorOverview,
   OverviewSubject,
   RosterStudent,
+  type ManualScoreRow,
+  type ScoreItem,
 } from "../services/instructorOverview.service";
 
 /**
@@ -285,8 +290,31 @@ export async function computeOverview(
       })
     : [];
 
+  // Report-card weighting for student/subject averages (mapped work this term,
+  // teacher-recorded marks included); subjects that map nothing keep the plain mean.
+  const weighting = ids.length ? await loadWeightingForRequest(req, ids) : null;
+  // Recorded marks only change a mapped subject's mark: not read when nothing is mapped.
+  const manual = weighting?.mapping.size ? await fetchManualAssessments(req, ids, "all") : null;
+  const manualScores: ManualScoreRow[] = [];
+  for (const a of manual?.assessments ?? []) {
+    const max = Number(a.max_score) || 0;
+    if (!a.add_to_final_grade || max <= 0) continue;
+    for (const [sid, score] of manual!.scoresByAssessment.get(a.id) ?? []) {
+      const mis = Number(sid);
+      if (!Number.isFinite(mis) || !Number.isFinite(score)) continue;
+      manualScores.push({ subject_id: Number(a.course_id), assessment_id: a.id, component: componentOfManual(a.assessment_type), mis_user_id: mis, pct: (score / max) * 100 });
+    }
+  }
+  const subjectMark =
+    weighting && weighting.mapping.size
+      ? (subjectId: number, items: ScoreItem[]) =>
+          weightedSubjectMark(weighting, subjectId, items.map((i) => ({ type: i.type, id: i.id, component: i.component, raw: i.pct, max: 100 })))?.percentage ?? null
+      : undefined;
+
   const overview = buildInstructorOverview({
     now: new Date(),
+    manualScores,
+    subjectMark,
     academic_term_id: termId,
     subjects,
     rosters,

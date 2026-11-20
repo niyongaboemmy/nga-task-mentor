@@ -25,6 +25,8 @@ vi.mock("react-router-dom", async (importOriginal) => {
 vi.mock("../services/reportCardApi", () => ({
   ReportCardApiService: {
     saveBuilder: vi.fn(),
+    getComponentWeights: vi.fn().mockResolvedValue({ success: true, data: { components: [], default: {}, subject: null, effective: {} } }),
+    saveSubjectComponentWeights: vi.fn().mockResolvedValue({ success: true, data: { subject: null, effective: {} } }),
   },
 }));
 
@@ -136,7 +138,8 @@ describe("ReportCardBuilder", () => {
     const item = { dndId: "manual-1", assessment_id: 1, assessment_type: "manual" as const, title: "Class test", subject_id: SUBJECTS[0].id };
     const exam = { dndId: "manual-2", assessment_id: 2, assessment_type: "manual" as const, title: "Term exam", subject_id: SUBJECTS[0].id };
     render(<ReportCardBuilder {...DEFAULT_PROPS} initialDropped={{ CW: [item], EOT: [exam] }} />);
-    expect(await screen.findByText("Formative Assessment")).toBeInTheDocument();
+    // Re-queried: the zones re-render once the structure and weights load.
+    await waitFor(() => expect(screen.getByText("Formative Assessment")).toBeInTheDocument());
     expect(screen.getByText("Comprehensive Assessment")).toBeInTheDocument();
     expect(screen.getByText("Integrated Assessment")).toBeInTheDocument();
     expect(screen.queryByText("Class Work")).not.toBeInTheDocument();

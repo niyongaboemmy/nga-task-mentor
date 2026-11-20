@@ -324,7 +324,7 @@ export default function SubjectAssessmentReportPage() {
           value={report.classAverage}
           suffix="%"
           progress={report.classAverage}
-          caption={report.medianPct === null ? "No marks yet — nothing to average" : `Median ${report.medianPct}% · counts only students with at least one mark`}
+          caption={`${report.weighting === "report_card" ? "Weighted like the report card · " : ""}${report.medianPct === null ? "No marks yet — nothing to average" : `Median ${report.medianPct}% · counts only students with at least one mark`}`}
         />
         <KpiCard
           icon={<CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}

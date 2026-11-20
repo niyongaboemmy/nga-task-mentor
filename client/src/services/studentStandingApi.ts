@@ -22,6 +22,8 @@ export type SubjectScores = Partial<Record<StandingKind, ScoreTally>>;
 export interface StandingMember {
   key: string;
   scores: Record<string, SubjectScores>;
+  /** course id -> score weighted like the report card (mapped subjects only); used for "all work". */
+  weighted?: Record<string, number>;
 }
 
 export interface StandingSubject {
@@ -72,7 +74,7 @@ export const memberScore = (
   kind: StandingKindFilter,
 ): number | null => {
   const perSubject = courseIds
-    .map((id) => subjectScore(member.scores[id], kind))
+    .map((id) => (kind === "all" && member.weighted?.[id] != null ? member.weighted[id] : subjectScore(member.scores[id], kind)))
     .filter((s): s is number => s !== null);
   if (perSubject.length === 0) return null;
   return round1(perSubject.reduce((a, s) => a + s, 0) / perSubject.length);

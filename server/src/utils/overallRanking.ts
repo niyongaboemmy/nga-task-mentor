@@ -51,7 +51,16 @@ export interface Mark {
   title: string;
   pct: number;
   date: string | null;
+  /** Kind of work for a recorded mark (class_work, homework, midterm...). */
+  component?: string;
 }
+
+/**
+ * A student's subject score the report card's way (mapped categories, kinds
+ * of work, builder weights), or null when the subject maps nothing this term.
+ * Used on "all work" only; a kind filter keeps the plain mean of that kind.
+ */
+export type SubjectMarkFn = (courseId: string, marks: Mark[]) => number | null;
 
 export const studentKey = (misId: number | null | undefined, localId: number | null | undefined) =>
   misId !== null && misId !== undefined && !isNaN(Number(misId))
@@ -101,6 +110,7 @@ export interface MarkSources {
     counts_to_final: boolean;
     max_score: number;
     date: string | null;
+    assessment_type?: string | null;
   }>;
   /** manual_assessment_scores rows; student_id is a MIS id or a local id. */
   manualScores: Array<{ manual_assessment_id: number; student_id: number; score: number }>;
@@ -220,6 +230,7 @@ export const collectMarks = (src: MarkSources): Mark[] => {
       title: m.title,
       pct: round1((score / m.max_score) * 100),
       date: m.date,
+      component: m.assessment_type && String(m.assessment_type).trim() ? String(m.assessment_type) : "manual",
     });
   }
 
@@ -263,11 +274,19 @@ export const scoreStudents = (
   marks: Mark[],
   courseIds: string[],
   kind: RankKindFilter,
+  subjectMark?: SubjectMarkFn,
 ): Map<string, Record<string, SubjectResult>> => {
   const courses = new Set(courseIds);
   const sums = new Map<string, Map<string, Map<RankKind, [number, number]>>>();
+  const items = new Map<string, Mark[]>(); // `${key}|${course}` -> marks, for subjectMark
   for (const m of marks) {
     if (!courses.has(m.course_id) || !matchesKind(m, kind)) continue;
+    if (subjectMark && kind === "all") {
+      const k = `${m.key}|${m.course_id}`;
+      const list = items.get(k) ?? [];
+      list.push(m);
+      items.set(k, list);
+    }
     const byCourse = sums.get(m.key) ?? new Map();
     sums.set(m.key, byCourse);
     const byKind = byCourse.get(m.course_id) ?? new Map();
@@ -290,7 +309,8 @@ export const scoreStudents = (
         sum += s;
         count += c;
       }
-      subjects[courseId] = { score: round1(sum / count), count, by_kind };
+      const weighted = subjectMark && kind === "all" ? subjectMark(courseId, items.get(`${key}|${courseId}`) ?? []) : null;
+      subjects[courseId] = { score: round1(weighted ?? sum / count), count, by_kind };
     }
     out.set(key, subjects);
   }
@@ -302,8 +322,9 @@ export const rankStudents = (
   marks: Mark[],
   courseIds: string[],
   kind: RankKindFilter,
+  subjectMark?: SubjectMarkFn,
 ): RankedStudent[] => {
-  const scored = [...scoreStudents(marks, courseIds, kind)].map(([key, subjects]) => {
+  const scored = [...scoreStudents(marks, courseIds, kind, subjectMark)].map(([key, subjects]) => {
     const subjectScores = Object.values(subjects);
     return {
       key,
@@ -695,6 +716,7 @@ export const buildStudentView = (input: {
    * are dropped before ranking; null ranks against the whole subject cohort.
    */
   classCohort?: { class_group_id: number; class_group_name: string; grade_name: string | null; keys: Set<string> } | null;
+  subjectMark?: SubjectMarkFn;
 }): StudentView => {
   const { meKey, kind, subjectId } = input;
   const classCohort = input.classCohort ?? null;
@@ -705,7 +727,7 @@ export const buildStudentView = (input: {
   const courseIds = subjects.map((s) => s.course_id);
   const pending = input.pending.filter((p) => courseIds.includes(p.course_id));
 
-  const overallRanked = rankStudents(marks, courseIds, kind);
+  const overallRanked = rankStudents(marks, courseIds, kind, input.subjectMark);
   const summary = summarise(overallRanked);
   const showAggregates = summary.ranked_count >= MIN_COHORT_FOR_AGGREGATES;
   const mine = overallRanked.find((r) => r.key === meKey) ?? null;
@@ -717,7 +739,7 @@ export const buildStudentView = (input: {
   }
 
   const subjectViews: StudentSubjectView[] = subjects.map((s) => {
-    const ranked = rankStudents(marks, [s.course_id], kind);
+    const ranked = rankStudents(marks, [s.course_id], kind, input.subjectMark);
     const sum = summarise(ranked);
     const me = ranked.find((r) => r.key === meKey) ?? null;
     const visible = sum.ranked_count >= MIN_COHORT_FOR_AGGREGATES;
@@ -873,6 +895,7 @@ export const buildStaffView = (input: {
   subjectId: string | null;
   classGroupId: number | null;
   gradeId?: number | null;
+  subjectMark?: SubjectMarkFn;
 }): StaffView => {
   const { kind, subjectId, classGroupId } = input;
   const gradeId = input.gradeId ?? null;
@@ -916,12 +939,12 @@ export const buildStaffView = (input: {
   const filtering = classGroupId !== null || gradeId !== null;
   const marks = filtering ? input.marks.filter((m) => inSelection(m.key)) : input.marks;
 
-  const ranked = rankStudents(marks, courseIds, kind);
+  const ranked = rankStudents(marks, courseIds, kind, input.subjectMark);
   const summary = summarise(ranked);
 
   // Place within class group and grade, over the whole subject cohort (the
   // same numbers whichever filter is on).
-  const everyone = filtering ? rankStudents(input.marks, courseIds, kind) : ranked;
+  const everyone = filtering ? rankStudents(input.marks, courseIds, kind, input.subjectMark) : ranked;
   const classPlace = new Map<string, { rank: number; size: number }>();
   const gradePlace = new Map<string, { rank: number; size: number }>();
   const placeWithin = (groupOf: (key: string) => number | null, out: Map<string, { rank: number; size: number }>) => {

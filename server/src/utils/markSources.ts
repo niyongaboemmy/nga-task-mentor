@@ -89,6 +89,7 @@ export async function loadMarkSources(
       counts_to_final: a.add_to_final_grade !== false,
       max_score: Number(a.max_score) || 0,
       date: a.assessment_date ?? null,
+      assessment_type: a.assessment_type ?? null,
     })),
     manualScores,
     localUsers: localUsers.map((u) => ({ id: u.id, mis_user_id: u.mis_user_id ?? null })),

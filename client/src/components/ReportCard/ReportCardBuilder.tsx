@@ -30,6 +30,7 @@ import {
   Eye,
   Search,
   Trash2,
+  Scale,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { AnimatePresence, motion } from "framer-motion";
@@ -53,6 +54,21 @@ import { ALL_CATEGORIES, CATEGORIES, emptyByCategory, weightLabel } from "./cate
 import { toBuilderCategory, useReportCardStructure } from "../../hooks/useReportCardStructure";
 import type { BuilderStructure, ReportCardBuilderKind } from "../../services/reportCardApi";
 import TemplatePreviewButton from "./templates/TemplatePreviewButton";
+import ComponentWeightsEditor from "./ComponentWeightsEditor";
+import type { ComponentWeightsResponse } from "../../services/reportCardApi";
+
+/** Kinds of work, when the server's list hasn't loaded. */
+const KIND_LABEL: Record<string, string> = {
+  quiz: "Quiz",
+  assignment: "Assignment",
+  class_work: "Class work",
+  group_work: "Group work",
+  homework: "Homework",
+  midterm: "Midterm",
+  participation: "Participation",
+  ca_end_of_term: "End-of-term exam",
+  manual: "Manual",
+};
 import Select from "../ui/Select";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -304,9 +320,12 @@ function DraggableCard({
 function DroppedItem({
   item,
   onRemove,
+  kindLabel,
 }: {
   item: AssessmentDragItem;
   onRemove: (dndId: string) => void;
+  /** What kind of work it is (Homework, Midterm, Quiz...), for the weights inside the category. */
+  kindLabel?: string;
 }) {
   const isManual = item.assessment_type === "manual";
   return (
@@ -327,9 +346,9 @@ function DroppedItem({
       <span className="text-gray-800 dark:text-slate-200 truncate flex-1 text-xs font-medium">
         {item.title}
       </span>
-      {isManual && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/60 text-orange-700 dark:text-orange-300 font-semibold flex-shrink-0">
-          Manual
+      {(kindLabel || isManual) && (
+        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold flex-shrink-0" data-testid={`kind-${item.dndId}`}>
+          {kindLabel ?? "Manual"}
         </span>
       )}
       <Tooltip label="Remove from category">
@@ -354,6 +373,8 @@ function CategoryDropZone({
   label,
   weightText,
   hint,
+  kindOf,
+  footer,
 }: {
   category: AssessmentCategory;
   items: AssessmentDragItem[];
@@ -361,6 +382,8 @@ function CategoryDropZone({
   label: string;
   weightText: string;
   hint?: string;
+  kindOf?: (item: AssessmentDragItem) => string;
+  footer?: React.ReactNode;
 }) {
   const meta = CATEGORIES[category];
   const { setNodeRef, isOver } = useDroppable({ id: category });
@@ -418,11 +441,12 @@ function CategoryDropZone({
         ) : (
           <AnimatePresence>
             {items.map((item) => (
-              <DroppedItem key={item.dndId} item={item} onRemove={onRemove} />
+              <DroppedItem key={item.dndId} item={item} onRemove={onRemove} kindLabel={kindOf?.(item)} />
             ))}
           </AnimatePresence>
         )}
       </div>
+      {footer}
     </div>
   );
 }
@@ -550,6 +574,92 @@ export default function ReportCardBuilder({
     () => subjects.find((s) => s.id === selectedSubjectId) ?? null,
     [subjects, selectedSubjectId],
   );
+
+  // ── Weights inside each category (kinds of work: class work, homework...) ──
+  const [cw, setCw] = useState<ComponentWeightsResponse | null>(null);
+  const [cwOpen, setCwOpen] = useState<AssessmentCategory | null>(null);
+  const [cwSaving, setCwSaving] = useState<AssessmentCategory | null>(null);
+  useEffect(() => {
+    if (!selectedSubjectId) return;
+    let live = true;
+    ReportCardApiService.getComponentWeights(selectedSubjectId)
+      .then((r) => live && setCw(r.data))
+      .catch(() => live && setCw(null));
+    return () => {
+      live = false;
+    };
+  }, [selectedSubjectId]);
+  const kindKey = useCallback(
+    (item: AssessmentDragItem) =>
+      item.assessment_type === "manual"
+        ? selectedSubject?.manualAssessments.find((m) => m.id === item.assessment_id)?.assessment_type || "manual"
+        : item.assessment_type,
+    [selectedSubject],
+  );
+  const kindLabel = useCallback((k: string) => cw?.components.find((c) => c.key === k)?.label ?? KIND_LABEL[k] ?? k, [cw]);
+  const saveCategoryWeights = async (cat: AssessmentCategory, weights: Record<string, number> | null) => {
+    if (!selectedSubjectId) return;
+    setCwSaving(cat);
+    try {
+      const r = await ReportCardApiService.saveSubjectComponentWeights(selectedSubjectId, cat, weights && Object.keys(weights).length ? weights : null);
+      setCw((prev) => (prev ? { ...prev, subject: r.data.subject, effective: r.data.effective } : prev));
+      const label = structure.categories.find((c) => c.key === cat)?.short ?? cat;
+      toast.success(weights && Object.keys(weights).length ? `Weights inside ${label} saved for this subject.` : `${label} uses the school's weights again.`);
+    } catch (e) {
+      toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message || "Couldn't save the weights.");
+    } finally {
+      setCwSaving(null);
+    }
+  };
+  const weightsFooter = (cat: AssessmentCategory, label: string) => {
+    const items = dropped[cat];
+    if (!items.length || !selectedSubjectId) return null;
+    const counts = new Map<string, number>();
+    items.forEach((it) => counts.set(kindKey(it), (counts.get(kindKey(it)) ?? 0) + 1));
+    const value = cw?.effective?.[cat];
+    const source: "subject" | "school" | "none" = cw?.subject?.[cat] ? "subject" : cw?.default?.[cat] ? "school" : "none";
+    const keys = [...new Set([...counts.keys(), ...Object.keys(value ?? {})])];
+    const total = keys.reduce((a, k) => a + ((counts.get(k) ?? 0) > 0 ? (value?.[k] ?? 0) : 0), 0);
+    const summary =
+      value && total > 0
+        ? keys
+            .filter((k) => (counts.get(k) ?? 0) > 0 && (value[k] ?? 0) > 0)
+            .map((k) => `${kindLabel(k)} ${Math.round(((value[k] ?? 0) / total) * 100)}%`)
+            .join(" · ")
+        : "Every assessment counts the same";
+    const open = cwOpen === cat;
+    return (
+      <div className="border-t border-black/[0.06] px-3 py-2.5 dark:border-white/[0.06]" data-testid={`weights-${cat}`}>
+        <button
+          type="button"
+          onClick={() => setCwOpen(open ? null : cat)}
+          aria-expanded={open}
+          className="flex w-full items-center gap-2 text-left text-xs text-gray-600 hover:text-blue-700 dark:text-slate-300 dark:hover:text-blue-300"
+        >
+          <Scale className="h-3.5 w-3.5 flex-shrink-0" aria-hidden />
+          <span className="font-semibold">Weights:</span>
+          <span className="min-w-0 flex-1 truncate" data-testid={`weights-summary-${cat}`}>
+            {summary}
+          </span>
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
+        </button>
+        {open && (
+          <div className="mt-2.5">
+            <ComponentWeightsEditor
+              compact
+              categoryLabel={label}
+              rows={keys.map((k) => ({ key: k, label: kindLabel(k), count: counts.get(k) ?? 0 }))}
+              value={value}
+              source={source}
+              saving={cwSaving === cat}
+              onSave={(w) => void saveCategoryWeights(cat, w)}
+              onReset={source === "subject" ? () => void saveCategoryWeights(cat, null) : undefined}
+            />
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const allSubjectItems = useMemo<AssessmentDragItem[]>(() => {
     if (!selectedSubject) return [];
@@ -1165,6 +1275,8 @@ export default function ReportCardBuilder({
                   label={c.label}
                   weightText={weightLabel(builder, c.weight)}
                   hint={c.hint}
+                  kindOf={(it) => kindLabel(kindKey(it))}
+                  footer={weightsFooter(c.key, c.short)}
                 />
               ))}
             </div>
