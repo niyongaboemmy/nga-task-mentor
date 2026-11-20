@@ -26,6 +26,9 @@ import {
   putScheme,
   getStructure,
   getTemplateModules,
+  getTemplateSchool,
+  putTemplateSchool,
+  putModuleWeight,
 } from "../controllers/reportCardWorkflow.controller";
 import { transitionSchema } from "../validations/reportCardWorkflow.validation";
 import { validate, validateBody } from "../middleware/validation.middleware";
@@ -149,6 +152,11 @@ router.put("/scheme", authorizePermission("REPORT_CARDS_APPROVE", "USERS_EDIT"),
 router.get("/structure", getStructure);
 // Modules with their MIS learning hours, for the TVET module-weight editor.
 router.get("/templates/modules", authorizePermission("REPORT_CARDS_APPROVE", "USERS_EDIT"), getTemplateModules);
+// A module's weight and the school's identity block live in MIS (per tenant):
+// read here, saved through to MIS, which checks its own permission too.
+router.put("/templates/modules/:id(\\d+)/weight", authorizePermission("REPORT_CARDS_APPROVE", "USERS_EDIT"), putModuleWeight);
+router.get("/templates/school", authorizePermission("REPORT_CARDS_APPROVE", "USERS_EDIT"), getTemplateSchool);
+router.put("/templates/school", authorizePermission("REPORT_CARDS_APPROVE", "USERS_EDIT"), putTemplateSchool);
 
 router.get("/:id(\\d+)/history", authorizePermission("REPORT_CARDS_VIEW_ALL"), getCardHistory);
 router.get("/:id(\\d+)/diff", authorizePermission("REPORT_CARDS_VIEW_ALL"), getCardDiff);

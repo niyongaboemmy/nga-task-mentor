@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertCircle, Check, CheckCircle2, Eye, LayoutTemplate, Loader2, RotateCcw, Save, Search, Settings2, Sparkles } from "lucide-react";
+import { AlertCircle, Check, CheckCircle2, Eye, LayoutTemplate, Loader2, RotateCcw, Save, Settings2, Sparkles } from "lucide-react";
 import { toast } from "react-toastify";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Skeleton } from "../components/ui/Skeleton";
@@ -8,6 +8,8 @@ import ConfirmDialog from "../components/ui/ConfirmDialog";
 import TemplateCanvas from "../components/ReportCard/templates/TemplateCanvas";
 import TemplatePreviewModal from "../components/ReportCard/templates/TemplatePreviewModal";
 import { sampleNormalDocument, sampleTvetDocument } from "../components/ReportCard/templates/sampleDocuments";
+import SchoolProfileCard from "../components/ReportCard/templates/SchoolProfileCard";
+import ModuleWeightsEditor from "../components/ReportCard/templates/ModuleWeightsEditor";
 import { NORMAL_STRUCTURE, TVET_STRUCTURE, refreshReportCardStructure } from "../hooks/useReportCardStructure";
 import type { ReportCardBuilderKind, ReportCardDocument } from "../services/reportCardApi";
 import {
@@ -15,7 +17,7 @@ import {
   ReportCardWorkflowApi,
   apiMessage,
   type ReportCardScheme,
-  type TemplateModule,
+  type SchoolProfileField,
   type TvetTemplateOptions,
 } from "../services/reportCardWorkflowApi";
 
@@ -31,10 +33,7 @@ import {
  */
 
 type Opts = TvetTemplateOptions;
-const CATEGORY_LABEL: Record<string, string> = { specific: "Specific", general: "General", complementary: "Complementary" };
 
-const INPUT =
-  "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-text-primary-light placeholder-gray-400 focus:border-blue-400/60 focus:outline-none focus:ring-2 focus:ring-blue-400/30 disabled:opacity-60 dark:border-panel-line dark:bg-panel-raised dark:text-text-primary-dark dark:placeholder-white/25";
 const GHOST =
   "inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-text-primary-light transition-colors hover:border-blue-300 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 dark:border-panel-line dark:bg-panel-raised dark:text-text-primary-dark dark:hover:text-blue-300";
 const PRIMARY =
@@ -60,24 +59,26 @@ export function validateTvetOptions(o: Opts, weights: Record<string, string>): s
   return errors;
 }
 
-/** The sample card dressed with the options being edited (the live preview). */
-function decorateTvet(doc: ReportCardDocument, o: Opts, schoolName?: string): ReportCardDocument {
+/** The sample card dressed with the school's details (MIS, as being edited) and the template's options: the live preview. */
+function decorateTvet(doc: ReportCardDocument, o: Opts, school: Partial<Record<SchoolProfileField, string>> = {}): ReportCardDocument {
   if (!doc.tvet) return doc;
+  const v = (mis: string | undefined, own: string) => (mis?.trim() ? mis.trim() : own.trim());
   return {
     ...doc,
-    school: schoolName ? { ...doc.school, name: schoolName } : doc.school,
+    school: school.name?.trim() ? { ...doc.school, name: school.name.trim() } : doc.school,
     qualification: {
       ...(doc.qualification ?? { rqf_level: null, trade: null, title: null, sector: null }),
-      title: o.qualification_title.trim() || doc.qualification?.title || null,
-      sector: o.sector.trim() || null,
+      title: o.qualification_title.trim() || school.qualification_title?.trim() || doc.qualification?.title || null,
+      trade: school.trade?.trim() || doc.qualification?.trade || null,
+      sector: v(school.sector, o.sector) || null,
     },
     tvet: {
       ...doc.tvet,
       school: {
-        district: o.district.trim(),
-        email: o.school_email.trim(),
-        phone: o.school_phone.trim(),
-        headmaster: o.headmaster_name.trim(),
+        district: v(school.district, o.district),
+        email: v(school.contact_email, o.school_email),
+        phone: v(school.contact_phone, o.school_phone),
+        headmaster: v(school.head_teacher_name, o.headmaster_name),
       },
       show_attendance: o.show_attendance,
       show_attributes: o.show_attributes,
@@ -109,15 +110,6 @@ function Toggle({ label, hint, checked, onChange, testId }: { label: string; hin
   );
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">{label}</span>
-      {children}
-      {hint && <span className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark">{hint}</span>}
-    </label>
-  );
-}
 
 function PageSkeleton() {
   return (
@@ -158,10 +150,7 @@ export default function ReportCardTemplatesPage() {
   const [switching, setSwitching] = useState(false);
   const [preview, setPreview] = useState<ReportCardBuilderKind | null>(null);
 
-  const [modules, setModules] = useState<TemplateModule[] | null>(null);
-  const [modulesState, setModulesState] = useState<"loading" | "ready" | "failed">("loading");
-  const [query, setQuery] = useState("");
-  const [onlyMissing, setOnlyMissing] = useState(false);
+  const [schoolDraft, setSchoolDraft] = useState<Partial<Record<SchoolProfileField, string>>>({});
 
   const snapshot = (o: Opts, w: Record<string, string>) =>
     JSON.stringify({ ...o, module_weights: Object.fromEntries(Object.entries(w).filter(([, v]) => v.trim() !== "").sort()) });
@@ -194,19 +183,6 @@ export default function ReportCardTemplatesPage() {
     };
   }, [reload]);
 
-  const loadModules = useCallback(() => {
-    setModulesState("loading");
-    ReportCardWorkflowApi.templateModules()
-      .then((res) => {
-        setModules(res.data.modules);
-        setModulesState("ready");
-      })
-      .catch((e) => {
-        setModulesState("failed");
-        toast.error(apiMessage(e, "Couldn't load the modules from MIS."));
-      });
-  }, []);
-  useEffect(() => loadModules(), [loadModules]);
 
   const errors = useMemo(() => validateTvetOptions(opts, weights), [opts, weights]);
   const dirty = snapshot(opts, weights) !== saved.current;
@@ -215,11 +191,11 @@ export default function ReportCardTemplatesPage() {
   const samples = useMemo(
     () => ({
       normal: sampleNormalDocument(),
-      tvet: decorateTvet(sampleTvetDocument(true), opts),
+      tvet: decorateTvet(sampleTvetDocument(true), opts, schoolDraft),
     }),
-    [opts],
+    [opts, schoolDraft],
   );
-  const decorate = useCallback((d: ReportCardDocument) => decorateTvet(d, opts), [opts]);
+  const decorate = useCallback((d: ReportCardDocument) => decorateTvet(d, opts, schoolDraft), [opts, schoolDraft]);
 
   const confirmSwitch = async () => {
     const to = switchTo;
@@ -261,14 +237,6 @@ export default function ReportCardTemplatesPage() {
     }
   };
 
-  const shownModules = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return (modules ?? []).filter(
-      (m) => (!q || m.name.toLowerCase().includes(q) || (m.code ?? "").toLowerCase().includes(q)) && (!onlyMissing || (m.learning_hours == null && !(weights[String(m.id)] ?? "").trim())),
-    );
-  }, [modules, query, onlyMissing, weights]);
-  const missingHours = (modules ?? []).filter((m) => m.learning_hours == null && !(weights[String(m.id)] ?? "").trim()).length;
-  const overrides = Object.values(weights).filter((v) => v.trim() !== "").length;
 
   const templates: Array<{ key: ReportCardBuilderKind; doc: ReportCardDocument; structure: typeof NORMAL_STRUCTURE; points: string[] }> = [
     {
@@ -400,7 +368,10 @@ export default function ReportCardTemplatesPage() {
             </div>
           </section>
 
-          {/* 2. TVET template options + live preview */}
+          {/* 2. The school's details, kept in MIS (per tenant) */}
+          <SchoolProfileCard template={opts} onDraft={setSchoolDraft} />
+
+          {/* 3. TVET template options + live preview */}
           <section aria-labelledby="tpl-tvet" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
             <div className={CARD}>
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -419,149 +390,19 @@ export default function ReportCardTemplatesPage() {
                 )}
               </div>
 
-              <h3 className="mt-5 text-xs font-bold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">School block</h3>
-              <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                <Field label="District">
-                  <input className={INPUT} value={opts.district} onChange={(e) => patch({ district: e.target.value })} placeholder="e.g. Gasabo" aria-label="District" />
-                </Field>
-                <Field label="Headmaster's name" hint="Printed above the signature and stamp.">
-                  <input className={INPUT} value={opts.headmaster_name} onChange={(e) => patch({ headmaster_name: e.target.value })} aria-label="Headmaster's name" />
-                </Field>
-                <Field label="School email">
-                  <input className={INPUT} type="email" value={opts.school_email} onChange={(e) => patch({ school_email: e.target.value })} aria-label="School email" />
-                </Field>
-                <Field label="School phone">
-                  <input className={INPUT} value={opts.school_phone} onChange={(e) => patch({ school_phone: e.target.value })} aria-label="School phone" />
-                </Field>
-              </div>
-
-              <h3 className="mt-5 text-xs font-bold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Qualification</h3>
-              <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                <Field label="Qualification title" hint="Leave blank for “TVET Certificate <level> in <trade>” from MIS.">
-                  <input className={INPUT} value={opts.qualification_title} onChange={(e) => patch({ qualification_title: e.target.value })} placeholder="Automatic" aria-label="Qualification title" />
-                </Field>
-                <Field label="Sector">
-                  <input className={INPUT} value={opts.sector} onChange={(e) => patch({ sector: e.target.value })} placeholder="e.g. ICT and Multimedia" aria-label="Sector" />
-                </Field>
-              </div>
-
               <h3 className="mt-5 text-xs font-bold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">School additions</h3>
               <div className="mt-1 divide-y divide-gray-100 dark:divide-panel-line">
                 <Toggle label="Show attendance" hint="Not on the CAMIS card; a short line under the table." checked={opts.show_attendance} onChange={(v) => patch({ show_attendance: v })} testId="toggle-attendance" />
                 <Toggle label="Show general attributes" hint="The class teacher's ratings, as one line." checked={opts.show_attributes} onChange={(v) => patch({ show_attributes: v })} testId="toggle-attributes" />
               </div>
 
-              {/* Module weights */}
-              <div className="mt-5 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Module weights</h3>
-                  <p className="mt-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                    FA, CA and IA are each out of the module weight (learning hours). MIS gives most; set the rest, or override one.
-                  </p>
-                </div>
-                <div className="w-40">
-                  <Field label="Default weight">
-                    <input
-                      className={INPUT}
-                      type="number"
-                      min={1}
-                      max={1000}
-                      value={Number.isFinite(opts.default_module_weight) ? opts.default_module_weight : ""}
-                      onChange={(e) => patch({ default_module_weight: e.target.value === "" ? NaN : Number(e.target.value) })}
-                      aria-label="Default module weight"
-                    />
-                  </Field>
-                </div>
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <div className="relative min-w-[12rem] flex-1">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
-                  <input className={`${INPUT} pl-9`} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search modules by name or code" aria-label="Search modules" />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setOnlyMissing((v) => !v)}
-                  aria-pressed={onlyMissing}
-                  className={`rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${
-                    onlyMissing ? "border-blue-600 bg-blue-600 text-white" : "border-gray-200 text-text-primary-light hover:border-blue-300 dark:border-panel-line dark:text-text-primary-dark"
-                  }`}
-                  data-testid="only-missing"
-                >
-                  No hours in MIS{modules ? ` (${missingHours})` : ""}
-                </button>
-                {overrides > 0 && <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{overrides} set by the school</span>}
-              </div>
-              <div className="mt-3 max-h-[26rem] overflow-y-auto rounded-2xl border border-gray-200 dark:border-panel-line">
-                {modulesState === "loading" ? (
-                  <div className="space-y-2 p-3" data-testid="modules-skeleton">
-                    {Array.from({ length: 6 }, (_, i) => (
-                      <Skeleton key={i} className="h-9 w-full" />
-                    ))}
-                  </div>
-                ) : modulesState === "failed" ? (
-                  <div className="flex flex-col items-center gap-2 p-6 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                    Couldn't load the modules from MIS.
-                    <button type="button" onClick={loadModules} className={GHOST}>
-                      <RotateCcw className="h-4 w-4" aria-hidden /> Try again
-                    </button>
-                  </div>
-                ) : shownModules.length === 0 ? (
-                  <p className="p-6 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">{modules?.length ? "No module matches." : "MIS has no modules yet."}</p>
-                ) : (
-                  <table className="w-full text-sm" data-testid="module-weights">
-                    <thead className="sticky top-0 bg-gray-50 text-left text-[11px] uppercase tracking-wide text-text-secondary-light dark:bg-panel-raised dark:text-text-secondary-dark">
-                      <tr>
-                        <th className="px-3 py-2 font-semibold">Module</th>
-                        <th className="hidden px-3 py-2 font-semibold sm:table-cell">Group</th>
-                        <th className="px-3 py-2 text-right font-semibold">MIS hours</th>
-                        <th className="px-3 py-2 text-right font-semibold">Weight on the card</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {shownModules.map((m) => {
-                        const own = weights[String(m.id)] ?? "";
-                        const effective = own.trim() ? Number(own) : (m.learning_hours ?? opts.default_module_weight);
-                        return (
-                          <tr key={m.id} className="border-t border-gray-100 dark:border-panel-line" data-testid={`module-${m.id}`}>
-                            <td className="px-3 py-2">
-                              <div className="font-medium text-text-primary-light dark:text-text-primary-dark">{m.name}</div>
-                              {m.code && <div className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark">{m.code}</div>}
-                            </td>
-                            <td className="hidden px-3 py-2 text-xs text-text-secondary-light dark:text-text-secondary-dark sm:table-cell">{m.category ? CATEGORY_LABEL[m.category] : "–"}</td>
-                            <td className="px-3 py-2 text-right tabular-nums text-text-secondary-light dark:text-text-secondary-dark">{m.learning_hours ?? "–"}</td>
-                            <td className="px-3 py-2">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={1000}
-                                  value={own}
-                                  placeholder={String(m.learning_hours ?? opts.default_module_weight)}
-                                  onChange={(e) => setWeights((w) => ({ ...w, [String(m.id)]: e.target.value }))}
-                                  aria-label={`${m.name} weight`}
-                                  className={`${INPUT} w-24 text-right tabular-nums`}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setWeights((w) => ({ ...w, [String(m.id)]: "" }))}
-                                  disabled={!own.trim()}
-                                  aria-label={`Use the MIS weight for ${m.name}`}
-                                  title="Use MIS (or the default)"
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary-light transition-colors hover:text-blue-700 disabled:opacity-30 dark:text-text-secondary-dark dark:hover:text-blue-300"
-                                >
-                                  <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-                                </button>
-                              </div>
-                              {!own.trim() && m.learning_hours == null && (
-                                <div className="mt-0.5 text-right text-[11px] text-blue-700 dark:text-blue-300">Default {Number.isFinite(effective) ? effective : "–"}</div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
+              <div className="mt-5">
+                <ModuleWeightsEditor
+                  overrides={weights}
+                  defaultWeight={opts.default_module_weight}
+                  onDefaultWeight={(n) => patch({ default_module_weight: n })}
+                  onRemoveOverride={(id) => setWeights((w) => ({ ...w, [String(id)]: "" }))}
+                />
               </div>
 
               {errors.length > 0 && (

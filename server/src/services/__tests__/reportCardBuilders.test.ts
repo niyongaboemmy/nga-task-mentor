@@ -5,6 +5,7 @@ import {
   deliberationConditions,
   isFinalTerm,
   learningHours,
+  moduleWeightOf,
   qualificationOf,
   termIndex,
   tvetCell,
@@ -123,11 +124,24 @@ describe("TVET (CAMIS) maths, checked against an issued card", () => {
     expect([termIndex("Term 1"), termIndex("TERM III"), termIndex("Third term"), termIndex("Holiday")]).toEqual([1, 3, 3, null]);
     expect([isFinalTerm("Term 3"), isFinalTerm("Term 2")]).toEqual([true, false]);
     expect([learningHours("120"), learningHours("12 credits"), learningHours(null)]).toEqual([120, 120, null]);
+    // MIS keeps a weekly note in learning_hours: not a module's weight.
+    expect(learningHours("5 (4 taught and 1 in self-study) per week")).toBeNull();
+    expect(learningHours("3 hours weekly")).toBeNull();
     expect(qualificationOf([{ rqf_level: "3" }, { rqf_level: "3" }], "Software Development", null, null)).toEqual({
       rqf_level: "3",
       trade: "Software Development",
       title: "TVET Certificate III in Software Development",
       sector: null,
     });
+  });
+});
+
+describe("module weight from MIS", () => {
+  it("takes the subject's module_weight, else credits x 10, else total hours, never a weekly note", () => {
+    expect(moduleWeightOf({ module_weight: 80, learning_hours: "5 per week" })).toBe(80);
+    expect(moduleWeightOf({ module_weight: null, credits: 12 })).toBe(120);
+    expect(moduleWeightOf({ learning_hours: "100 hours" })).toBe(100);
+    expect(moduleWeightOf({ learning_hours: "5 (4 taught and 1 in self-study) per week" })).toBeNull();
+    expect(moduleWeightOf({})).toBeNull();
   });
 });

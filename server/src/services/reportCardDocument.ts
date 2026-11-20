@@ -24,6 +24,7 @@ import {
   type ReportCardScheme,
 } from "./tenantSettings";
 import { getMisToken } from "../utils/misUtils";
+import { getSchoolProfile } from "./schoolProfile";
 import { effectiveCategory, gradingOf, type Grading, type ReportCardBuilderKind } from "./reportCardBuilders";
 import type { SchoolDirectory } from "./schoolDirectory";
 import { tk } from "../tenancy/keys";
@@ -142,9 +143,14 @@ export function tvetDecision(competence: Array<boolean | null>, rqfLevel: string
   return "Re-assessment required";
 }
 
-/** "120", "120 hours", "12 credits" -> learning hours (credits x 10). */
+/**
+ * "120", "120 hours", "12 credits" -> learning hours (credits x 10). A weekly
+ * note ("5 (4 taught and 1 in self-study) per week", what MIS keeps in
+ * learning_hours for the scheme of work) is not a module's hours: null.
+ */
 export function learningHours(raw: unknown): number | null {
   const t = String(raw ?? "").toLowerCase();
+  if (/\b(per|a|each)\s+(week|day|month)\b|\/\s*(week|wk|day)\b|weekly|daily/.test(t)) return null;
   const m = t.match(/(\d+(?:\.\d+)?)/);
   if (!m) return null;
   const n = Number(m[1]);
@@ -323,7 +329,8 @@ export async function resolveSubjectInfo(req: Request, subjectIds: number[]): Pr
             info[Number(id)] = {
               name: s.name || s.subject_name || s.title || `Subject #${id}`,
               code: typeof s.code === "string" && s.code.trim() ? s.code.trim() : null,
-              learning_hours: learningHours(s.learning_hours ?? s.credits),
+              // The module weight: MIS's dedicated field, else credits / total hours.
+              learning_hours: moduleWeightOf(s),
               rqf_level: s.rqf_level != null && String(s.rqf_level).trim() ? String(s.rqf_level).trim() : null,
             };
           }
@@ -356,6 +363,22 @@ export async function listSubjectInfo(
       rqf_level: v.rqf_level ?? null,
     }))
     .sort((a, b) => (a.code ?? a.name).localeCompare(b.code ?? b.name));
+}
+
+/** A MIS subject's report card weight: module_weight, else credits x 10, else total learning hours. */
+export function moduleWeightOf(s: { module_weight?: unknown; credits?: unknown; learning_hours?: unknown }): number | null {
+  const w = Number(s.module_weight);
+  if (s.module_weight != null && s.module_weight !== "" && Number.isFinite(w) && w > 0) return w;
+  if (s.credits != null && s.credits !== "") {
+    const c = learningHours(`${s.credits} credits`);
+    if (c) return c;
+  }
+  return learningHours(s.learning_hours);
+}
+
+/** Forget the cached MIS catalogue (after a weight is changed in MIS). */
+export function forgetSubjectInfo() {
+  subjectInfoCache.delete(tk("subject-info"));
 }
 
 /** MIS subject id -> name. Best effort: a missing name renders "Subject #id". */
@@ -576,6 +599,9 @@ export async function buildCardDocuments(
   const [scheme, bands, school] = await Promise.all([getReportCardScheme(), getGradingBands(), getBranding()]);
   const grading = gradingOf(scheme);
   const tvet = grading.builder === "tvet";
+  // The school's identity block from MIS (per tenant); the template's own fields fill any gaps.
+  const misSchool = tvet ? (await getSchoolProfile(req)).profile : null;
+  const pick = (mis: string | null | undefined, own: string) => (mis && mis.trim() ? mis.trim() : own);
 
   const cohort = new Map<number, ReportCard>();
   for (const c of [...(opts.cohort ?? []), ...cards]) cohort.set(c.id!, c);
@@ -898,10 +924,12 @@ export async function buildCardDocuments(
       .map((a) => ({ attribute_name: a.attribute_name, rating: a.rating }))
       .sort((a, b) => attrOrder(a.attribute_name) - attrOrder(b.attribute_name));
 
-    const qualification = tvet ? qualificationOf(subjects, s.program_name, card.class_name ?? s.class_name, s.grade_name) : undefined;
+    const qualification = tvet ? qualificationOf(subjects, s.program_name ?? misSchool?.trade ?? null, card.class_name ?? s.class_name, s.grade_name) : undefined;
     if (qualification) {
+      // Title: the template's own, else from the level and trade, else the school's (MIS).
       if (scheme.tvet.qualification_title) qualification.title = scheme.tvet.qualification_title;
-      if (scheme.tvet.sector) qualification.sector = scheme.tvet.sector;
+      else if (!qualification.title && misSchool?.qualification_title) qualification.title = misSchool.qualification_title;
+      qualification.sector = pick(misSchool?.sector, scheme.tvet.sector) || null;
     }
 
     let tvetBlock: ReportCardDocument["tvet"];
@@ -953,10 +981,10 @@ export async function buildCardDocuments(
         terms: termEntries,
         annual,
         school: {
-          district: scheme.tvet.district,
-          email: scheme.tvet.school_email,
-          phone: scheme.tvet.school_phone,
-          headmaster: scheme.tvet.headmaster_name,
+          district: pick(misSchool?.district, scheme.tvet.district),
+          email: pick(misSchool?.contact_email, scheme.tvet.school_email),
+          phone: pick(misSchool?.contact_phone, scheme.tvet.school_phone),
+          headmaster: pick(misSchool?.head_teacher_name, scheme.tvet.headmaster_name),
         },
         conditions: deliberationConditions(scheme.competence_thresholds),
         decision: final ? tvetDecision(subjects.map((x) => x.tvet!.annual?.competent ?? null), qualification?.rqf_level ?? null) : null,
@@ -978,7 +1006,7 @@ export async function buildCardDocuments(
         approved_at: card.approved_at ? new Date(card.approved_at).toISOString() : null,
         published_at: card.published_at ? new Date(card.published_at).toISOString() : null,
       },
-      school,
+      school: misSchool?.name && tvet ? { ...school, name: misSchool.name } : school,
       student: {
         id: card.student_id,
         name: s.name,
