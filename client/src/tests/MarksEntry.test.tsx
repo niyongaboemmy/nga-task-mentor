@@ -68,7 +68,8 @@ describe("marks entry rules", () => {
   it("suggests a category from the assessment type, in the school's builder", () => {
     expect(suggestCategory({ kind: "manual", manualType: "midterm" }, "normal")).toBe("MD");
     expect(suggestCategory({ kind: "manual", manualType: "midterm" }, "tvet")).toBe("FA");
-    expect(suggestCategory({ kind: "manual", manualType: "ca_end_of_term" }, "tvet")).toBe("CA");
+    expect(suggestCategory({ kind: "manual", manualType: "ca_end_of_term" }, "tvet")).toBe("FA"); // TVET: FA by default
+    expect(suggestCategory({ kind: "quiz" }, "tvet")).toBe("FA");
     expect(suggestCategory({ kind: "quiz" }, "normal")).toBe("CW");
     expect(suggestCategory({ kind: "assignment" }, "normal")).toBe("HW");
     expect(suggestCategory({ kind: "manual", manualType: null }, "normal")).toBeNull();

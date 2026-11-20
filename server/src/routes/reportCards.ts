@@ -29,6 +29,7 @@ import {
   getTemplateSchool,
   putTemplateSchool,
   putModuleWeight,
+  postMapFormative,
 } from "../controllers/reportCardWorkflow.controller";
 import { transitionSchema } from "../validations/reportCardWorkflow.validation";
 import { validate, validateBody } from "../middleware/validation.middleware";
@@ -157,6 +158,8 @@ router.get("/templates/modules", authorizePermission("REPORT_CARDS_APPROVE", "US
 router.put("/templates/modules/:id(\\d+)/weight", authorizePermission("REPORT_CARDS_APPROVE", "USERS_EDIT"), putModuleWeight);
 router.get("/templates/school", authorizePermission("REPORT_CARDS_APPROVE", "USERS_EDIT"), getTemplateSchool);
 router.put("/templates/school", authorizePermission("REPORT_CARDS_APPROVE", "USERS_EDIT"), putTemplateSchool);
+// TVET: map this term's unmapped work to FA (dry_run counts it first).
+router.post("/templates/map-formative", authorizePermission("REPORT_CARDS_APPROVE", "USERS_EDIT"), postMapFormative);
 
 router.get("/:id(\\d+)/history", authorizePermission("REPORT_CARDS_VIEW_ALL"), getCardHistory);
 router.get("/:id(\\d+)/diff", authorizePermission("REPORT_CARDS_VIEW_ALL"), getCardDiff);

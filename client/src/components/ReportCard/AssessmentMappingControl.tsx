@@ -77,7 +77,7 @@ export default function AssessmentMappingControl({
         </option>
         {structure.categories.map((c) => (
           <option key={c.key} value={c.key}>
-            {c.label} ({weightLabel(builder, c.weight)})
+            {builder === "tvet" ? `${c.short} · ${c.label}` : `${c.label} (${weightLabel(builder, c.weight)})`}
           </option>
         ))}
       </Select>

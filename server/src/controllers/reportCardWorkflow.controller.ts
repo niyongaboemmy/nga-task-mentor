@@ -42,7 +42,8 @@ import { loadSchoolDirectory, type SchoolDirectory } from "../services/schoolDir
 import { getReportCardScheme, setReportCardScheme, getGradingBands } from "../services/tenantSettings";
 import { builderStructure, gradingOf } from "../services/reportCardBuilders";
 import { SCHOOL_PROFILE_FIELDS, getSchoolProfile, saveModuleWeight, saveSchoolProfile } from "../services/schoolProfile";
-import { getMisToken, resolveAcademicYearId, resolveAcademicTermIdByName } from "../utils/misUtils";
+import { mapUnmappedToFormative } from "../services/formativeAutoMap";
+import { getMisToken, resolveAcademicYearId, resolveAcademicTermIdByName, resolveCurrentAcademicPeriodNames, getCurrentTermId } from "../utils/misUtils";
 import {
   actorName,
   cardStudentTarget,
@@ -564,6 +565,32 @@ export const putModuleWeight = async (req: Request, res: Response) => {
   } catch (error: any) {
     if (error?.status) return res.status(error.status).json({ success: false, message: error.message });
     sendControllerError(res, error, "putModuleWeight");
+  }
+};
+
+/**
+ * POST /report-cards/templates/map-formative { dry_run? }: maps every unmapped
+ * assessment of the caller's current term to FA (TVET schools only).
+ */
+export const postMapFormative = async (req: Request, res: Response) => {
+  try {
+    const scheme = await getReportCardScheme();
+    if (scheme.builder !== "tvet") {
+      return res.status(409).json({ success: false, message: "The school uses the Normal builder: switch to TVET first." });
+    }
+    const names = await resolveCurrentAcademicPeriodNames(req);
+    if (!names.term || !names.academicYear) return res.status(400).json({ success: false, message: "There's no current term to map against." });
+    const termId = await getCurrentTermId(req).catch(() => null);
+    const result = await mapUnmappedToFormative({
+      term: names.term,
+      academicYear: names.academicYear,
+      termId: termId != null ? Number(termId) : null,
+      dryRun: req.body?.dry_run === true,
+      by: (req as any).user?.id ?? null,
+    });
+    res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    sendControllerError(res, error, "postMapFormative");
   }
 };
 

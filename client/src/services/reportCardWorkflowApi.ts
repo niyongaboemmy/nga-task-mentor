@@ -506,6 +506,13 @@ export const ReportCardWorkflowApi = {
   async saveModuleWeight(subjectId: number, weight: number | null): Promise<{ success: boolean; data: { id: number; weight: number | null } }> {
     return (await axios.put(`/report-cards/templates/modules/${subjectId}/weight`, { weight })).data;
   },
+  /** TVET: map this term's unmapped quizzes, assignments and recorded marks to FA (dry run counts them). */
+  async mapFormative(dryRun = false): Promise<{
+    success: boolean;
+    data: { term: string; academic_year: string; scanned: number; already_mapped: number; mapped: number; by_kind: { quiz: number; assignment: number; manual: number }; subjects: number; cards_updated: number; dry_run: boolean };
+  }> {
+    return (await axios.post("/report-cards/templates/map-formative", { dry_run: dryRun })).data;
+  },
   /** MIS modules with learning hours, for the TVET module-weight editor. */
   async templateModules(): Promise<{ success: boolean; data: { modules: TemplateModule[]; default_module_weight: number } }> {
     return (await axios.get("/report-cards/templates/modules")).data;

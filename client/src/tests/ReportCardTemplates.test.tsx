@@ -20,6 +20,7 @@ vi.mock("../services/reportCardWorkflowApi", async (importOriginal) => {
       templateSchool: vi.fn(),
       saveTemplateSchool: vi.fn(),
       saveModuleWeight: vi.fn(),
+      mapFormative: vi.fn(),
     },
   };
 });
@@ -149,6 +150,10 @@ describe("Report card templates page", () => {
     vi.mocked(ReportCardWorkflowApi.templateModules).mockResolvedValue({ success: true, data: { modules: MODULES, default_module_weight: 100 } });
     vi.mocked(ReportCardWorkflowApi.templateSchool).mockResolvedValue({ success: true, data: { profile: { ...PROFILE }, can_edit: true, source: "mis" } });
     vi.mocked(ReportCardWorkflowApi.saveTemplateSchool).mockImplementation(async (patch) => ({ success: true, data: { profile: { ...PROFILE, ...patch } as never } }));
+    vi.mocked(ReportCardWorkflowApi.mapFormative).mockImplementation(async (dryRun) => ({
+      success: true,
+      data: { term: "Term 1", academic_year: "2026 - 2027", scanned: 9, already_mapped: 4, mapped: 5, by_kind: { quiz: 3, assignment: 1, manual: 1 }, subjects: 2, cards_updated: dryRun ? 0 : 12, dry_run: !!dryRun },
+    }));
     vi.mocked(ReportCardWorkflowApi.saveModuleWeight).mockImplementation(async (id, weight) => ({ success: true, data: { id, weight } }));
     vi.mocked(ReportCardWorkflowApi.saveScheme).mockImplementation(async (patch) => ({
       success: true,
@@ -168,6 +173,10 @@ describe("Report card templates page", () => {
     await waitFor(() => expect(ReportCardWorkflowApi.saveScheme).toHaveBeenCalledWith({ builder: "tvet" }));
     expect(await screen.findByTestId("in-use-tvet")).toBeInTheDocument();
     expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("now uses the TVET builder"));
+    // FA by default: this term's unmapped work is mapped straight away.
+    await waitFor(() => expect(ReportCardWorkflowApi.mapFormative).toHaveBeenCalledWith(false));
+    expect(toast.success).toHaveBeenCalledWith("Mapped 3 quizzes, 1 assignment and 1 recorded mark to FA.");
+    expect(await screen.findByTestId("formative-default")).toBeInTheDocument();
   });
 
   it("keeps the school's details in MIS: offers the template's earlier district, saves to MIS, previews live", async () => {
@@ -208,6 +217,17 @@ describe("Report card templates page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove the Task Mentor weight for Entrepreneurship" }));
     fireEvent.click(screen.getByTestId("save-tvet"));
     await waitFor(() => expect(ReportCardWorkflowApi.saveScheme).toHaveBeenCalledWith({ tvet: expect.objectContaining({ module_weights: {} }) }));
+  });
+
+  it("on a TVET school, shows what isn't mapped this term and maps it to FA after confirming", async () => {
+    vi.mocked(ReportCardWorkflowApi.scheme).mockResolvedValue({ success: true, data: { scheme: { ...structuredClone(SCHEME), builder: "tvet" }, bands: [] } });
+    renderPage();
+    expect(await screen.findByTestId("formative-pending")).toHaveTextContent("3 quizzes, 1 assignment and 1 recorded mark in 2 subjects aren't mapped yet");
+    fireEvent.click(screen.getByTestId("map-formative"));
+    expect(screen.getByText("Map 5 to FA?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Map to FA" }));
+    await waitFor(() => expect(ReportCardWorkflowApi.mapFormative).toHaveBeenCalledWith(false));
+    expect(toast.success).toHaveBeenCalledWith("Mapped 3 quizzes, 1 assignment and 1 recorded mark to FA (Term 1, 2026 - 2027).");
   });
 
   it("checks the TVET options like the server", () => {

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { autoMapNewToFormative, withinSeconds } from "../services/formativeAutoMap";
 import { Op } from "sequelize";
 import { ManualAssessment } from "../models/ManualAssessment.model";
 import { ManualAssessmentScore } from "../models/ManualAssessmentScore.model";
@@ -52,10 +53,19 @@ export const createManualAssessment = async (req: Request, res: Response) => {
       created_by:        userId ?? null,
     });
 
+    // TVET schools: recorded marks count as FA (formative) until a teacher maps them elsewhere.
+    const autoMapped =
+      assessment.add_to_final_grade !== false &&
+      (await withinSeconds(
+        autoMapNewToFormative(req, { kind: "manual", id: assessment.id!, subject_id: Number(assessment.course_id), term: assessment.term, academic_year: assessment.academic_year }),
+        3,
+      ));
+
     res.status(201).json({
       success: true,
       message: "Assessment created",
       data: assessment,
+      report_card_category: autoMapped ? "FA" : null,
     });
   } catch (error) {
     console.error("createManualAssessment error:", error);
