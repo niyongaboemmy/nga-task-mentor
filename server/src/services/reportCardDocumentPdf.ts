@@ -22,6 +22,7 @@ const C = {
   ink: "#0F172A",
   text: "#1E293B",
   muted: "#64748B",
+  faint: "#A3B1C2",
   line: "#D5DEE9",
   zebra: "#F7F9FC",
   red: "#B42318",
@@ -286,17 +287,22 @@ function drawCard(pdf: PDFKit.PDFDocument, doc: ReportCardDocument, art: CardArt
           pdf.font(F.normal).fontSize(7.8).fillColor(C.ink).text(s.name, x + 5, top, { width: nameW - 10, height: 20, ellipsis: true });
           if (teacherLine) pdf.font(F.normal).fontSize(6.4).fillColor(C.muted).text(s.teacher!, x + 5, top + nameH + 1, { width: nameW - 10, lineBreak: false, ellipsis: true });
         } else if (c.key === "code") cell(s.code ?? "", c, { color: C.muted, size: 7 });
-        else if (c.key === "TOT") cell(s.total == null ? "" : `${exact(s.total)}${partial ? "*" : ""}`, c, { font: F.bold, size: 8.6, color: failing ? C.red : C.ink });
+        else if (c.key === "TOT")
+          cell(s.total == null ? "–" : `${exact(s.total)}${partial ? "*" : ""}`, c, { font: F.bold, size: 8.6, color: s.total == null ? C.faint : failing ? C.red : C.ink });
         else if (c.key === "GR") {
           if (s.grade) pill(s.grade, c, failing ? C.redSoft : C.navySoft, failing ? C.red : C.navy, 22);
-        } else if (c.key === "RK") cell(s.rank != null ? `${s.rank}/${s.rank_of}` : "", c, { color: C.text, size: 7.6 });
-        else if (c.key === "CA") cell(exact(s.class_average), c, { color: C.muted });
+          else cell("–", c, { color: C.faint });
+        } else if (c.key === "RK") cell(s.rank != null ? `${s.rank}/${s.rank_of}` : "–", c, { color: s.rank != null ? C.text : C.faint, size: 7.6 });
+        else if (c.key === "CA") cell(s.class_average != null ? exact(s.class_average) : "–", c, { color: s.class_average != null ? C.muted : C.faint });
         else if (c.key === "DEC") {
           if (s.competent != null) {
             if (s.competent) pill("Competent", c, "#E7F6EE", "#05603A", 52);
             else pill("NYC", c, C.redSoft, C.red, 34);
-          }
-        } else cell(exact(s.categories[c.key as "CW"]), c);
+          } else if (s.total == null) cell("Not assessed", c, { font: F.italic, color: C.muted, size: 6.8 });
+        } else {
+          const v = s.categories[c.key as "CW"];
+          cell(v != null ? exact(v) : "–", c, { color: v != null ? C.text : C.faint });
+        }
         x += c.width;
       }
       pdf.moveTo(M, y + h).lineTo(M + W, y + h).lineWidth(0.4).stroke(C.line);

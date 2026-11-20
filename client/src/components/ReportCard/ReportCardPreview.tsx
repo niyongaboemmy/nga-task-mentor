@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useInRouterContext, useNavigate } from "react-router-dom";
 import { ReportCardDocumentView } from "./ReportCardDocumentView";
 import ngaLogo from "../../assets/branding/nga-logo-horizontal.png";
 import { statusMeta } from "../../services/reportCardApi";
@@ -929,6 +930,21 @@ function calcAutoZoom(): number {
   return 1.0;
 }
 
+/** The document with in-app links: the guidance closes the preview and navigates. */
+function RoutedDocument(props: React.ComponentProps<typeof ReportCardDocumentView> & { onClose?: () => void }) {
+  const navigate = useNavigate();
+  const { onClose, ...rest } = props;
+  return (
+    <ReportCardDocumentView
+      {...rest}
+      onOpen={(url) => {
+        onClose?.();
+        navigate(url);
+      }}
+    />
+  );
+}
+
 export default function ReportCardPreview({
   studentId,
   studentName,
@@ -940,6 +956,7 @@ export default function ReportCardPreview({
   mode = "official",
 }: ReportCardPreviewProps) {
   const provisional = mode === "provisional";
+  const inRouter = useInRouterContext();
   const [data, setData]       = useState<ReportCardData | null>(null);
   const [previewMeta, setPreviewMeta] = useState<ReportCardPreviewMeta | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -1178,7 +1195,11 @@ export default function ReportCardPreview({
                 }}
               >
                 {!provisional && data.document ? (
-                  <ReportCardDocumentView doc={data.document} verificationUrl={verificationUrl} />
+                  inRouter ? (
+                    <RoutedDocument doc={data.document} verificationUrl={verificationUrl} unmapped={data.unmapped} onClose={onClose} />
+                  ) : (
+                    <ReportCardDocumentView doc={data.document} verificationUrl={verificationUrl} unmapped={data.unmapped} />
+                  )
                 ) : (
                   <ReportCardDocument
                     data={data}

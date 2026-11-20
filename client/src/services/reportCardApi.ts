@@ -224,6 +224,8 @@ export interface DocumentSubject {
   /** Rank in the class for this module, of rank_of students with a mark. */
   rank?: number | null;
   rank_of?: number | null;
+  /** False when the card maps no assessment for it yet. */
+  mapped?: boolean;
 }
 
 /** RTB module categories. */
@@ -286,6 +288,19 @@ export interface ReportCardDocument {
   grades: SubjectGrade[];
 }
 
+/** A counted assessment with marks that isn't mapped to the card (so it counts nowhere). */
+export interface UnmappedMark {
+  kind: "quiz" | "assignment" | "manual";
+  id: number;
+  title: string;
+  subject_id: number;
+  at: string | null;
+  recorded: number;
+  student_mark: { raw: number; max: number } | null;
+  url: string;
+  map_url: string;
+}
+
 export interface ReportCardData {
   report_card: ReportCardMeta;
   grades: SubjectGrade[];
@@ -296,6 +311,8 @@ export interface ReportCardData {
   raw_assessments: AssessmentItem[];
   /** The full rendered card (absent on the provisional preview). */
   document?: ReportCardDocument;
+  /** Staff only, draft cards: per subject id, marked assessments that aren't mapped. */
+  unmapped?: Record<number, UnmappedMark[]>;
 }
 
 export interface ReportCardResponse {

@@ -1,4 +1,4 @@
-import { buildMarksAttention, marksAttentionAlerts } from "../marksAttention";
+import { buildMarksAttention, marksAttentionAlerts, pickUnmapped } from "../marksAttention";
 
 const subjects = [
   { id: 1, name: "Web Application Development", code: "SPEWJ302", students: 18 },
@@ -64,5 +64,25 @@ describe("marks attention", () => {
     const m = buildMarksAttention({ term: "Term 1", academic_year: "x", subjects, mapped: new Set(["manual:1"]), assessments: [a({ id: 1 })] });
     expect(m.items).toEqual([]);
     expect(marksAttentionAlerts(m)).toEqual([]);
+  });
+});
+
+describe("unmapped marks on one report card", () => {
+  it("lists marked assessments that aren't mapped, per subject, with the student's own mark", () => {
+    const out = pickUnmapped(
+      [
+        a({ id: 1, title: "Class Work 1", recorded: 18 }), // mapped
+        a({ id: 2, title: "Homework 2", recorded: 12, at: "2026-10-05T00:00:00.000Z" }), // unmapped, student has a mark
+        a({ kind: "quiz", id: 9, title: "Quiz 1", recorded: 5, at: "2026-09-20T00:00:00.000Z" }), // unmapped, no mark for student
+        a({ kind: "assignment", id: 4, title: "Not marked yet", recorded: 0 }), // nothing recorded: not listed
+        a({ kind: "assignment", id: 6, title: "Lab", subject_id: 3, recorded: 2 }),
+      ],
+      new Set(["manual:1"]),
+      new Map([["manual:2", { raw_score: 7.5, max_score: 10 }]]),
+    );
+    expect(Object.keys(out).sort()).toEqual(["1", "3"]);
+    expect(out[1].map((x) => x.title)).toEqual(["Quiz 1", "Homework 2"]); // oldest first
+    expect(out[1][1]).toMatchObject({ student_mark: { raw: 7.5, max: 10 }, recorded: 12, map_url: "/grades/subjects/1" });
+    expect(out[1][0]).toMatchObject({ student_mark: null, url: "/quizzes/9/submissions" });
   });
 });

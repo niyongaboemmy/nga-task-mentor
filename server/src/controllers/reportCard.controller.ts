@@ -67,6 +67,7 @@ import {
   userPermissions,
 } from "../utils/reportCardAccess";
 import { loadSchoolDirectory } from "../services/schoolDirectory";
+import { loadTermAssessments, pickUnmapped, type UnmappedMark } from "../services/marksAttention";
 import { sendControllerError } from "../utils/controllerErrors";
 
 // ─── Access control v2: report-card scoping ──────────────────────────────────
@@ -96,6 +97,29 @@ async function documentFor(req: Request, card: ReportCard, opts: { staff: boolea
   const directory = opts.staff ? await loadSchoolDirectory(req, yearId ?? null).catch(() => null) : null;
   const docs = await buildCardDocuments(req, [card], { directory, cohort: await loadCohort(card) });
   return docs.get(card.id!)!;
+}
+
+/**
+ * Staff guidance on a draft card: per subject, the term's counted assessments
+ * (not "part of" another) that have marks but aren't mapped, so they count
+ * nowhere. Frozen cards can't change, so they get none.
+ */
+async function unmappedFor(req: Request, card: ReportCard, doc: ReportCardDocument, rawMappings: ReportCardAssessment[]): Promise<Record<number, UnmappedMark[]>> {
+  if (isFrozen(card.status)) return {};
+  const subjectIds = doc.groups.flatMap((g) => g.subjects.map((s) => s.subject_id));
+  if (!subjectIds.length) return {};
+  const termId = await resolveAcademicTermIdByName(req, card.term, card.academic_year).catch(() => null);
+  const loaded = await loadTermAssessments(subjectIds, termId, card.term, card.academic_year);
+  // Without the term id, quizzes/assignments of other terms can't be told apart: keep manual ones only.
+  const assessments = termId ? loaded.assessments : loaded.assessments.filter((a) => a.kind === "manual");
+  const keys = new Set([...loaded.mapped, ...rawMappings.map((m) => `${m.assessment_type}:${m.assessment_id}`)]);
+  const open = assessments.filter((a) => !keys.has(`${a.kind}:${a.id}`));
+  if (!open.length) return {};
+  const scores = await loadStudentScores(
+    await resolveCardStudent(card.student_id),
+    open.map((a) => ({ assessment_type: a.kind, assessment_id: a.id })),
+  );
+  return pickUnmapped(open, keys, scores);
 }
 
 /** The legacy read shape (report_card + grades + ...) with the full document alongside. */
@@ -654,7 +678,8 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
     }
     const doc = await documentFor(req, reportCard, { staff: canViewAll });
     const rawMappings = canViewAll ? await ReportCardAssessment.findAll({ where: { report_card_id: reportCard.id } }) : [];
-    res.status(200).json({ success: true, data: readShape(reportCard, doc, rawMappings) });
+    const unmapped = canViewAll ? await unmappedFor(req, reportCard, doc, rawMappings).catch(() => ({})) : undefined;
+    res.status(200).json({ success: true, data: { ...readShape(reportCard, doc, rawMappings), ...(unmapped ? { unmapped } : {}) } });
   } catch (error) {
     sendControllerError(res, error, "getStudentReportCard");
   }

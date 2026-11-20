@@ -169,21 +169,21 @@ const endOfToday = () => {
 };
 
 /**
- * The attention for these subjects in the current term. Quizzes/assignments
- * are the term's (or undated-term) published ones; manual assessments are
- * matched by term/year names, as report cards are.
+ * The counted assessments of a term for these subjects, with how many
+ * students have a mark on each, plus the "kind:id" of every mapped one.
+ * Quizzes/assignments are the term's (or undated-term) published ones, never
+ * "part of" assignments; manual assessments are matched by term/year names,
+ * as report cards are.
  */
-export async function loadMarksAttention(
-  req: Request,
-  subjects: AttentionSubjectIn[],
+export async function loadTermAssessments(
+  subjectIds: number[],
   termId: number | null,
+  term: string | null,
+  year: string | null,
   now = new Date(),
-): Promise<MarksAttention> {
-  const period = await resolveCurrentAcademicPeriodNames(req).catch(() => ({ term: null, academicYear: null }) as { term: string | null; academicYear: string | null });
-  const term = period.term ?? null;
-  const year = period.academicYear ?? null;
-  const ids = subjects.map((s) => s.id);
-  if (!ids.length) return buildMarksAttention({ term, academic_year: year, subjects, assessments: [], mapped: new Set() });
+): Promise<{ assessments: AttentionAssessmentIn[]; mapped: Set<string> }> {
+  const ids = subjectIds;
+  if (!ids.length) return { assessments: [], mapped: new Set() };
 
   const termWhere = termId ? { [Op.or]: [{ academic_term_id: termId }, { academic_term_id: null }] } : {};
   const [assignments, quizzes, manuals, mappings] = await Promise.all([
@@ -265,5 +265,75 @@ export async function loadMarksAttention(
     })),
   ];
   const mapped = new Set((mappings as any[]).map((m) => `${m.assessment_type}:${m.assessment_id}`));
+  return { assessments, mapped };
+}
+
+/** The attention for these subjects in the current term. */
+export async function loadMarksAttention(
+  req: Request,
+  subjects: AttentionSubjectIn[],
+  termId: number | null,
+  now = new Date(),
+): Promise<MarksAttention> {
+  const period = await resolveCurrentAcademicPeriodNames(req).catch(() => ({ term: null, academicYear: null }) as { term: string | null; academicYear: string | null });
+  const term = period.term ?? null;
+  const year = period.academicYear ?? null;
+  const { assessments, mapped } = await loadTermAssessments(
+    subjects.map((s) => s.id),
+    termId,
+    term,
+    year,
+    now,
+  );
   return buildMarksAttention({ term, academic_year: year, subjects, assessments, mapped });
+}
+
+// ─── One report card: marks that are recorded but not on it ─────────────────
+
+export interface UnmappedMark {
+  kind: MarkKind;
+  id: number;
+  title: string;
+  subject_id: number;
+  at: string | null;
+  /** Students with a mark on it. */
+  recorded: number;
+  /** This student's own mark, when recorded. */
+  student_mark: { raw: number; max: number } | null;
+  /** The assessment's own page. */
+  url: string;
+  /** Where the subject's marks are mapped. */
+  map_url: string;
+}
+
+/**
+ * Per subject of a card: counted assessments of the card's term (never "part
+ * of" another one) that already have marks but are neither on the card nor
+ * in the subject's mapping, so those marks count nowhere. Pure.
+ */
+export function pickUnmapped(
+  assessments: AttentionAssessmentIn[],
+  mappedKeys: Set<string>,
+  studentScores: Map<string, { raw_score: number; max_score: number }>,
+): Record<number, UnmappedMark[]> {
+  const out: Record<number, UnmappedMark[]> = {};
+  for (const a of assessments) {
+    const key = `${a.kind}:${a.id}`;
+    if (mappedKeys.has(key)) continue;
+    const own = studentScores.get(key);
+    if (a.recorded <= 0 && !own) continue;
+    (out[a.subject_id] ??= []).push({
+      kind: a.kind,
+      id: a.id,
+      title: a.title,
+      subject_id: a.subject_id,
+      at: a.at,
+      recorded: a.recorded,
+      student_mark: own ? { raw: own.raw_score, max: own.max_score } : null,
+      url: urlOf(a),
+      map_url: `/grades/subjects/${a.subject_id}`,
+    });
+  }
+  for (const list of Object.values(out)) list.sort((x, y) => (x.at ?? "9999").localeCompare(y.at ?? "9999") || x.title.localeCompare(y.title));
+  return out;
 }

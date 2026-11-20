@@ -70,6 +70,8 @@ export interface DocumentSubject {
   /** Rank in the class for this module (1 = best), of `rank_of` students with a mark. */
   rank?: number | null;
   rank_of?: number | null;
+  /** False when the card maps no assessment for it yet (listed because the class takes it). */
+  mapped?: boolean;
 }
 
 export interface ReportCardDocument {
@@ -409,6 +411,14 @@ export async function buildCardDocuments(
     g.grades.forEach((x) => allSubjectIds.add(x.subject_id));
     g.mappedSubjects.forEach((id) => allSubjectIds.add(id));
   }
+  // Every subject the class takes is listed, mapped or not, so a missing
+  // mapping shows on the card instead of the subject silently vanishing.
+  const classSubjectsOf = (classGroupId: number | null): number[] =>
+    classGroupId != null && opts.directory ? (opts.directory.class_group_subjects.get(classGroupId) ?? []) : [];
+  for (const c of cards) {
+    const cgId = c.class_group_id ?? info.get(c.student_id)?.class_group_id ?? null;
+    classSubjectsOf(cgId).forEach((id) => allSubjectIds.add(id));
+  }
   const subjectInfo = await resolveSubjectInfo(req, [...allSubjectIds]);
   const names = Object.fromEntries(Object.entries(subjectInfo).map(([id, v]) => [Number(id), v.name])) as Record<number, string>;
 
@@ -513,7 +523,7 @@ export async function buildCardDocuments(
       return list.length ? list.map((t) => t.name).join(", ") : null;
     };
     const gradeBySubject = new Map(g.grades.map((x) => [x.subject_id, x]));
-    const subjectIds = [...new Set([...g.mappedSubjects, ...gradeBySubject.keys()])];
+    const subjectIds = [...new Set([...g.mappedSubjects, ...gradeBySubject.keys(), ...classSubjectsOf(cg)])];
     const subjects: DocumentSubject[] = subjectIds.map((sid) => {
       const grade = gradeBySubject.get(sid);
       const total = grade ? grade.total_score : null;
@@ -543,6 +553,7 @@ export async function buildCardDocuments(
         competent: total != null ? total >= threshold : null,
         rank: stats.subjectRanks.get(sid)?.ranks.get(card.id!) ?? null,
         rank_of: stats.subjectRanks.get(sid)?.of ?? null,
+        mapped: g.mappedSubjects.has(sid) || gradeBySubject.has(sid),
       };
     });
     subjects.sort((a, b) => groupOrder(a.group) - groupOrder(b.group) || a.name.localeCompare(b.name));
