@@ -24,6 +24,8 @@ import {
   getCardDiff,
   getScheme,
   putScheme,
+  getStructure,
+  getTemplateModules,
 } from "../controllers/reportCardWorkflow.controller";
 import { transitionSchema } from "../validations/reportCardWorkflow.validation";
 import { validate, validateBody } from "../middleware/validation.middleware";
@@ -142,6 +144,11 @@ router.get(
   getScheme,
 );
 router.put("/scheme", authorizePermission("REPORT_CARDS_APPROVE", "USERS_EDIT"), putScheme);
+// The builder the school chose (Normal / TVET) and its mapping categories:
+// every signed-in user who maps marks (Grades page, report card builder).
+router.get("/structure", getStructure);
+// Modules with their MIS learning hours, for the TVET module-weight editor.
+router.get("/templates/modules", authorizePermission("REPORT_CARDS_APPROVE", "USERS_EDIT"), getTemplateModules);
 
 router.get("/:id(\\d+)/history", authorizePermission("REPORT_CARDS_VIEW_ALL"), getCardHistory);
 router.get("/:id(\\d+)/diff", authorizePermission("REPORT_CARDS_VIEW_ALL"), getCardDiff);

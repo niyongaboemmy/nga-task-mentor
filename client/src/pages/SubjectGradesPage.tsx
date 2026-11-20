@@ -35,7 +35,7 @@ import { toast } from "react-toastify";
 // The one-stop dashboard for a subject's report-card picture: class average,
 // per-student status/score (SubjectReportCardDashboard), and — collapsed by
 // default once a mapping exists — the drag-drop builder to (re)map
-// assessments into CW/HW/MD/EOT. Term/year is a real dropdown (not a URL
+// assessments into the school's builder categories (CW/HW/MD/EOT or FA/CA/IA). Term/year is a real dropdown (not a URL
 // param edit), owned here via useTermYearSelector so switching it re-fetches
 // both the builder's assessment lists and the dashboard below together.
 
@@ -141,7 +141,7 @@ export default function SubjectGradesPage() {
     Partial<Record<AssessmentCategory, Array<{ dndId: string; assessment_id: number; assessment_type: "quiz" | "assignment" | "manual"; title: string; subject_id: number }>>>
   >(() => {
     if (!subject || initialMappings.length === 0) return {};
-    const dropped: Record<AssessmentCategory, any[]> = { CW: [], HW: [], MD: [], EOT: [], IA: [] };
+    const dropped: Record<AssessmentCategory, any[]> = { CW: [], HW: [], MD: [], EOT: [], FA: [], CA: [], IA: [] };
     const allItems = [
       ...subject.quizzes.map((q) => ({ id: q.id, title: q.title, type: "quiz" as const })),
       ...subject.assignments.map((a) => ({ id: a.id, title: a.title, type: "assignment" as const })),

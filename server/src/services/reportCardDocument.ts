@@ -24,6 +24,7 @@ import {
   type ReportCardScheme,
 } from "./tenantSettings";
 import { getMisToken } from "../utils/misUtils";
+import { effectiveCategory, gradingOf, type Grading, type ReportCardBuilderKind } from "./reportCardBuilders";
 import type { SchoolDirectory } from "./schoolDirectory";
 import { tk } from "../tenancy/keys";
 
@@ -37,26 +38,13 @@ import { tk } from "../tenancy/keys";
  * a cohort (the cards of one class group x term), never one card alone.
  */
 
-export const DOCUMENT_SCHEMA = 1;
+export const DOCUMENT_SCHEMA = 2;
 
-export type Cat = "CW" | "HW" | "MD" | "EOT" | "IA";
-const CATS: Cat[] = ["CW", "HW", "MD", "EOT", "IA"];
+export type Cat = "CW" | "HW" | "MD" | "EOT" | "FA" | "CA" | "IA";
+const CATS: Cat[] = ["CW", "HW", "MD", "EOT", "FA", "CA", "IA"];
 
 /** Behaviour (conduct) is out of 40 on RTB/CAMIS cards. */
 export const BEHAVIOUR_MAX = 40;
-
-/**
- * One term of a module in CAMIS terms: FA (formative = CW+HW+MD), IA
- * (integrated, Term 3) and CA (comprehensive = EOT), each as scaled points,
- * and the term mark out of 100.
- */
-export interface TermCell {
-  term: string;
-  fa: number | null;
-  ia: number | null;
-  ca: number | null;
-  total: number | null;
-}
 
 /** "Term 3" / "Term III" / "Third term" -> 3; null when it doesn't say. */
 export function termIndex(term: string | null | undefined): number | null {
@@ -72,15 +60,86 @@ export function termIndex(term: string | null | undefined): number | null {
 /** The last term of the year carries the annual results (CAMIS prints the year on it). */
 export const isFinalTerm = (term: string | null | undefined) => termIndex(term) === 3;
 
-const sumOrNull = (xs: Array<number | null | undefined>) => {
-  const v = xs.filter((x): x is number => x != null);
-  return v.length ? Math.round(v.reduce((a, b) => a + b, 0) * 100) / 100 : null;
-};
+// ─── TVET (RTB / CAMIS) maths ────────────────────────────────────────────────
+// Each component (FA, CA, IA) is a percentage scaled to the module weight W
+// (learning hours): FA 75% of a 30-hour module is 22.5. A term's TO is the sum
+// of the components assessed, out of W per component (2W, or 3W with IA). The
+// year (AT) is the sum of the term TOs over the sum of their maxima, and the
+// class's totals and percentage are weighted by learning hours the same way.
 
-/** A subject grade as CAMIS columns. */
-export function termCellOf(term: string, g: Pick<SubjectGrade, "categories" | "total_score"> | null | undefined): TermCell {
-  const c = (k: Cat) => g?.categories?.[k as keyof SubjectGrade["categories"]]?.scaled_score ?? null;
-  return { term, fa: sumOrNull([c("CW"), c("HW"), c("MD")]), ia: c("IA"), ca: c("EOT"), total: g ? g.total_score : null };
+const r2 = (n: number) => Math.round(n * 100) / 100;
+
+/** A grade's FA / CA / IA as percentages, whichever builder produced it (Normal snapshots: CW+HW+MD -> FA, EOT -> CA). */
+export function componentPcts(g: Pick<SubjectGrade, "categories"> | null | undefined): { fa: number | null; ca: number | null; ia: number | null } {
+  const cats = (g?.categories ?? {}) as Record<string, { scaled_score: number; weight: number; avg_percentage: number } | undefined>;
+  const pctOf = (keys: string[]) => {
+    const present = keys.map((k) => cats[k]).filter((c): c is NonNullable<typeof c> => !!c);
+    if (!present.length) return null;
+    const weight = present.reduce((a, c) => a + (c.weight || 0), 0);
+    if (weight > 0) return (present.reduce((a, c) => a + c.scaled_score, 0) / weight) * 100;
+    return present.reduce((a, c) => a + c.avg_percentage, 0) / present.length;
+  };
+  return { fa: pctOf(cats.FA ? ["FA"] : ["CW", "HW", "MD"]), ca: pctOf(cats.CA ? ["CA"] : ["EOT"]), ia: pctOf(["IA"]) };
+}
+
+/** One module in one term, in marks out of the module weight. */
+export interface TvetTermCell {
+  fa: number | null;
+  ia: number | null;
+  ca: number | null;
+  /** Sum of the components assessed. */
+  to: number | null;
+  /** W x the number of components assessed. */
+  max: number | null;
+  pct: number | null;
+}
+
+export function tvetCell(g: Pick<SubjectGrade, "categories"> | null | undefined, weight: number): TvetTermCell | null {
+  const p = componentPcts(g);
+  const parts = [p.fa, p.ca, p.ia].filter((x): x is number => x != null);
+  if (!parts.length) return null;
+  const mark = (x: number | null) => (x == null ? null : r2((x * weight) / 100));
+  const fa = mark(p.fa);
+  const ca = mark(p.ca);
+  const ia = mark(p.ia);
+  const to = r2([fa, ca, ia].reduce<number>((a, x) => a + (x ?? 0), 0));
+  const max = weight * parts.length;
+  return { fa, ia, ca, to, max, pct: max > 0 ? r2((to / max) * 100) : null };
+}
+
+/** Column totals of a term over the modules assessed, and its weighted percentage. */
+export function tvetTotals(cells: Array<TvetTermCell | null | undefined>) {
+  const got = cells.filter((c): c is TvetTermCell => !!c);
+  if (!got.length) return { fa: null, ia: null, ca: null, to: null, max: null, pct: null };
+  const sum = (k: "fa" | "ia" | "ca") => {
+    const v = got.map((c) => c[k]).filter((x): x is number => x != null);
+    return v.length ? r2(v.reduce((a, b) => a + b, 0)) : null;
+  };
+  const to = r2(got.reduce((a, c) => a + (c.to ?? 0), 0));
+  const max = r2(got.reduce((a, c) => a + (c.max ?? 0), 0));
+  return { fa: sum("fa"), ia: sum("ia"), ca: sum("ca"), to, max, pct: max > 0 ? r2((to / max) * 100) : null };
+}
+
+export type TvetTotals = ReturnType<typeof tvetTotals>;
+
+/** The CAMIS deliberation conditions, from the school's pass lines. */
+export function deliberationConditions(th: Record<ModuleCategory, number>): string[] {
+  const lines = ["Each module is independently deliberated"];
+  if (th.general === th.complementary) lines.push(`The passing line for Complementary and General modules is ${th.general}%`);
+  else {
+    lines.push(`The passing line for Complementary modules is ${th.complementary}%`);
+    lines.push(`The passing line for General modules is ${th.general}%`);
+  }
+  lines.push(`The passing line for Specific modules is ${th.specific}%`);
+  return lines;
+}
+
+/** The final-term decision: every module competent -> Promoted (Graduated at Level 5); otherwise re-assessment. */
+export function tvetDecision(competence: Array<boolean | null>, rqfLevel: string | null): string | null {
+  const judged = competence.filter((c): c is boolean => c != null);
+  if (!judged.length) return null;
+  if (judged.every(Boolean)) return rqfLevel === "5" ? "Graduated" : "Promoted";
+  return "Re-assessment required";
 }
 
 /** "120", "120 hours", "12 credits" -> learning hours (credits x 10). */
@@ -123,16 +182,20 @@ export interface DocumentSubject {
   rank_of?: number | null;
   /** False when the card maps no assessment for it yet (listed because the class takes it). */
   mapped?: boolean;
-  /** Module weight = learning hours (credits x 10), from MIS. */
+  /** Module weight = learning hours (credits x 10). */
   weight?: number | null;
   /** RQF level of the module (MIS), e.g. "3". */
   rqf_level?: string | null;
-  /** This term in CAMIS columns. */
-  term_cell?: TermCell;
-  /** Final-term card: the earlier terms of the year, in order. */
-  earlier_terms?: TermCell[];
-  /** Final-term card: the module over the year (average of the terms assessed). */
-  annual?: { total: number | null; competent: boolean | null; terms_assessed: number };
+  /** TVET builder: the module in CAMIS columns. */
+  tvet?: {
+    weight: number;
+    /** Where the weight came from: the school's override, MIS learning hours, or the default. */
+    weight_source: "school" | "mis" | "default";
+    /** Aligned with ReportCardDocument.tvet.terms (null = no marks that term). */
+    terms: Array<TvetTermCell | null>;
+    /** Final-term card: the year. */
+    annual: { at: number | null; max: number | null; pct: number | null; competent: boolean | null } | null;
+  };
 }
 
 export interface ReportCardDocument {
@@ -200,20 +263,31 @@ export interface ReportCardDocument {
   next_term_begins_on: string | null;
   /** Per-assessment detail behind each subject (the preview's drill-down). */
   grades: SubjectGrade[];
-  /** Behaviour out of 40 (outside every total); the earlier terms' too on a final-term card. */
-  behaviour?: { mark: number | null; max: number; earlier?: Array<{ term: string; mark: number | null }> };
-  /** RTB qualification block (CAMIS): level, trade, title. */
+  /** Behaviour (conduct) out of 40, outside every total. */
+  behaviour?: { mark: number | null; max: number };
+  /** Which builder (template) the card was made with; absent on old snapshots = normal. */
+  builder?: ReportCardBuilderKind;
+  /** RTB qualification block (TVET). */
   qualification?: { rqf_level: string | null; trade: string | null; title: string | null; sector: string | null };
-  /** Final-term card only: the year (CAMIS annual report). */
-  annual?: {
-    terms: string[];
-    average: number | null;
-    position: number | null;
-    position_of: number | null;
-    modules_competent: number;
-    modules_nyc: number;
-    total_marks: number;
-    total_max: number;
+  /** TVET builder: everything the CAMIS layout needs besides the modules. */
+  tvet?: {
+    final: boolean;
+    /** Term columns: Terms 1-3 on a final-term card, this term otherwise. */
+    terms: Array<{
+      term: string;
+      current: boolean;
+      totals: TvetTotals;
+      position: number | null;
+      position_of: number | null;
+      conduct: number | null;
+      comment: string | null;
+    }>;
+    annual: { total: number | null; max: number | null; pct: number | null; position: number | null; position_of: number | null; conduct: number | null } | null;
+    school: { district: string; email: string; phone: string; headmaster: string };
+    conditions: string[];
+    decision: string | null;
+    show_attendance: boolean;
+    show_attributes: boolean;
   };
 }
 
@@ -263,6 +337,25 @@ export async function resolveSubjectInfo(req: Request, subjectIds: number[]): Pr
   const out: Record<number, SubjectInfo> = {};
   for (const id of subjectIds) if (info?.[id]) out[id] = info[id];
   return out;
+}
+
+/** Every MIS subject (module) with its code, RTB category and learning hours, by name. */
+export async function listSubjectInfo(
+  req: Request,
+): Promise<Array<{ id: number; name: string; code: string | null; category: ModuleCategory | null; learning_hours: number | null; rqf_level: string | null }>> {
+  // Ask for a sentinel id so the catalogue is (re)fetched when it isn't cached.
+  await resolveSubjectInfo(req, [-1]);
+  const info = subjectInfoCache.get(tk("subject-info"))?.info ?? {};
+  return Object.entries(info)
+    .map(([id, v]) => ({
+      id: Number(id),
+      name: v.name,
+      code: displayCode(v.code),
+      category: categoryFromCode(v.code),
+      learning_hours: v.learning_hours ?? null,
+      rqf_level: v.rqf_level ?? null,
+    }))
+    .sort((a, b) => (a.code ?? a.name).localeCompare(b.code ?? b.name));
 }
 
 /** MIS subject id -> name. Best effort: a missing name renders "Subject #id". */
@@ -332,7 +425,7 @@ export interface CardGrades {
  * every id the student is known by), absent/exempt resolutions, and the
  * school's category weights.
  */
-export async function computeCardGrades(reportCard: ReportCard, weights?: CategoryWeights): Promise<CardGrades> {
+export async function computeCardGrades(reportCard: ReportCard, grading?: Grading): Promise<CardGrades> {
   const [assessmentMappings, attributes, identity] = await Promise.all([
     ReportCardAssessment.findAll({ where: { report_card_id: reportCard.id } }),
     ReportCardAttribute.findAll({
@@ -341,7 +434,7 @@ export async function computeCardGrades(reportCard: ReportCard, weights?: Catego
     }),
     resolveCardStudent(reportCard.student_id),
   ]);
-  const w = weights ?? (await getReportCardScheme()).category_weights;
+  const { builder, weights: w } = grading ?? gradingOf(await getReportCardScheme());
   const marks = await loadStudentMarks(identity, assessmentMappings);
 
   const subjectMap = new Map<number, AssessmentScore[]>();
@@ -352,6 +445,10 @@ export async function computeCardGrades(reportCard: ReportCard, weights?: Catego
     const type = mapping.assessment_type as AssessmentScore["assessment_type"];
     const key = `${type}:${mapping.assessment_id}` as ScoreKey;
     if (!marks.valid.has(key)) continue; // deleted quiz / "part of" assignment
+    // The category this mapping counts under in the school's builder (a
+    // mapping made under the other builder is read, never rewritten).
+    const category = effectiveCategory(builder, mapping.category);
+    if (!category) continue;
     mappedSubjects.add(mapping.subject_id);
     const score = resolveMark(key, marks, mapping.mark_status);
     if (!score) {
@@ -359,7 +456,7 @@ export async function computeCardGrades(reportCard: ReportCard, weights?: Catego
       if (!resolved) {
         missingBySubject.set(mapping.subject_id, (missingBySubject.get(mapping.subject_id) ?? 0) + 1);
         const list = missingItems.get(mapping.subject_id) ?? [];
-        list.push({ assessment_type: type, assessment_id: mapping.assessment_id, category: mapping.category });
+        list.push({ assessment_type: type, assessment_id: mapping.assessment_id, category });
         missingItems.set(mapping.subject_id, list);
       }
       continue;
@@ -368,7 +465,7 @@ export async function computeCardGrades(reportCard: ReportCard, weights?: Catego
     list.push({
       assessment_id: mapping.assessment_id,
       assessment_type: type,
-      category: mapping.category as AssessmentScore["category"],
+      category,
       raw_score: score.raw_score,
       max_score: score.max_score,
     });
@@ -477,12 +574,14 @@ export async function buildCardDocuments(
   const out = new Map<number, ReportCardDocument>();
   if (cards.length === 0) return out;
   const [scheme, bands, school] = await Promise.all([getReportCardScheme(), getGradingBands(), getBranding()]);
+  const grading = gradingOf(scheme);
+  const tvet = grading.builder === "tvet";
 
   const cohort = new Map<number, ReportCard>();
   for (const c of [...(opts.cohort ?? []), ...cards]) cohort.set(c.id!, c);
   const computed = new Map(opts.computed ?? []);
   for (const c of cohort.values()) {
-    if (!computed.has(c.id!)) computed.set(c.id!, await computeCardGrades(c, scheme.category_weights));
+    if (!computed.has(c.id!)) computed.set(c.id!, await computeCardGrades(c, grading));
   }
 
   const info = await resolveStudentInfo([...new Set([...cohort.values()].map((c) => c.student_id))], opts.directory);
@@ -499,10 +598,9 @@ export async function buildCardDocuments(
     const cgId = c.class_group_id ?? info.get(c.student_id)?.class_group_id ?? null;
     classSubjectsOf(cgId).forEach((id) => allSubjectIds.add(id));
   }
-  const subjectInfo = await resolveSubjectInfo(req, [...allSubjectIds]);
-  const names = Object.fromEntries(Object.entries(subjectInfo).map(([id, v]) => [Number(id), v.name])) as Record<number, string>;
 
-  // A cohort key: class group (stored or from the directory) + period.
+  // TVET: a final-term card shows the earlier terms of the year too. A frozen
+  // earlier card counts with its snapshot's grades.
   const classOf = (c: ReportCard) => c.class_group_id ?? info.get(c.student_id)?.class_group_id ?? null;
   const cohortKey = (c: ReportCard) => `${classOf(c) ?? `solo-${c.id}`}|${c.term}|${c.academic_year}`;
   const byCohort = new Map<string, ReportCard[]>();
@@ -510,8 +608,62 @@ export async function buildCardDocuments(
     const k = cohortKey(c);
     byCohort.set(k, [...(byCohort.get(k) ?? []), c]);
   }
+  type Earlier = { term: string; grades: SubjectGrade[]; behaviour: number | null; comment: string | null };
+  const earlierByCard = new Map<number, Earlier[]>();
+  if (tvet) {
+    for (const members of byCohort.values()) {
+      const finals = members.filter((m) => isFinalTerm(m.term));
+      if (!finals.length) continue;
+      const cur = termIndex(finals[0].term) ?? 3;
+      const siblings = await ReportCard.findAll({
+        where: { academic_year: finals[0].academic_year, student_id: { [Op.in]: [...new Set(members.map((m) => m.student_id))] } },
+      });
+      const earlier = siblings.filter((c) => {
+        const i = termIndex(c.term);
+        return i != null && i < cur;
+      });
+      const gradesOf = new Map<number, SubjectGrade[]>();
+      const frozenIds = earlier.filter((c) => c.status === "approved" || c.status === "published").map((c) => c.id!);
+      if (frozenIds.length) {
+        const snaps = await ReportCardSnapshot.findAll({
+          where: { report_card_id: { [Op.in]: frozenIds }, superseded_at: { [Op.is]: null } as any },
+        });
+        for (const sn of snaps as any[]) gradesOf.set(Number(sn.report_card_id), (sn.payload as ReportCardDocument | null)?.grades ?? []);
+      }
+      for (const c of earlier) if (!gradesOf.has(c.id!)) gradesOf.set(c.id!, (await computeCardGrades(c, grading)).grades);
+      for (const m of finals) {
+        const byTerm = new Map<number, ReportCard>();
+        for (const c of earlier.filter((x) => x.student_id === m.student_id)) {
+          const i = termIndex(c.term)!;
+          if (!byTerm.has(i)) byTerm.set(i, c);
+        }
+        earlierByCard.set(
+          m.id!,
+          [...byTerm.entries()]
+            .sort((a, b) => a[0] - b[0])
+            .map(([, c]) => ({ term: c.term, grades: gradesOf.get(c.id!) ?? [], behaviour: c.behaviour_mark ?? null, comment: c.class_teacher_comment ?? null })),
+        );
+        for (const e of earlierByCard.get(m.id!)!) e.grades.forEach((x) => allSubjectIds.add(x.subject_id));
+      }
+    }
+  }
 
+  const subjectInfo = await resolveSubjectInfo(req, [...allSubjectIds]);
+  const names = Object.fromEntries(Object.entries(subjectInfo).map(([id, v]) => [Number(id), v.name])) as Record<number, string>;
+
+  // Module weight (TVET): the school's override, else MIS learning hours, else the default.
+  const weightOf = (sid: number): { weight: number; source: "school" | "mis" | "default" } => {
+    const own = scheme.tvet.module_weights[String(sid)];
+    if (own != null && own > 0) return { weight: own, source: "school" };
+    const mis = subjectInfo[sid]?.learning_hours;
+    if (mis != null && mis > 0) return { weight: mis, source: "mis" };
+    return { weight: scheme.tvet.default_module_weight, source: "default" };
+  };
+  const cellsOf = (grades: SubjectGrade[]) => grades.map((x) => tvetCell(x, weightOf(x.subject_id).weight));
+
+  /** A card's overall percentage: the plain average of subject totals (Normal), or weighted by learning hours (TVET). */
   const averageOf = (g: CardGrades) => {
+    if (tvet) return tvetTotals(cellsOf(g.grades)).pct;
     const totals = g.grades.map((x) => x.total_score);
     return totals.length ? round2(totals.reduce((a, b) => a + b, 0) / totals.length) : null;
   };
@@ -555,65 +707,49 @@ export async function buildCardDocuments(
     });
   }
 
-  // Final-term cohorts (CAMIS annual report): each member's earlier terms of
-  // the year. A frozen earlier card counts with its snapshot's grades.
-  const earlierByCard = new Map<number, Array<{ term: string; grades: SubjectGrade[]; behaviour: number | null }>>();
-  for (const members of byCohort.values()) {
-    const finals = members.filter((m) => isFinalTerm(m.term));
-    if (!finals.length) continue;
-    const cur = termIndex(finals[0].term) ?? 3;
-    const siblings = await ReportCard.findAll({
-      where: { academic_year: finals[0].academic_year, student_id: { [Op.in]: [...new Set(members.map((m) => m.student_id))] } },
-    });
-    const earlier = siblings.filter((c) => {
-      const i = termIndex(c.term);
-      return i != null && i < cur;
-    });
-    const gradesOf = new Map<number, SubjectGrade[]>();
-    const frozenIds = earlier.filter((c) => c.status === "approved" || c.status === "published").map((c) => c.id!);
-    if (frozenIds.length) {
-      const snaps = await ReportCardSnapshot.findAll({
-        where: { report_card_id: { [Op.in]: frozenIds }, superseded_at: { [Op.is]: null } as any },
-      });
-      for (const sn of snaps as any[]) gradesOf.set(Number(sn.report_card_id), (sn.payload as ReportCardDocument | null)?.grades ?? []);
-    }
-    for (const c of earlier) if (!gradesOf.has(c.id!)) gradesOf.set(c.id!, (await computeCardGrades(c, scheme.category_weights)).grades);
-    for (const m of finals) {
-      const byTerm = new Map<string, ReportCard>();
-      for (const c of earlier.filter((x) => x.student_id === m.student_id).sort((a, b) => (termIndex(a.term) ?? 0) - (termIndex(b.term) ?? 0))) {
-        if (!byTerm.has(c.term)) byTerm.set(c.term, c);
-      }
-      earlierByCard.set(
-        m.id!,
-        [...byTerm.values()].map((c) => ({ term: c.term, grades: gradesOf.get(c.id!) ?? [], behaviour: c.behaviour_mark ?? null })),
-      );
-    }
-  }
-  /** A final-term card's modules over the year: subject id -> average of the term marks assessed. */
-  const annualOf = (card: ReportCard): Map<number, { total: number; terms: number }> => {
-    const out = new Map<number, { sum: number; n: number }>();
+  // TVET final-term cohorts: each earlier term's position, and the year's.
+  const earlierRanks = new Map<string, Map<number, { ranks: Map<number, number>; of: number }>>();
+  const annualRanks = new Map<string, { ranks: Map<number, number>; of: number }>();
+  /** subject id -> the module over the year (sum of the term TOs over the sum of their maxima). */
+  const yearOf = (card: ReportCard) => {
+    const per = new Map<number, { at: number; max: number }>();
     const add = (grades: SubjectGrade[]) => {
-      for (const g of grades) {
-        const a = out.get(g.subject_id) ?? { sum: 0, n: 0 };
-        a.sum += g.total_score;
-        a.n += 1;
-        out.set(g.subject_id, a);
+      for (const x of grades) {
+        const c = tvetCell(x, weightOf(x.subject_id).weight);
+        if (!c) continue;
+        const a = per.get(x.subject_id) ?? { at: 0, max: 0 };
+        a.at += c.to ?? 0;
+        a.max += c.max ?? 0;
+        per.set(x.subject_id, a);
       }
     };
     for (const e of earlierByCard.get(card.id!) ?? []) add(e.grades);
     add(computed.get(card.id!)!.grades);
-    return new Map([...out].map(([sid, a]) => [sid, { total: round2(a.sum / a.n), terms: a.n }]));
+    return per;
   };
-  const annualAverage = (card: ReportCard) => {
-    const totals = [...annualOf(card).values()].map((x) => x.total);
-    return totals.length ? round2(totals.reduce((a, b) => a + b, 0) / totals.length) : null;
+  const yearTotals = (card: ReportCard) => {
+    const per = [...yearOf(card).values()];
+    if (!per.length) return { total: null, max: null, pct: null };
+    const total = round2(per.reduce((a, x) => a + x.at, 0));
+    const max = round2(per.reduce((a, x) => a + x.max, 0));
+    return { total, max, pct: max > 0 ? round2((total / max) * 100) : null };
   };
-  const annualRanks = new Map<string, { ranks: Map<number, number>; of: number }>();
-  for (const [k, members] of byCohort) {
-    const finals = members.filter((m) => isFinalTerm(m.term));
-    if (!finals.length) continue;
-    const avgs = finals.map((m) => ({ id: m.id!, average: annualAverage(m) }));
-    annualRanks.set(k, { ranks: rankAverages(avgs), of: avgs.filter((a) => a.average != null).length });
+  if (tvet) {
+    for (const [k, members] of byCohort) {
+      const finals = members.filter((m) => isFinalTerm(m.term) && earlierByCard.has(m.id!));
+      if (!finals.length) continue;
+      const perTerm = new Map<number, { ranks: Map<number, number>; of: number }>();
+      for (const idx of [1, 2]) {
+        const avgs = finals.map((m) => {
+          const e = (earlierByCard.get(m.id!) ?? []).find((x) => termIndex(x.term) === idx);
+          return { id: m.id!, average: e ? tvetTotals(cellsOf(e.grades)).pct : null };
+        });
+        perTerm.set(idx, { ranks: rankAverages(avgs), of: avgs.filter((a) => a.average != null).length });
+      }
+      earlierRanks.set(k, perTerm);
+      const yearAvgs = finals.map((m) => ({ id: m.id!, average: yearTotals(m).pct }));
+      annualRanks.set(k, { ranks: rankAverages(yearAvgs), of: yearAvgs.filter((a) => a.average != null).length });
+    }
   }
 
   const cycles = await ReportCycle.findAll({
@@ -664,10 +800,16 @@ export async function buildCardDocuments(
       return list.length ? list.map((t) => t.name).join(", ") : null;
     };
     const gradeBySubject = new Map(g.grades.map((x) => [x.subject_id, x]));
-    const final = isFinalTerm(card.term);
-    const annual = final ? annualOf(card) : null;
+    const final = tvet && isFinalTerm(card.term);
+    const earlier = final ? (earlierByCard.get(card.id!) ?? []) : [];
+    const year = final ? yearOf(card) : null;
     const subjectIds = [
-      ...new Set([...g.mappedSubjects, ...gradeBySubject.keys(), ...classSubjectsOf(cg), ...(annual ? annual.keys() : [])]),
+      ...new Set([
+        ...g.mappedSubjects,
+        ...gradeBySubject.keys(),
+        ...classSubjectsOf(cg),
+        ...earlier.flatMap((e) => e.grades.map((x) => x.subject_id)),
+      ]),
     ];
     const subjects: DocumentSubject[] = subjectIds.map((sid) => {
       const grade = gradeBySubject.get(sid);
@@ -678,6 +820,7 @@ export async function buildCardDocuments(
       ) as Record<Cat, number | null>;
       const category = categoryOf(sid);
       const threshold = scheme.competence_thresholds[category ?? "specific"] ?? scheme.pass_mark;
+      const w = weightOf(sid);
       return {
         subject_id: sid,
         name: names[sid] ?? `Subject #${sid}`,
@@ -701,16 +844,23 @@ export async function buildCardDocuments(
         mapped: g.mappedSubjects.has(sid) || gradeBySubject.has(sid),
         weight: subjectInfo[sid]?.learning_hours ?? null,
         rqf_level: subjectInfo[sid]?.rqf_level ?? null,
-        term_cell: termCellOf(card.term, grade),
-        ...(final
+        ...(tvet
           ? {
-              earlier_terms: (earlierByCard.get(card.id!) ?? []).map((e) =>
-                termCellOf(e.term, e.grades.find((x) => x.subject_id === sid)),
-              ),
-              annual: (() => {
-                const a = annual!.get(sid);
-                return { total: a?.total ?? null, competent: a ? a.total >= threshold : null, terms_assessed: a?.terms ?? 0 };
-              })(),
+              tvet: {
+                weight: w.weight,
+                weight_source: w.source,
+                terms: [
+                  ...earlier.map((e) => tvetCell(e.grades.find((x) => x.subject_id === sid), w.weight)),
+                  tvetCell(grade, w.weight),
+                ],
+                annual: final
+                  ? (() => {
+                      const a = year!.get(sid);
+                      const pct = a && a.max > 0 ? round2((a.at / a.max) * 100) : null;
+                      return { at: a ? round2(a.at) : null, max: a ? round2(a.max) : null, pct, competent: pct != null ? pct >= threshold : null };
+                    })()
+                  : null,
+              },
             }
           : {}),
       };
@@ -748,8 +898,76 @@ export async function buildCardDocuments(
       .map((a) => ({ attribute_name: a.attribute_name, rating: a.rating }))
       .sort((a, b) => attrOrder(a.attribute_name) - attrOrder(b.attribute_name));
 
+    const qualification = tvet ? qualificationOf(subjects, s.program_name, card.class_name ?? s.class_name, s.grade_name) : undefined;
+    if (qualification) {
+      if (scheme.tvet.qualification_title) qualification.title = scheme.tvet.qualification_title;
+      if (scheme.tvet.sector) qualification.sector = scheme.tvet.sector;
+    }
+
+    let tvetBlock: ReportCardDocument["tvet"];
+    if (tvet) {
+      const k = cohortKey(card);
+      const allSubjects = subjects;
+      const termEntries: NonNullable<ReportCardDocument["tvet"]>["terms"] = [
+        ...earlier.map((e, i) => {
+          const idx = termIndex(e.term) ?? i + 1;
+          const rk = earlierRanks.get(k)?.get(idx);
+          const p = rk?.ranks.get(card.id!) ?? null;
+          return {
+            term: e.term,
+            current: false,
+            totals: tvetTotals(allSubjects.map((x) => x.tvet!.terms[i])),
+            position: p,
+            position_of: p != null ? (rk?.of ?? null) : null,
+            conduct: e.behaviour,
+            comment: e.comment,
+          };
+        }),
+        {
+          term: card.term,
+          current: true,
+          totals: tvetTotals(allSubjects.map((x) => x.tvet!.terms[earlier.length])),
+          position,
+          position_of: position != null ? stats.size : null,
+          conduct: card.behaviour_mark ?? null,
+          comment: card.class_teacher_comment ?? null,
+        },
+      ];
+      let annual: NonNullable<ReportCardDocument["tvet"]>["annual"] = null;
+      if (final) {
+        const yt = yearTotals(card);
+        const rk = annualRanks.get(k);
+        const p = rk?.ranks.get(card.id!) ?? null;
+        const conducts = termEntries.map((t) => t.conduct).filter((c): c is number => c != null);
+        annual = {
+          total: yt.total,
+          max: yt.max,
+          pct: yt.pct,
+          position: p,
+          position_of: p != null ? (rk?.of ?? null) : null,
+          conduct: conducts.length ? round2(conducts.reduce((a, b) => a + b, 0) / conducts.length) : null,
+        };
+      }
+      tvetBlock = {
+        final,
+        terms: termEntries,
+        annual,
+        school: {
+          district: scheme.tvet.district,
+          email: scheme.tvet.school_email,
+          phone: scheme.tvet.school_phone,
+          headmaster: scheme.tvet.headmaster_name,
+        },
+        conditions: deliberationConditions(scheme.competence_thresholds),
+        decision: final ? tvetDecision(subjects.map((x) => x.tvet!.annual?.competent ?? null), qualification?.rqf_level ?? null) : null,
+        show_attendance: scheme.tvet.show_attendance,
+        show_attributes: scheme.tvet.show_attributes,
+      };
+    }
+
     out.set(card.id!, {
       schema: DOCUMENT_SCHEMA,
+      builder: grading.builder,
       card: {
         id: card.id!,
         uuid: card.uuid,
@@ -772,7 +990,7 @@ export async function buildCardDocuments(
         program_name: s.program_name,
       },
       scheme: {
-        category_weights: scheme.category_weights,
+        category_weights: grading.weights,
         pass_mark: scheme.pass_mark,
         bands,
         show_position: scheme.show_position,
@@ -788,7 +1006,7 @@ export async function buildCardDocuments(
         average,
         grade: avgLetter?.letter ?? null,
         remark: avgLetter?.remark ?? null,
-        total_marks: round2(counted.reduce((a, x) => a + (x.total as number), 0)),
+        total_marks: tvet ? (tvetBlock!.terms[tvetBlock!.terms.length - 1].totals.to ?? 0) : round2(counted.reduce((a, x) => a + (x.total as number), 0)),
         subjects_counted: counted.length,
         subjects_passed: counted.filter((x) => x.passed).length,
         subjects_failed: counted.filter((x) => x.passed === false).length,
@@ -806,31 +1024,9 @@ export async function buildCardDocuments(
       },
       next_term_begins_on: cycle?.next_term_begins_on ?? null,
       grades: g.grades,
-      behaviour: {
-        mark: card.behaviour_mark ?? null,
-        max: BEHAVIOUR_MAX,
-        ...(final ? { earlier: (earlierByCard.get(card.id!) ?? []).map((e) => ({ term: e.term, mark: e.behaviour })) } : {}),
-      },
-      qualification: qualificationOf(subjects, s.program_name, card.class_name ?? s.class_name, s.grade_name),
-      ...(final
-        ? {
-            annual: (() => {
-              const withYear = subjects.filter((x) => x.annual?.total != null);
-              const rk = annualRanks.get(cohortKey(card));
-              const position = rk?.ranks.get(card.id!) ?? null;
-              return {
-                terms: [...(earlierByCard.get(card.id!) ?? []).map((e) => e.term), card.term],
-                average: annualAverage(card),
-                position,
-                position_of: position != null ? (rk?.of ?? null) : null,
-                modules_competent: withYear.filter((x) => x.annual!.competent === true).length,
-                modules_nyc: withYear.filter((x) => x.annual!.competent === false).length,
-                total_marks: round2(withYear.reduce((a, x) => a + (x.annual!.total as number), 0)),
-                total_max: withYear.length * 100,
-              };
-            })(),
-          }
-        : {}),
+      behaviour: { mark: card.behaviour_mark ?? null, max: BEHAVIOUR_MAX },
+      ...(qualification ? { qualification } : {}),
+      ...(tvetBlock ? { tvet: tvetBlock } : {}),
     });
   }
   return out;

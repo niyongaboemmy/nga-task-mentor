@@ -11,16 +11,21 @@ import { cachedGradingBands, GradeBand, letterFor } from "./tenantSettings";
  *   EOT → 50
  */
 
-/** CW/HW/MD are formative (FA), EOT the comprehensive assessment (CA), IA the Term 3 integrated assessment. */
-export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT" | "IA";
+/**
+ * Normal builder: CW/HW/MD/EOT. TVET builder: FA (formative), CA
+ * (comprehensive) and IA (integrated, Term 3). See reportCardBuilders.ts.
+ */
+export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT" | "IA" | "FA" | "CA";
 
 export const CATEGORY_WEIGHTS: Record<AssessmentCategory, number> = {
   CW: 15,
   HW: 10,
   MD: 25,
   EOT: 50,
-  // Term 3 only, on top of the 100 (a term's mark is over the categories assessed).
-  IA: 50,
+  // TVET builder: equal-weight components (each shown out of the module weight).
+  IA: 100,
+  FA: 100,
+  CA: 100,
 };
 
 export interface AssessmentScore {

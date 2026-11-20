@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import ReportCardSettingsPage, { validateBands, validateScheme } from "../pages/ReportCardSettingsPage";
-import { ReportCardWorkflowApi, NGA_BANDS } from "../services/reportCardWorkflowApi";
+import { ReportCardWorkflowApi, NGA_BANDS, type ReportCardScheme } from "../services/reportCardWorkflowApi";
 import { CourseApiService } from "../services/courseApi";
 import type { Course } from "../types/course.types";
 
@@ -64,7 +64,7 @@ describe("ReportCardSettingsPage", () => {
       success: true,
       data: { scheme: structuredClone(SCHEME), bands: structuredClone(BANDS) },
     });
-    vi.mocked(ReportCardWorkflowApi.saveScheme).mockImplementation(async (scheme) => ({ success: true, data: { scheme } }));
+    vi.mocked(ReportCardWorkflowApi.saveScheme).mockImplementation(async (scheme) => ({ success: true, data: { scheme: scheme as ReportCardScheme } }));
     vi.mocked(ReportCardWorkflowApi.saveBands).mockImplementation(async (bands) => ({ success: true, bands }));
     vi.mocked(CourseApiService.getCourses).mockResolvedValue({ success: true, count: 3, data: COURSES as unknown as Course[] });
   });
@@ -195,7 +195,7 @@ describe("ReportCardSettingsPage", () => {
     fireEvent.click(screen.getByTestId("save-scheme"));
     await waitFor(() => expect(ReportCardWorkflowApi.saveScheme).toHaveBeenCalledTimes(1));
     expect(ReportCardWorkflowApi.saveScheme).toHaveBeenCalledWith({
-      category_weights: { CW: 15, HW: 10, MD: 25, EOT: 50, IA: 50 },
+      category_weights: { CW: 15, HW: 10, MD: 25, EOT: 50 },
       pass_mark: 40,
       attributes: ["Punctuality", "Commitment to society", "Neatness & order"],
       subject_groups: [
@@ -276,10 +276,8 @@ describe("settings validation", () => {
       show_subject_rank: true,
       show_competence: true,
       thresholds: { specific: "70", general: "50", complementary: "50" },
-      ia: "50",
     };
     expect(validateScheme(base)).toEqual([]);
-    expect(validateScheme({ ...base, ia: "120" })).toContain("The IA weight must be between 0 and 100.");
     expect(validateScheme({ ...base, weights: { ...base.weights, CW: "-1" } })).toContain("The CW weight must be between 0 and 100.");
     expect(validateScheme({ ...base, pass_mark: "120" })).toContain("The pass mark must be between 0 and 100.");
     expect(validateScheme({ ...base, attributes: Array.from({ length: 17 }, (_, i) => ({ key: i, name: `A${i}` })) })).toContain(

@@ -4,7 +4,7 @@ const assessmentItemSchema = z.object({
   subject_id: z.number().int().positive("subject_id must be a positive integer"),
   assessment_type: z.enum(["quiz", "assignment", "manual"] as const),
   assessment_id: z.number().int().positive("assessment_id must be a positive integer"),
-  category: z.enum(["CW", "HW", "MD", "EOT", "IA"] as const),
+  category: z.enum(["CW", "HW", "MD", "EOT", "IA", "FA", "CA"] as const),
 });
 
 // assessments can be empty — allows initializing a report card record before
@@ -22,7 +22,7 @@ export const builderSaveSchema = z.object({
 const subjectMappingItemSchema = z.object({
   assessment_type: z.enum(["quiz", "assignment", "manual"] as const),
   assessment_id: z.number().int().positive("assessment_id must be a positive integer"),
-  category: z.enum(["CW", "HW", "MD", "EOT", "IA"] as const),
+  category: z.enum(["CW", "HW", "MD", "EOT", "IA", "FA", "CA"] as const),
 });
 
 export const subjectMappingSaveSchema = z.object({

@@ -12,15 +12,20 @@ import type { WorkbenchCell } from "../../services/reportCardWorkflowApi";
  * is worked out, and what's still missing.
  */
 
-const CATS = ["CW", "HW", "MD", "EOT"] as const;
-const CAT_NAME: Record<(typeof CATS)[number], string> = {
-  CW: "Class work",
-  HW: "Homework",
-  MD: "Midterm",
-  EOT: "End of term exam",
-};
+/** The Normal builder's categories; the workbench passes the school's own (TVET: FA/CA/IA). */
+const NORMAL_CATS: MarkCellCategory[] = [
+  { key: "CW", short: "CW", label: "Class work", weight: 15 },
+  { key: "HW", short: "HW", label: "Homework", weight: 10 },
+  { key: "MD", short: "MD", label: "Midterm", weight: 25 },
+  { key: "EOT", short: "EOT", label: "End of term exam", weight: 50 },
+];
+export interface MarkCellCategory {
+  key: string;
+  short: string;
+  label: string;
+  weight: number;
+}
 const TYPE_NAME: Record<string, string> = { quiz: "Quiz", assignment: "Assignment", manual: "Manual mark" };
-const DEFAULT_WEIGHTS = { CW: 15, HW: 10, MD: 25, EOT: 50 };
 
 export interface MarkCellProps {
   cell: WorkbenchCell | undefined;
@@ -30,12 +35,16 @@ export interface MarkCellProps {
   /** Mark needed to be Competent (RTB: 70 for specific, 50 general/complementary). */
   threshold?: number;
   weights?: { CW: number; HW: number; MD: number; EOT: number };
+  /** The school's builder categories (defaults to Normal with `weights`). */
+  categories?: MarkCellCategory[];
 }
 
 /** Exact, never rounded to whole numbers: up to 2 decimals, trailing zeros dropped. */
 const fmt = (n: number) => String(Number(n.toFixed(2)));
 
-export default function MarkCell({ cell, studentName, moduleName, moduleCode, threshold, weights = DEFAULT_WEIGHTS }: MarkCellProps) {
+export default function MarkCell({ cell, studentName, moduleName, moduleCode, threshold, weights, categories }: MarkCellProps) {
+  const cats = categories ?? NORMAL_CATS.map((c) => ({ ...c, weight: weights?.[c.key as keyof typeof weights] ?? c.weight }));
+  const tvet = cats.some((c) => c.key === "FA");
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -137,7 +146,7 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
             </span>
           )}
         </span>
-        {/* How much of the term is assessed: a full bar = all of CW+HW+MD+EOT has marks. */}
+        {/* How much of the term is assessed: a full bar = every category (TVET: FA and CA) has marks. */}
         <span className="mt-0.5 h-[3px] w-9 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10" aria-hidden="true">
           <span className="block h-full rounded-full bg-blue-500/80" style={{ width: `${Math.max(0, Math.min(100, covered))}%` }} />
         </span>
@@ -191,13 +200,14 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
             )}
 
             <ul className="mt-3 space-y-1.5">
-              {CATS.map((c) => {
+              {cats.map((cat) => {
+                const c = cat.key;
                 const v = cell?.categories?.[c] ?? null;
-                const w = weights[c];
+                const w = cat.weight;
                 return (
                   <li key={c} className="grid grid-cols-[86px_1fr_auto] items-center gap-2 text-xs">
-                    <span className="text-text-secondary-light dark:text-text-secondary-dark" title={CAT_NAME[c]}>
-                      <strong className="font-semibold text-text-primary-light dark:text-text-primary-dark">{c}</strong> {CAT_NAME[c].split(" ")[0]}
+                    <span className="text-text-secondary-light dark:text-text-secondary-dark" title={cat.label}>
+                      <strong className="font-semibold text-text-primary-light dark:text-text-primary-dark">{cat.short}</strong> {cat.label.split(" ")[0]}
                     </span>
                     <span className="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
                       {v != null && <span className="block h-full rounded-full bg-blue-600" style={{ width: `${w ? (v / w) * 100 : 0}%` }} />}
@@ -206,7 +216,7 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
                       {v != null ? (
                         <>
                           {fmt(v)}
-                          <span className="text-text-secondary-light dark:text-text-secondary-dark">/{w}</span>
+                          <span className="text-text-secondary-light dark:text-text-secondary-dark">{tvet ? "%" : `/${w}`}</span>
                         </>
                       ) : (
                         <span className="text-text-secondary-light dark:text-text-secondary-dark">not yet</span>
@@ -219,7 +229,13 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
 
             {total != null && cell?.points != null && (
               <p className="mt-3 rounded-2xl bg-gray-50 px-3 py-2 text-xs text-text-secondary-light dark:bg-panel-raised dark:text-text-secondary-dark">
-                {covered < 100 ? (
+                {tvet ? (
+                  <>
+                    The average of the components assessed ={" "}
+                    <strong className="text-text-primary-light dark:text-text-primary-dark">{fmt(total)}%</strong>. On the card each component is
+                    shown out of the module weight.
+                  </>
+                ) : covered < 100 ? (
                   <>
                     <strong className="text-text-primary-light dark:text-text-primary-dark">{fmt(cell.points)}</strong> of the{" "}
                     <strong className="text-text-primary-light dark:text-text-primary-dark">{covered}</strong> points assessed so far ={" "}
@@ -251,7 +267,7 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
                             </span>
                             <span className="block text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
                               {TYPE_NAME[m.assessment_type] ?? m.assessment_type} · {m.category}
-                              {m.category in CAT_NAME ? ` (${CAT_NAME[m.category as keyof typeof CAT_NAME]})` : ""}
+                              {cats.find((c) => c.key === m.category) ? ` (${cats.find((c) => c.key === m.category)!.label})` : ""}
                             </span>
                           </span>
                           {m.href && <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-blue-600 dark:text-blue-400" />}

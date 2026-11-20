@@ -1,5 +1,5 @@
 import axios from "../utils/axiosConfig";
-import type { GradeBand } from "./reportCardApi";
+import type { BuilderStructure, GradeBand, ReportCardBuilderKind } from "./reportCardApi";
 
 /**
  * Report card workflow API (server: controllers/reportCardWorkflow.controller.ts,
@@ -115,7 +115,8 @@ export interface WorkbenchCell {
   /** Points earned out of `covered`. */
   points?: number | null;
   /** Points per category (out of its weight); null = no marks in that category yet. */
-  categories?: Record<"CW" | "HW" | "MD" | "EOT", number | null> | null;
+  /** Scaled points per category of the school's builder (Normal CW/HW/MD/EOT, TVET FA/CA/IA as %). */
+  categories?: Record<string, number | null> | null;
   competent?: boolean | null;
   /** The assessments behind `missing`: what still needs a mark, and where to record it. */
   missing_items?: WorkbenchMissingItem[];
@@ -168,7 +169,9 @@ export interface WorkbenchData {
     attributes: string[];
     pass_mark: number;
     require_distinct_approver: boolean;
-    category_weights?: { CW: number; HW: number; MD: number; EOT: number; IA?: number };
+    category_weights?: { CW: number; HW: number; MD: number; EOT: number };
+    builder?: ReportCardBuilderKind;
+    structure?: BuilderStructure;
     competence_thresholds?: { specific: number; general: number; complementary: number };
   };
   subjects: WorkbenchSubject[];
@@ -224,8 +227,48 @@ export interface DiffData {
 
 // ─── Scheme ──────────────────────────────────────────────────────────────────
 
+/** TVET template options (server services/tenantSettings.ts TvetTemplateOptions). */
+export interface TvetTemplateOptions {
+  district: string;
+  sector: string;
+  school_email: string;
+  school_phone: string;
+  headmaster_name: string;
+  qualification_title: string;
+  default_module_weight: number;
+  module_weights: Record<string, number>;
+  show_attendance: boolean;
+  show_attributes: boolean;
+}
+
+export const DEFAULT_TVET_OPTIONS: TvetTemplateOptions = {
+  district: "",
+  sector: "",
+  school_email: "",
+  school_phone: "",
+  headmaster_name: "",
+  qualification_title: "",
+  default_module_weight: 100,
+  module_weights: {},
+  show_attendance: false,
+  show_attributes: false,
+};
+
+export interface TemplateModule {
+  id: number;
+  name: string;
+  code: string | null;
+  category: "specific" | "general" | "complementary" | null;
+  learning_hours: number | null;
+  rqf_level: string | null;
+  override: number | null;
+}
+
 export interface ReportCardScheme {
-  category_weights: { CW: number; HW: number; MD: number; EOT: number; IA?: number };
+  /** The school's builder (Normal / TVET); a save without it keeps the current one. */
+  builder?: ReportCardBuilderKind;
+  tvet?: TvetTemplateOptions;
+  category_weights: { CW: number; HW: number; MD: number; EOT: number };
   pass_mark: number;
   attributes: string[];
   subject_groups: Array<{ name: string; subject_ids: number[] }>;
@@ -426,8 +469,19 @@ export const ReportCardWorkflowApi = {
   async scheme(): Promise<{ success: boolean; data: { scheme: ReportCardScheme; bands: GradeBand[] } }> {
     return (await axios.get("/report-cards/scheme")).data;
   },
-  async saveScheme(scheme: ReportCardScheme): Promise<{ success: boolean; data: { scheme: ReportCardScheme } }> {
+  async saveScheme(scheme: Partial<ReportCardScheme>): Promise<{ success: boolean; data: { scheme: ReportCardScheme } }> {
     return (await axios.put("/report-cards/scheme", { scheme })).data;
+  },
+  /** The builder the school chose and its mapping categories (any signed-in user). */
+  async structure(): Promise<{
+    success: boolean;
+    data: { builder: ReportCardBuilderKind; structure: BuilderStructure; competence_thresholds: { specific: number; general: number; complementary: number }; pass_mark: number };
+  }> {
+    return (await axios.get("/report-cards/structure")).data;
+  },
+  /** MIS modules with learning hours, for the TVET module-weight editor. */
+  async templateModules(): Promise<{ success: boolean; data: { modules: TemplateModule[]; default_module_weight: number } }> {
+    return (await axios.get("/report-cards/templates/modules")).data;
   },
   async saveBands(bands: GradeBand[]): Promise<{ success: boolean; bands: GradeBand[] }> {
     return (await axios.put("/settings/grading", { bands })).data;

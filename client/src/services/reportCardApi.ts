@@ -2,7 +2,24 @@ import axios from "../utils/axiosConfig";
 import type { AiAnswer } from "./myAiApi";
 
 /** CW/HW/MD are formative (FA), EOT the comprehensive assessment (CA), IA the Term 3 integrated assessment. */
-export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT" | "IA";
+/** Normal builder: CW/HW/MD/EOT. TVET builder: FA/CA/IA. */
+export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT" | "IA" | "FA" | "CA";
+
+/** The report card builder a school chose (server services/reportCardBuilders.ts). */
+export type ReportCardBuilderKind = "normal" | "tvet";
+export interface BuilderCategory {
+  key: AssessmentCategory;
+  label: string;
+  short: string;
+  weight: number;
+  hint: string;
+}
+export interface BuilderStructure {
+  key: ReportCardBuilderKind;
+  label: string;
+  description: string;
+  categories: BuilderCategory[];
+}
 export type AssessmentType = "quiz" | "assignment" | "manual";
 export type AttributeRating = "Excellent" | "Very good" | "Good";
 /** draft -> reviewed -> approved -> published; only a draft can be edited. */
@@ -205,13 +222,23 @@ export interface ReportCardMeta {
  * The rendered card (server services/reportCardDocument.ts): a snapshot for
  * approved/published cards, a live render for drafts.
  */
-/** One term of a module, CAMIS style. */
-export interface TermCell {
-  term: string;
+/** One module in one term on the TVET card, in marks out of the module weight. */
+export interface TvetTermCell {
   fa: number | null;
   ia: number | null;
   ca: number | null;
-  total: number | null;
+  to: number | null;
+  max: number | null;
+  pct: number | null;
+}
+
+export interface TvetTotals {
+  fa: number | null;
+  ia: number | null;
+  ca: number | null;
+  to: number | null;
+  max: number | null;
+  pct: number | null;
 }
 
 export interface DocumentSubject {
@@ -219,7 +246,7 @@ export interface DocumentSubject {
   name: string;
   group: string | null;
   teacher: string | null;
-  categories: Record<AssessmentCategory, number | null>;
+  categories: Partial<Record<AssessmentCategory, number | null>>;
   total: number | null;
   grade: string | null;
   remark: string | null;
@@ -243,12 +270,13 @@ export interface DocumentSubject {
   /** Module weight = learning hours (credits x 10). */
   weight?: number | null;
   rqf_level?: string | null;
-  /** This term in CAMIS columns (FA = CW+HW+MD, IA, CA = EOT, total /100). */
-  term_cell?: TermCell;
-  /** Final-term card: the earlier terms of the year. */
-  earlier_terms?: TermCell[];
-  /** Final-term card: the module over the year. */
-  annual?: { total: number | null; competent: boolean | null; terms_assessed: number };
+  /** TVET builder: the module in CAMIS columns, aligned with ReportCardDocument.tvet.terms. */
+  tvet?: {
+    weight: number;
+    weight_source: "school" | "mis" | "default";
+    terms: Array<TvetTermCell | null>;
+    annual: { at: number | null; max: number | null; pct: number | null; competent: boolean | null } | null;
+  };
 }
 
 /** RTB module categories. */
@@ -278,7 +306,7 @@ export interface ReportCardDocument {
     program_name: string | null;
   };
   scheme: {
-    category_weights: Record<AssessmentCategory, number>;
+    category_weights: Partial<Record<AssessmentCategory, number>>;
     pass_mark: number;
     bands: GradeBand[];
     show_position: boolean;
@@ -309,19 +337,29 @@ export interface ReportCardDocument {
   comments: { class_teacher: string | null; head_teacher: string | null };
   next_term_begins_on: string | null;
   grades: SubjectGrade[];
-  /** Behaviour out of 40 (outside every total). */
-  behaviour?: { mark: number | null; max: number; earlier?: Array<{ term: string; mark: number | null }> };
+  /** Behaviour (conduct) out of 40 (outside every total). */
+  behaviour?: { mark: number | null; max: number };
+  /** The builder (template) the card was made with; absent on old snapshots = normal. */
+  builder?: ReportCardBuilderKind;
   qualification?: { rqf_level: string | null; trade: string | null; title: string | null; sector: string | null };
-  /** Final-term card only: the year. */
-  annual?: {
-    terms: string[];
-    average: number | null;
-    position: number | null;
-    position_of: number | null;
-    modules_competent: number;
-    modules_nyc: number;
-    total_marks: number;
-    total_max: number;
+  /** TVET builder: the CAMIS layout's terms, year, school block and deliberation. */
+  tvet?: {
+    final: boolean;
+    terms: Array<{
+      term: string;
+      current: boolean;
+      totals: TvetTotals;
+      position: number | null;
+      position_of: number | null;
+      conduct: number | null;
+      comment: string | null;
+    }>;
+    annual: { total: number | null; max: number | null; pct: number | null; position: number | null; position_of: number | null; conduct: number | null } | null;
+    school: { district: string; email: string; phone: string; headmaster: string };
+    conditions: string[];
+    decision: string | null;
+    show_attendance: boolean;
+    show_attributes: boolean;
   };
 }
 

@@ -32,7 +32,7 @@ export type SubjectAssessmentMappingCreationAttributes = Omit<
 >;
 
 const VALID_ASSESSMENT_TYPES: AssessmentType[] = ["quiz", "assignment", "manual"];
-const VALID_CATEGORIES: AssessmentCategory[] = ["CW", "HW", "MD", "EOT", "IA"];
+const VALID_CATEGORIES: AssessmentCategory[] = ["CW", "HW", "MD", "EOT", "IA", "FA", "CA"];
 
 @Table({
   tableName: "subject_assessment_mappings",
@@ -93,7 +93,7 @@ export class SubjectAssessmentMapping extends Model<
   public assessment_id!: number;
 
   @Column({
-    type: DataType.ENUM("CW", "HW", "MD", "EOT", "IA"),
+    type: DataType.ENUM("CW", "HW", "MD", "EOT", "IA", "FA", "CA"),
     allowNull: false,
     validate: {
       notNull: { msg: "Category is required" },

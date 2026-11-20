@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ReportCardBuilder, {
   type SubjectOption,
 } from "../components/ReportCard/ReportCardBuilder";
 import * as reportCardApi from "../services/reportCardApi";
+import { NORMAL_STRUCTURE, TVET_STRUCTURE, refreshReportCardStructure } from "../hooks/useReportCardStructure";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,11 @@ vi.mock("../services/reportCardApi", () => ({
   ReportCardApiService: {
     saveBuilder: vi.fn(),
   },
+}));
+
+// The school's builder (GET /report-cards/structure): Normal unless a test switches it.
+vi.mock("../services/reportCardWorkflowApi", () => ({
+  ReportCardWorkflowApi: { structure: vi.fn().mockRejectedValue(new Error("offline")) },
 }));
 
 // dnd-kit relies on PointerEvents; jsdom doesn't support them fully.
@@ -119,9 +125,26 @@ describe("ReportCardBuilder", () => {
     expect(screen.getByText("Homework")).toBeInTheDocument();
     expect(screen.getByText("Mid-Term")).toBeInTheDocument();
     expect(screen.getByText("End of Term")).toBeInTheDocument();
-    expect(screen.getByText("Integrated Assessment")).toBeInTheDocument();
+    expect(screen.queryByText("Integrated Assessment")).not.toBeInTheDocument(); // TVET only
     expect(screen.getByText("15%")).toBeInTheDocument();
-    expect(screen.getAllByText("50%")).toHaveLength(2); // EOT and IA (Term 3)
+    expect(screen.getByText("50%")).toBeInTheDocument();
+    expect(screen.getByTestId("builder-chip")).toHaveTextContent("Normal builder · CW · HW · MD · EOT");
+  });
+
+  it("follows the school's TVET builder: FA, CA and IA zones, and old CW/EOT mappings shown as FA/CA", async () => {
+    await refreshReportCardStructure(TVET_STRUCTURE);
+    const item = { dndId: "manual-1", assessment_id: 1, assessment_type: "manual" as const, title: "Class test", subject_id: SUBJECTS[0].id };
+    const exam = { dndId: "manual-2", assessment_id: 2, assessment_type: "manual" as const, title: "Term exam", subject_id: SUBJECTS[0].id };
+    render(<ReportCardBuilder {...DEFAULT_PROPS} initialDropped={{ CW: [item], EOT: [exam] }} />);
+    expect(await screen.findByText("Formative Assessment")).toBeInTheDocument();
+    expect(screen.getByText("Comprehensive Assessment")).toBeInTheDocument();
+    expect(screen.getByText("Integrated Assessment")).toBeInTheDocument();
+    expect(screen.queryByText("Class Work")).not.toBeInTheDocument();
+    expect(screen.getByTestId("builder-chip")).toHaveTextContent("TVET (RTB / CAMIS) builder · FA · CA · IA");
+    await waitFor(() => expect(screen.getByTestId("drop-zone-FA")).toHaveTextContent("Class test"));
+    expect(screen.getByTestId("drop-zone-CA")).toHaveTextContent("Term exam");
+    expect(screen.getByTestId("builder-remapped")).toHaveTextContent("2 mappings were made for the Normal builder");
+    await refreshReportCardStructure(NORMAL_STRUCTURE);
   });
 
   it("save button is disabled when no items are mapped", () => {

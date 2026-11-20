@@ -12,6 +12,7 @@ import {
   X,
   AlertCircle,
   RotateCcw,
+  LayoutTemplate,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -50,8 +51,6 @@ interface BandRow {
 
 interface SchemeForm {
   weights: Record<Category, string>;
-  /** Term 3 integrated assessment weight (extra, outside the 100). */
-  ia: string;
   pass_mark: string;
   attributes: Array<{ key: number; name: string }>;
   groups: Array<{ key: number; name: string; subject_ids: number[] }>;
@@ -110,8 +109,6 @@ export function validateScheme(f: SchemeForm): string[] {
     else sum += w;
   }
   if (errors.length === 0 && Math.abs(sum - 100) > 0.001) errors.push(`Category weights must add up to 100 (they add up to ${sum}).`);
-  const ia = num(f.ia);
-  if (!Number.isFinite(ia) || ia < 0 || ia > 100) errors.push("The IA weight must be between 0 and 100.");
   const pass = num(f.pass_mark);
   if (!Number.isFinite(pass) || pass < 0 || pass > 100) errors.push("The pass mark must be between 0 and 100.");
   const names = f.attributes.map((a) => a.name.trim());
@@ -140,7 +137,6 @@ const toForm = (s: ReportCardScheme): SchemeForm => ({
     MD: String(s.category_weights?.MD ?? 0),
     EOT: String(s.category_weights?.EOT ?? 0),
   },
-  ia: String((s.category_weights as Record<string, number> | undefined)?.IA ?? 50),
   pass_mark: String(s.pass_mark ?? 50),
   attributes: (s.attributes ?? []).map((name) => ({ key: key(), name })),
   groups: (s.subject_groups ?? []).map((g) => ({ key: key(), name: g.name, subject_ids: [...(g.subject_ids ?? [])] })),
@@ -159,7 +155,7 @@ const toForm = (s: ReportCardScheme): SchemeForm => ({
 });
 
 const fromForm = (f: SchemeForm): ReportCardScheme => ({
-  category_weights: { CW: num(f.weights.CW), HW: num(f.weights.HW), MD: num(f.weights.MD), EOT: num(f.weights.EOT), IA: num(f.ia) },
+  category_weights: { CW: num(f.weights.CW), HW: num(f.weights.HW), MD: num(f.weights.MD), EOT: num(f.weights.EOT) },
   pass_mark: num(f.pass_mark),
   attributes: f.attributes.map((a) => a.name.trim()).filter(Boolean),
   subject_groups: f.groups.map((g) => ({ name: g.name.trim(), subject_ids: g.subject_ids })),
@@ -287,6 +283,7 @@ export default function ReportCardSettingsPage() {
   const [subjects, setSubjects] = useState<SubjectOption[] | null>(null);
   const [subjectsState, setSubjectsState] = useState<"loading" | "ready" | "failed">("loading");
   const [manualIds, setManualIds] = useState<Record<number, string>>({});
+  const [builder, setBuilder] = useState<"normal" | "tvet">("normal");
 
   useEffect(() => {
     let live = true;
@@ -297,6 +294,7 @@ export default function ReportCardSettingsPage() {
         if (!live) return;
         const rows = toBandRows(res.data.bands ?? []);
         const f = toForm(res.data.scheme);
+        setBuilder(res.data.scheme.builder === "tvet" ? "tvet" : "normal");
         setBands(rows);
         savedBands.current = JSON.stringify(rows.map(({ min, letter, remark }) => [min, letter, remark]));
         setForm(f);
@@ -426,6 +424,29 @@ export default function ReportCardSettingsPage() {
         </div>
       ) : (
         <>
+          {/* 0. The builder / template (managed on its own page) */}
+          <section
+            data-testid="settings-builder"
+            className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-500/30 dark:bg-blue-500/5 sm:flex-row sm:items-center md:p-5"
+          >
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+              <LayoutTemplate className="h-5 w-5" aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+                Report card builder: {builder === "tvet" ? "TVET (RTB / CAMIS)" : "Normal"}
+              </p>
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                {builder === "tvet"
+                  ? "Teachers map marks into FA, CA and IA, each out of the module weight. The category weights below apply only to the Normal builder."
+                  : "Teachers map marks into CW, HW, MD and EOT with the weights below."}
+              </p>
+            </div>
+            <Link to="/report-cards/templates" className={GHOST_BTN} data-testid="manage-templates">
+              Builders and templates →
+            </Link>
+          </section>
+
           {/* 1. Grading scale */}
           <Section
             id="rc-bands"
@@ -499,8 +520,12 @@ export default function ReportCardSettingsPage() {
           {/* 2. Weights + pass mark */}
           <Section
             id="rc-weights"
-            title="Category weights and pass mark"
-            hint="How much each kind of assessment counts towards a subject total. The four must add up to 100."
+            title={builder === "tvet" ? "Normal builder weights and pass mark" : "Category weights and pass mark"}
+            hint={
+              builder === "tvet"
+                ? "Your school uses the TVET builder, so these weights wait here for the Normal builder. The pass mark applies to both."
+                : "How much each kind of assessment counts towards a subject total. The four must add up to 100."
+            }
           >
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {CATEGORIES.map((c) => (
@@ -527,24 +552,6 @@ export default function ReportCardSettingsPage() {
             >
               Total: {weightSum} / 100
             </p>
-            <label className="mt-4 flex max-w-[16rem] flex-col gap-1">
-              <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/80">
-                IA <span className="font-normal">· Integrated assessment (Term 3)</span>
-              </span>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                inputMode="decimal"
-                value={form.ia}
-                onChange={(e) => patch({ ia: e.target.value })}
-                aria-label="IA weight"
-                className={`${INPUT} w-full`}
-              />
-              <span className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
-                Extra to the 100: a Term 3 mark is over FA (CW+HW+MD), IA and CA (EOT) together.
-              </span>
-            </label>
             <label className="mt-4 flex max-w-[12rem] flex-col gap-1">
               <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/80">Pass mark (%)</span>
               <input

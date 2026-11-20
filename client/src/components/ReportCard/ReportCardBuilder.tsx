@@ -49,7 +49,10 @@ import {
 import Tooltip from "../ui/Tooltip";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import AssessmentMappingControl from "./AssessmentMappingControl";
-import { CATEGORIES, CATEGORY_ORDER } from "./categoryMeta";
+import { ALL_CATEGORIES, CATEGORIES, emptyByCategory, weightLabel } from "./categoryMeta";
+import { toBuilderCategory, useReportCardStructure } from "../../hooks/useReportCardStructure";
+import type { BuilderStructure, ReportCardBuilderKind } from "../../services/reportCardApi";
+import TemplatePreviewButton from "./templates/TemplatePreviewButton";
 import Select from "../ui/Select";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -348,10 +351,16 @@ function CategoryDropZone({
   category,
   items,
   onRemove,
+  label,
+  weightText,
+  hint,
 }: {
   category: AssessmentCategory;
   items: AssessmentDragItem[];
   onRemove: (dndId: string) => void;
+  label: string;
+  weightText: string;
+  hint?: string;
 }) {
   const meta = CATEGORIES[category];
   const { setNodeRef, isOver } = useDroppable({ id: category });
@@ -370,13 +379,13 @@ function CategoryDropZone({
       <div className="flex items-center justify-between px-4 py-3 border-b border-black/[0.06] dark:border-white/[0.06]">
         <div className="flex items-center gap-2.5">
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${meta.dot}`} />
-          <span className="font-semibold text-gray-900 dark:text-white text-sm">
-            {meta.label}
+          <span className="font-semibold text-gray-900 dark:text-white text-sm" title={hint}>
+            {label}
           </span>
           <span
             className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${meta.badge}`}
           >
-            {meta.weight}%
+            {weightText}
           </span>
         </div>
         <AnimatePresence mode="wait">
@@ -422,44 +431,73 @@ function CategoryDropZone({
 
 function WeightSummary({
   dropped,
+  structure,
 }: {
   dropped: Record<AssessmentCategory, AssessmentDragItem[]>;
+  structure: BuilderStructure;
 }) {
-  const totalWeight = CATEGORY_ORDER.reduce(
-    (sum, cat) => sum + (dropped[cat].length > 0 ? CATEGORIES[cat].weight : 0),
-    0,
-  );
+  const tvet = structure.key === "tvet";
+  const used = structure.categories.filter((c) => dropped[c.key].length > 0);
+  const totalWeight = used.reduce((sum, c) => sum + c.weight, 0);
+  const complete = tvet ? used.some((c) => c.key === "FA") && used.some((c) => c.key === "CA") : totalWeight >= 100;
 
   return (
     <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-slate-400 flex-wrap">
       <span className="flex items-center gap-1.5">
         <Zap className="w-3 h-3 text-gray-500 dark:text-slate-400" />
-        <span>Weight:</span>
+        <span>{tvet ? "Components:" : "Weight:"}</span>
       </span>
-      {CATEGORY_ORDER.map((cat) => (
+      {structure.categories.map((c) => (
         <span
-          key={cat}
-          className={`flex items-center gap-1 transition-opacity ${dropped[cat].length > 0 ? "opacity-100" : "opacity-40"}`}
+          key={c.key}
+          className={`flex items-center gap-1 transition-opacity ${dropped[c.key].length > 0 ? "opacity-100" : "opacity-40"}`}
+          title={c.hint}
         >
-          <span className={`w-1.5 h-1.5 rounded-full ${CATEGORIES[cat].dot}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${CATEGORIES[c.key].dot}`} />
           <span
             className={
-              dropped[cat].length > 0
+              dropped[c.key].length > 0
                 ? "text-gray-700 dark:text-slate-300"
                 : "text-gray-400 dark:text-slate-600"
             }
           >
-            {CATEGORIES[cat].shortLabel} {CATEGORIES[cat].weight}%
+            {tvet ? `${c.short} (${dropped[c.key].length})` : `${c.short} ${c.weight}%`}
           </span>
         </span>
       ))}
       <span
-        className={`ml-auto font-semibold ${totalWeight >= 100 ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-slate-500"}`}
+        className={`ml-auto font-semibold ${complete ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-slate-500"}`}
       >
-        {totalWeight}% covered
+        {tvet ? `${used.length} of ${structure.categories.length} components mapped` : `${totalWeight}% covered`}
       </span>
     </div>
   );
+}
+
+/**
+ * Mappings in the active builder's categories: a mapping made under the
+ * other builder (CW under TVET, FA under Normal) is shown where it counts
+ * now, and saving stores it there. Returns how many were moved.
+ */
+function normalizeDropped(
+  initial: Partial<Record<AssessmentCategory, AssessmentDragItem[]>> | undefined,
+  builder: ReportCardBuilderKind,
+): { dropped: Record<AssessmentCategory, AssessmentDragItem[]>; moved: number; dropped_out: number } {
+  const out = emptyByCategory<AssessmentDragItem>();
+  let moved = 0;
+  let droppedOut = 0;
+  for (const cat of ALL_CATEGORIES) {
+    for (const item of initial?.[cat] ?? []) {
+      const to = toBuilderCategory(builder, cat);
+      if (!to) {
+        droppedOut += 1;
+        continue;
+      }
+      if (to !== cat) moved += 1;
+      out[to].push(item);
+    }
+  }
+  return { dropped: out, moved, dropped_out: droppedOut };
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -479,15 +517,11 @@ export default function ReportCardBuilder({
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(
     subjects[0]?.id ?? null,
   );
+  const { builder, structure, categories: order } = useReportCardStructure();
+  const normalized = useMemo(() => normalizeDropped(initialDropped, builder), [initialDropped, builder]);
   const [dropped, setDropped] = useState<
     Record<AssessmentCategory, AssessmentDragItem[]>
-  >({
-    CW: initialDropped?.CW ?? [],
-    HW: initialDropped?.HW ?? [],
-    MD: initialDropped?.MD ?? [],
-    EOT: initialDropped?.EOT ?? [],
-    IA: initialDropped?.IA ?? [],
-  });
+  >(normalized.dropped);
   const [activeDragItem, setActiveDragItem] =
     useState<AssessmentDragItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -501,15 +535,9 @@ export default function ReportCardBuilder({
 
   const [syncKey, setSyncKey] = useState(0);
   useEffect(() => {
-    setDropped({
-      CW: initialDropped?.CW ?? [],
-      HW: initialDropped?.HW ?? [],
-      MD: initialDropped?.MD ?? [],
-      EOT: initialDropped?.EOT ?? [],
-      IA: initialDropped?.IA ?? [],
-    });
+    setDropped(normalized.dropped);
     setSyncKey((k) => k + 1);
-  }, [initialDropped]);
+  }, [normalized]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -625,26 +653,26 @@ export default function ReportCardBuilder({
       if (!over) return;
 
       const targetCategory = over.id as AssessmentCategory;
-      if (!CATEGORY_ORDER.includes(targetCategory)) return;
+      if (!order.includes(targetCategory)) return;
 
       const draggedItem = active.data.current as AssessmentDragItem;
 
       setDropped((prev) => {
         const next = { ...prev };
-        CATEGORY_ORDER.forEach((cat) => {
+        ALL_CATEGORIES.forEach((cat) => {
           next[cat] = next[cat].filter((i) => i.dndId !== draggedItem.dndId);
         });
         next[targetCategory] = [...next[targetCategory], draggedItem];
         return next;
       });
     },
-    [readOnly],
+    [readOnly, order],
   );
 
   const handleRemoveFromCategory = useCallback((dndId: string) => {
     setDropped((prev) => {
       const next = { ...prev };
-      CATEGORY_ORDER.forEach((cat) => {
+      ALL_CATEGORIES.forEach((cat) => {
         next[cat] = next[cat].filter((i) => i.dndId !== dndId);
       });
       return next;
@@ -655,17 +683,17 @@ export default function ReportCardBuilder({
     (item: AssessmentDragItem, category: AssessmentCategory) => {
       setDropped((prev) => {
         const next = { ...prev };
-        CATEGORY_ORDER.forEach((cat) => {
+        ALL_CATEGORIES.forEach((cat) => {
           next[cat] = next[cat].filter((i) => i.dndId !== item.dndId);
         });
         next[category] = [...next[category], item];
         return next;
       });
       toast.success(
-        `"${item.title}" assigned to ${CATEGORIES[category].label}.`,
+        `"${item.title}" assigned to ${structure.categories.find((c) => c.key === category)?.label ?? CATEGORIES[category].label}.`,
       );
     },
-    [],
+    [structure],
   );
 
   const [pendingDelete, setPendingDelete] = useState<AssessmentDragItem | null>(
@@ -681,7 +709,7 @@ export default function ReportCardBuilder({
       // Remove from any dropped category
       setDropped((prev) => {
         const next = { ...prev };
-        CATEGORY_ORDER.forEach((cat) => {
+        ALL_CATEGORIES.forEach((cat) => {
           next[cat] = next[cat].filter((i) => i.dndId !== item.dndId);
         });
         return next;
@@ -699,7 +727,7 @@ export default function ReportCardBuilder({
       return;
     }
 
-    const allMappings = CATEGORY_ORDER.flatMap((cat) =>
+    const allMappings = order.flatMap((cat) =>
       dropped[cat].map((item) => ({
         subject_id: item.subject_id,
         assessment_type: item.assessment_type,
@@ -818,6 +846,17 @@ export default function ReportCardBuilder({
                 <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
                   {term} · {academicYear} · applies to every enrolled student
                 </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span
+                    data-testid="builder-chip"
+                    title={structure.description}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-600 dark:bg-blue-400" />
+                    {structure.label} builder · {structure.categories.map((c) => c.short).join(" · ")}
+                  </span>
+                  <TemplatePreviewButton builder={builder} />
+                </div>
               </div>
 
               <div className="flex items-center gap-2.5 flex-wrap">
@@ -858,7 +897,20 @@ export default function ReportCardBuilder({
           {/* ── Weight summary ── */}
           {totalMapped > 0 && (
             <div className="mb-4 px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.06]">
-              <WeightSummary dropped={dropped} />
+              <WeightSummary dropped={dropped} structure={structure} />
+            </div>
+          )}
+          {(normalized.moved > 0 || normalized.dropped_out > 0) && (
+            <div
+              role="status"
+              data-testid="builder-remapped"
+              className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs text-blue-800 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200"
+            >
+              {normalized.moved > 0 &&
+                `${normalized.moved} mapping${normalized.moved === 1 ? " was" : "s were"} made for the ${builder === "tvet" ? "Normal" : "TVET"} builder and ${normalized.moved === 1 ? "is" : "are"} shown where ${normalized.moved === 1 ? "it counts" : "they count"} now. `}
+              {normalized.dropped_out > 0 &&
+                `${normalized.dropped_out} integrated assessment mapping${normalized.dropped_out === 1 ? "" : "s"} (IA) ${normalized.dropped_out === 1 ? "has" : "have"} no place in the Normal builder. `}
+              {!readOnly && "Save to keep them this way."}
             </div>
           )}
 
@@ -1104,12 +1156,15 @@ export default function ReportCardBuilder({
 
             {/* Right panel – category drop zones */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {CATEGORY_ORDER.map((cat) => (
+              {structure.categories.map((c) => (
                 <CategoryDropZone
-                  key={cat}
-                  category={cat}
-                  items={dropped[cat]}
+                  key={c.key}
+                  category={c.key}
+                  items={dropped[c.key]}
                   onRemove={handleRemoveFromCategory}
+                  label={c.label}
+                  weightText={weightLabel(builder, c.weight)}
+                  hint={c.hint}
                 />
               ))}
             </div>
