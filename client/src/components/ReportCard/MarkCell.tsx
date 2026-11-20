@@ -124,7 +124,7 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
         aria-label={label}
         aria-expanded={open}
         title={hover}
-        className={`group/cell relative inline-flex min-w-[60px] flex-col items-center rounded-lg px-1.5 py-1 transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-blue-500/10 ${
+        className={`group/cell relative inline-flex min-w-[60px] flex-col items-center rounded-xl px-1.5 py-1 transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-blue-500/10 ${
           open ? "bg-blue-50 dark:bg-blue-500/10" : ""
         }`}
       >
@@ -151,7 +151,7 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
             role="dialog"
             aria-label={`${moduleName} — ${studentName}`}
             style={{ top: pos.top, left: pos.left, width: 288, maxHeight: pos.maxHeight }}
-            className="fixed z-[1000] overflow-y-auto overscroll-contain rounded-2xl border border-gray-200 bg-white p-4 text-left text-sm dark:border-white/10 dark:bg-gray-900"
+            className="fixed z-[1000] overflow-y-auto overscroll-contain rounded-3xl border border-gray-200 bg-white p-4 text-left text-sm dark:border-panel-line dark:bg-panel-dark"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -160,7 +160,7 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
                   {[moduleCode, studentName].filter(Boolean).join(" · ")}
                 </p>
               </div>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="rounded-lg p-1 hover:bg-gray-100 dark:hover:bg-white/10">
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="rounded-xl p-1 hover:bg-gray-100 dark:hover:bg-white/10">
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -218,7 +218,7 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
             </ul>
 
             {total != null && cell?.points != null && (
-              <p className="mt-3 rounded-xl bg-gray-50 px-3 py-2 text-xs text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark">
+              <p className="mt-3 rounded-2xl bg-gray-50 px-3 py-2 text-xs text-text-secondary-light dark:bg-panel-raised dark:text-text-secondary-dark">
                 {covered < 100 ? (
                   <>
                     <strong className="text-text-primary-light dark:text-text-primary-dark">{fmt(cell.points)}</strong> of the{" "}
@@ -235,7 +235,7 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
               </p>
             )}
             {missing > 0 && (
-              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2.5 dark:border-amber-500/30 dark:bg-amber-500/10" data-testid="missing-marks">
+              <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-2.5 dark:border-amber-500/30 dark:bg-amber-500/10" data-testid="missing-marks">
                 <p className="flex items-start gap-1.5 text-xs font-semibold text-amber-900 dark:text-amber-200">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
                   {missing} mark{missing === 1 ? "" : "s"} not recorded yet
@@ -263,12 +263,12 @@ export default function MarkCell({ cell, studentName, moduleName, moduleCode, th
                             <Link
                               to={m.href}
                               onClick={() => setOpen(false)}
-                              className="flex items-center gap-2 rounded-lg bg-white px-2 py-1.5 text-xs hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-gray-900 dark:hover:bg-blue-500/10"
+                              className="flex items-center gap-2 rounded-xl bg-white px-2 py-1.5 text-xs hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-panel-dark dark:hover:bg-blue-500/10"
                             >
                               {body}
                             </Link>
                           ) : (
-                            <div className="flex items-center gap-2 rounded-lg bg-white px-2 py-1.5 text-xs dark:bg-gray-900">{body}</div>
+                            <div className="flex items-center gap-2 rounded-xl bg-white px-2 py-1.5 text-xs dark:bg-panel-dark">{body}</div>
                           )}
                         </li>
                       );

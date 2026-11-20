@@ -242,8 +242,10 @@ describe("report card workbench", () => {
     renderWorkbench();
     const flow = await screen.findByTestId("approval-flow");
     for (const k of ["marks", "comments", "review", "approve", "publish"]) expect(within(flow).getByTestId(`flow-step-${k}`)).toBeInTheDocument();
-    const review = within(flow).getByTestId("flow-step-review");
-    fireEvent.click(within(review).getByRole("button", { name: /Review \d+ ready/ }));
+    // Picking a step opens its panel, which carries the step's action.
+    fireEvent.click(within(within(flow).getByTestId("flow-step-review")).getByRole("tab"));
+    const panel = within(flow).getByTestId("flow-panel-review");
+    fireEvent.click(within(panel).getByRole("button", { name: /Review \d+ ready/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Mark reviewed" }));
     await waitFor(() => expect(api.transition).toHaveBeenCalledWith(expect.objectContaining({ action: "review" })));
     expect(toast.success).toHaveBeenCalled();
@@ -294,7 +296,11 @@ describe("report cards classes page", () => {
     const card = screen.getByTestId("class-5");
     expect(card).toHaveTextContent("Collecting marks");
     expect(card).toHaveTextContent("9/12");
-    expect(card).toHaveTextContent("Collect marks");
+    // The action is a real link to the class, landing on its subjects.
+    const cta = within(card).getByTestId("cta-5");
+    expect(cta).toHaveTextContent("Collect marks");
+    expect(cta).toHaveTextContent("3 subjects to submit");
+    expect(cta).toHaveAttribute("href", "/report-cards/5?term=Term%202&year=2025-2026&focus=subjects");
     expect(screen.getByTestId("next-step")).toHaveTextContent("Next: 1 class collecting marks");
     fireEvent.click(screen.getByRole("button", { name: /Ready to review/ }));
     expect(screen.queryByTestId("class-5")).toBeNull();
