@@ -3,6 +3,7 @@ import { User } from "../models/User.model";
 import { Role } from "../models/Role.model";
 import { ACTIVE, normalizeStatus } from "../utils/activeUsers";
 import { currentTenantOrNull } from "../vendor/nga-tenancy";
+import { fitName, namesFromMis } from "../utils/names";
 
 /**
  * The local Task Mentor user for an MIS user, created or refreshed from MIS
@@ -130,9 +131,15 @@ export async function upsertMisUser(
   }
 
   if (!localUser) {
+    // Names made to fit the User model (1-50 characters each): an MIS account with no last
+    // name (or no name at all) must still be able to sign in (regression of TM #35).
+    const names = namesFromMis(
+      { first_name: fitName(misProfile?.first_name, "") || misUser.username || "", last_name: misProfile?.last_name },
+      misUser.email,
+    );
     const created = await User.create({
-      first_name: misProfile?.first_name || misUser.username || misUser.email,
-      last_name: misProfile?.last_name || "",
+      first_name: names.first_name,
+      last_name: names.last_name,
       email: emailHolder || !misUser.email ? placeholderEmail(misUser.user_id) : misUser.email,
       password: "SSO_USER_" + crypto.randomBytes(8).toString("hex"),
       role: mappedRole,
@@ -143,8 +150,8 @@ export async function upsertMisUser(
     return { user: created, created: true, mappedRole };
   }
 
-  localUser.first_name = misProfile?.first_name || localUser.first_name;
-  localUser.last_name = misProfile?.last_name || localUser.last_name;
+  localUser.first_name = fitName(misProfile?.first_name, "") || fitName(localUser.first_name, "") || namesFromMis(null, misUser.email).first_name;
+  localUser.last_name = fitName(misProfile?.last_name, "") || fitName(localUser.last_name, "-");
   if (misUser.email && !emailHolder) localUser.email = misUser.email;
   localUser.role = mappedRole;
   localUser.mis_status = misStatus;
