@@ -134,7 +134,8 @@ export function TvetTemplate({ doc, verificationUrl, unmapped, onOpen }: Templat
   const cols = 3 + nTerms * 4 + tail.length;
   const conduct = (v: number | null | undefined) => (v != null ? `${exact(v)}/${max}` : "–");
   const num = (v: number | null | undefined) => (v != null ? exact(v) : <span style={{ color: C.faint }}>–</span>);
-  const na = (v: number | null | undefined) => (v != null ? exact(v) : <span style={{ color: C.faint }}>N/A</span>);
+  // IA can be given in any term: no mark is "–" like the other components, never "N/A".
+  const na = num;
   const label = (t: string) => <span title={ABBR[t] ?? t}>{t}</span>;
 
   const unmappedPanel = (s: DocumentSubject) => {
@@ -221,7 +222,7 @@ export function TvetTemplate({ doc, verificationUrl, unmapped, onOpen }: Templat
                           <td style={{ padding: "3px 4px", fontWeight: 600 }}>{term.term}</td>
                           {(["fa", "ia", "ca"] as const).map((k) => (
                             <td key={k} style={{ textAlign: "center", padding: "3px 4px", color: c?.[k] != null ? C.ink : C.faint }}>
-                              {c?.[k] != null ? `${exact(c[k])}/${exact(t.weight)}` : k === "ia" ? "N/A" : "–"}
+                              {c?.[k] != null ? `${exact(c[k])}/${exact(t.weight)}` : "–"}
                             </td>
                           ))}
                           <td style={{ textAlign: "center", padding: "3px 4px", fontWeight: 700 }}>{c?.to != null ? `${exact(c.to)}/${exact(c.max)}` : "–"}</td>

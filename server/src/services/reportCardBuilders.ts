@@ -8,7 +8,7 @@ import type { AssessmentCategory, CategoryWeights } from "./reportCardGrader.ser
  *          (weights from the scheme, summing to 100), the general-education
  *          card with letter grades.
  *  tvet    RTB / CAMIS learner's assessment report: FA (formative), CA
- *          (comprehensive, end of term) and IA (integrated, Term 3). Each is
+ *          (comprehensive, end of term) and IA (integrated, any term). Each is
  *          shown out of the module weight (learning hours) and they count
  *          equally, so grading treats them as equal-weight percentages and
  *          the card multiplies by the weight when it renders.
@@ -49,7 +49,7 @@ export function builderStructure(kind: ReportCardBuilderKind, weights?: Partial<
       categories: [
         { key: "FA", label: "Formative Assessment", short: "FA", weight: 100, hint: "Class work, homework, quizzes, mid-term: scored out of the module weight." },
         { key: "CA", label: "Comprehensive Assessment", short: "CA", weight: 100, hint: "The end-of-term assessment: scored out of the module weight." },
-        { key: "IA", label: "Integrated Assessment", short: "IA", weight: 100, hint: "Term 3 integrated assessment: scored out of the module weight; N/A in Terms 1–2." },
+        { key: "IA", label: "Integrated Assessment", short: "IA", weight: 100, hint: "Integrated assessment, in any term it is given: scored out of the module weight." },
       ],
     };
   }

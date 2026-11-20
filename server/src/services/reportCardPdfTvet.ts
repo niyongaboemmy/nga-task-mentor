@@ -206,7 +206,7 @@ export function drawTvetCard(pdf: PDFKit.PDFDocument, doc: Doc, art: CardArt): v
     cell(label, M, y, W, rowH, { bold: true, align: "left", fill, size: 7.2 });
     y += rowH;
   };
-  const num = (v: number | null | undefined, na = false) => (v != null ? exact(v) : na ? "N/A" : "–");
+  const num = (v: number | null | undefined) => (v != null ? exact(v) : "–");
   const tone = (v: number | null | undefined) => (v != null ? INK : C.muted);
   const competence = (c: boolean | null | undefined) => (c == null ? "–" : c ? "C" : "NYC");
 
@@ -227,7 +227,8 @@ export function drawTvetCard(pdf: PDFKit.PDFDocument, doc: Doc, art: CardArt): v
       tv.terms.forEach((_, i) => {
         const c = t?.terms[i] ?? null;
         cell(num(c?.fa), xComp(i, 0), y, comp[0], rowH, { size: fs, color: tone(c?.fa) });
-        cell(num(c?.ia, true), xComp(i, 1), y, comp[1], rowH, { size: fs, color: c?.ia != null ? INK : "#9CA3AF" });
+        // IA can be given in any term: no mark is "–" like FA and CA.
+        cell(num(c?.ia), xComp(i, 1), y, comp[1], rowH, { size: fs, color: tone(c?.ia) });
         cell(num(c?.ca), xComp(i, 2), y, comp[2], rowH, { size: fs, color: tone(c?.ca) });
         cell(num(c?.to), xComp(i, 3), y, comp[3], rowH, { size: fs, bold: c?.to != null, color: tone(c?.to) });
       });
@@ -263,7 +264,7 @@ export function drawTvetCard(pdf: PDFKit.PDFDocument, doc: Doc, art: CardArt): v
   cell(maxTotal != null ? exact(maxTotal) : "–", xWt, y, wtW, rowH, { bold: true, size: fs });
   tv.terms.forEach((t, i) => {
     cell(num(t.totals.fa), xComp(i, 0), y, comp[0], rowH, { bold: true, size: fs });
-    cell(num(t.totals.ia, true), xComp(i, 1), y, comp[1], rowH, { bold: t.totals.ia != null, size: fs, color: t.totals.ia != null ? INK : "#9CA3AF" });
+    cell(num(t.totals.ia), xComp(i, 1), y, comp[1], rowH, { bold: t.totals.ia != null, size: fs, color: tone(t.totals.ia) });
     cell(num(t.totals.ca), xComp(i, 2), y, comp[2], rowH, { bold: true, size: fs });
     cell(num(t.totals.to), xComp(i, 3), y, comp[3], rowH, { bold: true, size: fs });
   });

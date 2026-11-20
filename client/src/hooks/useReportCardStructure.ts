@@ -29,7 +29,7 @@ export const TVET_STRUCTURE: BuilderStructure = {
   categories: [
     { key: "FA", label: "Formative Assessment", short: "FA", weight: 100, hint: "Class work, homework, quizzes, mid-term: scored out of the module weight." },
     { key: "CA", label: "Comprehensive Assessment", short: "CA", weight: 100, hint: "The end-of-term assessment: scored out of the module weight." },
-    { key: "IA", label: "Integrated Assessment", short: "IA", weight: 100, hint: "Term 3 integrated assessment: scored out of the module weight; N/A in Terms 1–2." },
+    { key: "IA", label: "Integrated Assessment", short: "IA", weight: 100, hint: "Integrated assessment, in any term it is given: scored out of the module weight." },
   ],
 };
 
