@@ -44,7 +44,23 @@ import {
   type SubjectMappingItem,
 } from "../services/reportCardApi";
 import type { Course } from "../types/course.types";
-import { useReportCardStructure } from "../hooks/useReportCardStructure";
+import { toBuilderCategory, useReportCardStructure } from "../hooks/useReportCardStructure";
+import GradesFilterBar, { type Facet } from "../components/Grades/GradesFilterBar";
+import {
+  EMPTY_FILTERS,
+  GROUP_LABEL,
+  MARKS_LABEL,
+  facetCounts,
+  filtersFromParams,
+  filtersToParams,
+  isFiltering,
+  passes,
+  typeLabel,
+  typeOf,
+  type FacetKey,
+  type FilterState,
+  type FilterableRow,
+} from "../components/Grades/gradesFilters";
 import { suggestCategory } from "../components/Grades/mappingSuggestions";
 import SuggestMappingDialog from "../components/Grades/SuggestMappingDialog";
 import TemplatePreviewButton from "../components/ReportCard/templates/TemplatePreviewButton";
@@ -701,10 +717,59 @@ export default function GradesPage() {
     [mappings, saveMappingSet, undoMapping],
   );
 
+  // ── Filters (type, report card category, marks, module group, dates), in the URL ──
+  const filters = useMemo(() => filtersFromParams(params), [params]);
+  const setFilters = useCallback((f: FilterState) => setParams(filtersToParams(params, f), { replace: true }), [params, setParams]);
+  const filtering = isFiltering(filters);
+  const toFilterable = useCallback(
+    (r: AssessmentRow): FilterableRow => {
+      const cat = getMappedCategory(r);
+      return {
+        kind: r.kind,
+        manualType: r.manual?.assessment_type ?? null,
+        category: cat ? toBuilderCategory(builder, cat) : null,
+        partOf: r.partOf != null,
+        recorded: r.recorded ?? 0,
+        enrolled: enrolledCounts.get(r.courseId) ?? null,
+        missing: attentionByKey.get(r.key)?.missing ?? 0,
+        date: r.date,
+        subjectCode: courseMap.get(r.courseId)?.code ?? null,
+      };
+    },
+    [getMappedCategory, builder, enrolledCounts, attentionByKey, courseMap],
+  );
+  const allFilterable = useMemo(() => subjectGroups.flatMap((g) => g.rows.map(toFilterable)), [subjectGroups, toFilterable]);
+  const facets: Facet[] = useMemo(() => {
+    const make = (key: FacetKey, label: string, values: string[], labelOf: (v: string) => string): Facet => {
+      const counts = facetCounts(allFilterable, filters, key);
+      return {
+        key,
+        label,
+        selected: filters[key],
+        onChange: (v) => setFilters({ ...filters, [key]: v }),
+        options: values.map((v) => ({ value: v, label: labelOf(v), count: counts.get(v) ?? 0 })),
+      };
+    };
+    const types = [...new Set(allFilterable.map(typeOf))].sort((a, b) => (a.startsWith("manual") ? 1 : 0) - (b.startsWith("manual") ? 1 : 0) || a.localeCompare(b));
+    const cats = [...structure.categories.map((c) => c.key as string), "unmapped", ...(allFilterable.some((r) => r.partOf) ? ["partof"] : [])];
+    const groups = ["specific", "general", "complementary", "other"].filter((g) => allFilterable.some((r) => (r.subjectCode ? true : g === "other")));
+    return [
+      make("type", "Type", types, typeLabel),
+      make("cat", "Report card", cats, (v) =>
+        v === "unmapped" ? "Not mapped" : v === "partof" ? "Part of another" : (structure.categories.find((c) => c.key === v)?.label ?? v),
+      ),
+      make("marks", "Marks", ["missing", "none", "partial", "complete"], (v) => MARKS_LABEL[v]),
+      make("group", "Module group", groups, (v) => GROUP_LABEL[v]),
+    ];
+  }, [allFilterable, filters, setFilters, structure]);
+
   // ── Search + "missing only" filter: auto-expands matches ─────────────────
   const q = search.trim().toLowerCase();
   const filteredGroups = useMemo(() => {
     let base = showOnlyMissing ? subjectGroups.filter((g) => g.rows.length === 0) : subjectGroups;
+    if (filtering) {
+      base = base.map((g) => ({ ...g, rows: g.rows.filter((r) => passes(toFilterable(r), filters)) })).filter((g) => g.rows.length > 0);
+    }
     if (attentionFilter) {
       base = base
         .map((g) => ({
@@ -728,7 +793,7 @@ export default function GradesPage() {
         return { ...g, rows: matchingRows, matched: subjectMatches || matchingRows.length > 0 };
       })
       .filter((g) => g.matched);
-  }, [subjectGroups, q, showOnlyMissing, attentionFilter, attentionByKey]);
+  }, [subjectGroups, q, showOnlyMissing, attentionFilter, attentionByKey, filtering, filters, toFilterable]);
 
   const totalFilteredAssessments = useMemo(
     () => filteredGroups.reduce((sum, g) => sum + g.rows.length, 0),
@@ -736,8 +801,8 @@ export default function GradesPage() {
   );
 
   const effectivelyExpanded = useCallback(
-    (courseId: number) => (q || attentionFilter ? true : expanded.has(courseId)),
-    [q, expanded, attentionFilter],
+    (courseId: number) => (q || attentionFilter || filtering ? true : expanded.has(courseId)),
+    [q, expanded, attentionFilter, filtering],
   );
 
   const toggleExpanded = (courseId: number) => {
@@ -966,6 +1031,16 @@ export default function GradesPage() {
             </div>
           </div>
 
+          <GradesFilterBar
+            facets={facets}
+            dateFrom={filters.from}
+            dateTo={filters.to}
+            onDate={(from, to) => setFilters({ ...filters, from, to })}
+            shown={totalFilteredAssessments}
+            total={allFilterable.length}
+            onClearAll={() => setFilters(EMPTY_FILTERS)}
+          />
+
           {/* Subject cards */}
           {loading ? (
             <div className="space-y-3" data-testid="grades-skeleton">
@@ -984,7 +1059,9 @@ export default function GradesPage() {
             <div className="flex flex-col items-center gap-3 py-20 text-center">
               <AlertCircle className="w-10 h-10 text-text-secondary-light dark:text-text-secondary-dark/40" />
               <p className="text-text-secondary-light dark:text-text-secondary-dark/70 text-sm">
-                {search
+                {filtering
+                  ? "No assessments match these filters."
+                  : search
                   ? "No subjects or assessments match your search."
                   : showOnlyMissing
                     ? "Every subject now has at least one assessment."
@@ -996,6 +1073,11 @@ export default function GradesPage() {
                   className="text-blue-600 dark:text-blue-400 text-sm font-medium hover:underline"
                 >
                   Show all subjects
+                </button>
+              )}
+              {filtering && (
+                <button onClick={() => setFilters(EMPTY_FILTERS)} className="text-blue-600 dark:text-blue-400 text-sm font-medium hover:underline" data-testid="filter-empty-clear">
+                  Clear the filters
                 </button>
               )}
             </div>
