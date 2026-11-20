@@ -157,6 +157,7 @@ const Modal: React.FC<ModalProps> = ({
                 {showCloseButton && (
                   <button
                     onClick={onClose}
+                    aria-label="Close"
                     className="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-2xl hover:bg-surface-light dark:hover:bg-surface-dark transition-colors ml-2"
                   >
                     <X className="w-5 h-5" />

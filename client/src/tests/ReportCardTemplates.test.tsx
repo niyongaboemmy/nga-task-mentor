@@ -248,3 +248,52 @@ describe("Report card templates page", () => {
     expect(validateTvetOptions(DEFAULT_TVET_OPTIONS, { "1": "2000", "2": "" })).toContain("1 module weight is not between 1 and 1000.");
   });
 });
+
+describe("Visual template editor (edit on the card)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(ReportCardWorkflowApi.scheme).mockResolvedValue({ success: true, data: { scheme: { ...structuredClone(SCHEME), builder: "tvet" }, bands: [] } });
+    vi.mocked(ReportCardWorkflowApi.templateModules).mockResolvedValue({ success: true, data: { modules: MODULES, default_module_weight: 100 } });
+    vi.mocked(ReportCardWorkflowApi.templateSchool).mockResolvedValue({ success: true, data: { profile: { ...PROFILE }, can_edit: true, source: "mis" } });
+    vi.mocked(ReportCardWorkflowApi.saveTemplateSchool).mockImplementation(async (patch) => ({ success: true, data: { profile: { ...PROFILE, ...patch } as never } }));
+    vi.mocked(ReportCardWorkflowApi.saveScheme).mockImplementation(async (patch) => ({ success: true, data: { scheme: { ...structuredClone(SCHEME), ...patch } as ReportCardScheme } }));
+    vi.mocked(ReportCardWorkflowApi.mapFormative).mockResolvedValue({
+      success: true,
+      data: { term: "Term 1", academic_year: "2026 - 2027", scanned: 0, already_mapped: 0, mapped: 0, by_kind: { quiz: 0, assignment: 0, manual: 0 }, subjects: 0, cards_updated: 0, dry_run: true },
+    });
+  });
+
+  it("edits the school's details right on the card and saves them to MIS, with the display options", async () => {
+    renderPage();
+    fireEvent.click(await screen.findByTestId("edit-visually"));
+    expect(await screen.findByTestId("visual-edit-bar")).toBeInTheDocument();
+    // MIS has no head of school yet: the card offers to add one.
+    fireEvent.click(screen.getByTestId("field-head of school"));
+    const input = screen.getByTestId("edit-head of school");
+    fireEvent.change(input, { target: { value: "Sample Head" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.blur(input);
+    expect(screen.getAllByTestId("headmaster-name").some((e) => e.textContent?.includes("Sample Head"))).toBe(true);
+    fireEvent.click(screen.getByTestId("field-district"));
+    const d = screen.getByTestId("edit-district");
+    fireEvent.change(d, { target: { value: "Gasabo" } });
+    fireEvent.blur(d);
+    fireEvent.click(screen.getByTestId("visual-show-attendance"));
+    expect(screen.getByTestId("visual-edit-count")).toHaveTextContent("3 unsaved changes");
+    fireEvent.click(screen.getByTestId("visual-edit-save"));
+    await waitFor(() => expect(ReportCardWorkflowApi.saveTemplateSchool).toHaveBeenCalledWith({ district: "Gasabo", head_teacher_name: "Sample Head" }));
+    await waitFor(() => expect(ReportCardWorkflowApi.saveScheme).toHaveBeenCalledWith({ tvet: { show_attendance: true, show_attributes: false } }));
+    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("Saved 3 changes to MIS"));
+  });
+
+  it("is read-only without MIS Manage schools, and asks before closing with unsaved changes", async () => {
+    vi.mocked(ReportCardWorkflowApi.templateSchool).mockResolvedValue({ success: true, data: { profile: { ...PROFILE }, can_edit: false, source: "mis" } });
+    renderPage();
+    fireEvent.click(await screen.findByTestId("edit-visually"));
+    expect(await screen.findByTestId("visual-edit-readonly")).toHaveTextContent("Manage schools");
+    expect(screen.getByTestId("field-district")).not.toHaveAttribute("role", "button");
+    fireEvent.click(screen.getByTestId("visual-show-attributes"));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(await screen.findByText("Close without saving?")).toBeInTheDocument();
+  });
+});
