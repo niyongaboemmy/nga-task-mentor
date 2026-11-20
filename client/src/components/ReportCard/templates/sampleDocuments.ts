@@ -177,7 +177,7 @@ export function sampleTvetDocument(final = true): ReportCardDocument {
   return base({
     builder: "tvet",
     card: { id: 0, uuid: "sample", version: 1, status: "published", term: final ? "Term 3" : "Term 2", academic_year: "2025/2026", approved_at: "2026-07-20T08:00:00Z", published_at: null },
-    student: { id: 0, name: "Mukamana Ange Sample", registration_number: "100000000001", gender: "F", class_group_id: 1, class_name: "L3 SPE A", grade_name: "Level 3", program_name: "Software Programming and Embedded Systems" },
+    student: { id: 0, name: "Mukamana Ange Sample", registration_number: "100000000001", gender: "F", class_group_id: 1, class_name: "SPES Year 1 A", grade_name: "Level 3", program_name: "Software Programming and Embedded Systems" },
     groups: [{ name: null, subjects }],
     summary: {
       average: termTotals[termTotals.length - 1].pct,
@@ -193,7 +193,7 @@ export function sampleTvetDocument(final = true): ReportCardDocument {
       modules_competent: subjects.filter((s) => s.competent).length,
       modules_nyc: subjects.filter((s) => s.competent === false).length,
     },
-    qualification: { rqf_level: "3", trade: "Software Programming and Embedded Systems", title: "TVET Certificate III in Software Programming and Embedded Systems", sector: "ICT and Multimedia" },
+    qualification: { rqf_level: "3", trade: "Software Programming and Embedded Systems", title: "Level 3", sector: "ICT and Multimedia" },
     tvet: {
       final,
       terms: termNames.map((t, i) => ({

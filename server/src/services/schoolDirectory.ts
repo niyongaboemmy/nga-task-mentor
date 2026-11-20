@@ -30,6 +30,8 @@ export interface DirectoryClassGroup {
   /** Absent when the MIS row didn't carry it. */
   grade_id?: number | null;
   grade_name: string | null;
+  /** The grade's RQF level from MIS (Grade.rqf_level), when set. */
+  grade_rqf_level?: number | null;
   program_name: string | null;
 }
 
@@ -144,6 +146,7 @@ export async function loadSchoolDirectory(
       name: g.name ?? `Class ${id}`,
       grade_id: Number.isFinite(Number(g.grade_id)) && g.grade_id != null ? Number(g.grade_id) : null,
       grade_name: g.grade_name ?? null,
+      grade_rqf_level: Number.isInteger(Number(g.grade_rqf_level)) && g.grade_rqf_level != null ? Number(g.grade_rqf_level) : null,
       program_name: g.program_name ?? null,
     });
   }

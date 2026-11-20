@@ -48,7 +48,8 @@ function withSchool(doc: ReportCardDocument, v: Values, show?: { attendance: boo
     school: { ...doc.school, name: t("name") || doc.school.name },
     qualification: {
       ...(doc.qualification ?? { rqf_level: null, trade: null, title: null, sector: null }),
-      title: t("qualification_title") || null,
+      // The class year decides the title ("Level 3"); the school's own is the fallback.
+      title: doc.qualification?.rqf_level ? `Level ${doc.qualification.rqf_level}` : t("qualification_title") || null,
       trade: t("trade") || null,
       sector: t("sector") || null,
     },
