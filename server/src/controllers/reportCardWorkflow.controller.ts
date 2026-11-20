@@ -30,6 +30,7 @@ import {
   resolveSubjectNames,
   resolveSubjectInfo,
   listSubjectInfo,
+  forgetSubjectInfo,
   categoryFromCode,
   displayCode,
   type CardGrades,
@@ -40,6 +41,7 @@ import { renderClassReportCardsPdf } from "../services/reportCardDocumentPdf";
 import { loadSchoolDirectory, type SchoolDirectory } from "../services/schoolDirectory";
 import { getReportCardScheme, setReportCardScheme, getGradingBands } from "../services/tenantSettings";
 import { builderStructure, gradingOf } from "../services/reportCardBuilders";
+import { SCHOOL_PROFILE_FIELDS, getSchoolProfile, saveModuleWeight, saveSchoolProfile } from "../services/schoolProfile";
 import { getMisToken, resolveAcademicYearId, resolveAcademicTermIdByName } from "../utils/misUtils";
 import {
   actorName,
@@ -518,6 +520,50 @@ export const getTemplateModules = async (req: Request, res: Response) => {
     });
   } catch (error) {
     sendControllerError(res, error, "getTemplateModules");
+  }
+};
+
+/** GET /report-cards/templates/school: the school's identity block from MIS (this tenant's School). */
+export const getTemplateSchool = async (req: Request, res: Response) => {
+  try {
+    const r = await getSchoolProfile(req, { fresh: req.query.fresh === "1" });
+    res.status(200).json({ success: true, data: { profile: r.profile, can_edit: r.canEdit, source: r.source } });
+  } catch (error) {
+    sendControllerError(res, error, "getTemplateSchool");
+  }
+};
+
+/** PUT /report-cards/templates/school: saves identity fields to MIS (MIS requires Manage schools). */
+export const putTemplateSchool = async (req: Request, res: Response) => {
+  try {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const patch: Record<string, string | null> = {};
+    for (const f of SCHOOL_PROFILE_FIELDS) if (f in body) patch[f] = body[f] == null ? null : String(body[f]);
+    if (!Object.keys(patch).length) return res.status(400).json({ success: false, message: "Nothing to save." });
+    const profile = await saveSchoolProfile(req, patch);
+    res.status(200).json({ success: true, data: { profile } });
+  } catch (error: any) {
+    if (error?.status) return res.status(error.status).json({ success: false, message: error.message });
+    sendControllerError(res, error, "putTemplateSchool");
+  }
+};
+
+/** PUT /report-cards/templates/modules/:id/weight: sets the module's weight on its MIS subject (MIS requires Manage academics). */
+export const putModuleWeight = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const raw = (req.body ?? {}).weight;
+    const weight = raw == null || raw === "" ? null : Number(raw);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ success: false, message: "Unknown module." });
+    if (weight != null && (!Number.isInteger(weight) || weight < 1 || weight > 1000)) {
+      return res.status(400).json({ success: false, message: "The module weight is a whole number from 1 to 1000." });
+    }
+    await saveModuleWeight(req, id, weight);
+    forgetSubjectInfo();
+    res.status(200).json({ success: true, data: { id, weight } });
+  } catch (error: any) {
+    if (error?.status) return res.status(error.status).json({ success: false, message: error.message });
+    sendControllerError(res, error, "putModuleWeight");
   }
 };
 

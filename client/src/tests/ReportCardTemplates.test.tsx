@@ -7,12 +7,20 @@ import { sampleNormalDocument, sampleTvetDocument } from "../components/ReportCa
 import ReportCardTemplatesPage, { validateTvetOptions } from "../pages/ReportCardTemplatesPage";
 import { DEFAULT_TVET_OPTIONS, ReportCardWorkflowApi, type ReportCardScheme } from "../services/reportCardWorkflowApi";
 
-vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 vi.mock("../services/reportCardWorkflowApi", async (importOriginal) => {
   const orig = await importOriginal<typeof import("../services/reportCardWorkflowApi")>();
   return {
     ...orig,
-    ReportCardWorkflowApi: { scheme: vi.fn(), saveScheme: vi.fn(), templateModules: vi.fn(), structure: vi.fn() },
+    ReportCardWorkflowApi: {
+      scheme: vi.fn(),
+      saveScheme: vi.fn(),
+      templateModules: vi.fn(),
+      structure: vi.fn(),
+      templateSchool: vi.fn(),
+      saveTemplateSchool: vi.fn(),
+      saveModuleWeight: vi.fn(),
+    },
   };
 });
 
@@ -97,6 +105,7 @@ describe("TVET template (RTB / CAMIS)", () => {
 const SCHEME: ReportCardScheme = {
   builder: "normal",
   tvet: { ...DEFAULT_TVET_OPTIONS, district: "Gasabo", module_weights: { "2": 80 } },
+
   category_weights: { CW: 15, HW: 10, MD: 25, EOT: 50 },
   pass_mark: 50,
   attributes: ["Punctuality"],
@@ -106,6 +115,19 @@ const SCHEME: ReportCardScheme = {
   show_subject_teacher: true,
   head_title: "Principal",
   require_distinct_approver: false,
+};
+const PROFILE = {
+  school_id: 1,
+  name: "Sample Technical School",
+  address: "Kigali",
+  district: null,
+  contact_email: "info@school.rw",
+  contact_phone: "0788 000 000",
+  sector: "ICT and Multimedia",
+  trade: null,
+  qualification_title: null,
+  head_teacher_name: null,
+  logo_url: null,
 };
 const MODULES = [
   { id: 1, name: "Develop web user interface", code: "SPEWI302", category: "specific" as const, learning_hours: 80, rqf_level: "3", override: null },
@@ -125,6 +147,9 @@ describe("Report card templates page", () => {
     vi.clearAllMocks();
     vi.mocked(ReportCardWorkflowApi.scheme).mockResolvedValue({ success: true, data: { scheme: structuredClone(SCHEME), bands: [] } });
     vi.mocked(ReportCardWorkflowApi.templateModules).mockResolvedValue({ success: true, data: { modules: MODULES, default_module_weight: 100 } });
+    vi.mocked(ReportCardWorkflowApi.templateSchool).mockResolvedValue({ success: true, data: { profile: { ...PROFILE }, can_edit: true, source: "mis" } });
+    vi.mocked(ReportCardWorkflowApi.saveTemplateSchool).mockImplementation(async (patch) => ({ success: true, data: { profile: { ...PROFILE, ...patch } as never } }));
+    vi.mocked(ReportCardWorkflowApi.saveModuleWeight).mockImplementation(async (id, weight) => ({ success: true, data: { id, weight } }));
     vi.mocked(ReportCardWorkflowApi.saveScheme).mockImplementation(async (patch) => ({
       success: true,
       data: { scheme: { ...structuredClone(SCHEME), ...patch, tvet: { ...SCHEME.tvet!, ...(patch.tvet ?? {}) } } as ReportCardScheme },
@@ -145,25 +170,44 @@ describe("Report card templates page", () => {
     expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("now uses the TVET builder"));
   });
 
-  it("edits the TVET template: school block, module weights (override and reset), live preview, then saves", async () => {
+  it("keeps the school's details in MIS: offers the template's earlier district, saves to MIS, previews live", async () => {
+    renderPage();
+    const card = await screen.findByTestId("school-profile");
+    expect(await within(card).findByLabelText("School email")).toHaveValue("info@school.rw");
+    // MIS has no district; the template's earlier "Gasabo" is offered for MIS.
+    expect(within(card).getByLabelText("District")).toHaveValue("Gasabo");
+    expect(screen.getByTestId("school-profile-moved")).toHaveTextContent("1 value from this template isn't in MIS yet");
+    fireEvent.change(within(card).getByLabelText("Head of school's name"), { target: { value: "Sample Head" } });
+    expect(within(screen.getByTestId("live-preview")).getByText("Sample Head")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("save-school-profile"));
+    await waitFor(() => expect(ReportCardWorkflowApi.saveTemplateSchool).toHaveBeenCalledWith({ district: "Gasabo", head_teacher_name: "Sample Head" }));
+    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("saved in MIS"));
+  });
+
+  it("shows the school's details read-only without MIS Manage schools", async () => {
+    vi.mocked(ReportCardWorkflowApi.templateSchool).mockResolvedValue({ success: true, data: { profile: { ...PROFILE }, can_edit: false, source: "mis" } });
+    renderPage();
+    expect(await screen.findByTestId("school-profile-readonly")).toHaveTextContent("Manage schools");
+    expect(within(screen.getByTestId("school-profile")).getByLabelText("School name")).toBeDisabled();
+    expect(screen.queryByTestId("save-school-profile")).not.toBeInTheDocument();
+  });
+
+  it("saves a module's weight on its MIS subject when the field is left, and removes a Task Mentor weight", async () => {
     renderPage();
     await screen.findByTestId("in-use-normal");
     expect(await screen.findByTestId("module-weights")).toBeInTheDocument();
-    expect(screen.getByTestId("save-tvet")).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("Headmaster's name"), { target: { value: "Sample Head" } });
-    expect(within(screen.getByTestId("live-preview")).getByText("Sample Head")).toBeInTheDocument();
-    // MIS has no hours for two modules; one has the school's 80.
-    expect(screen.getByTestId("only-missing")).toHaveTextContent("No hours in MIS (1)");
-    fireEvent.change(screen.getByLabelText("Apply Computer Basics weight"), { target: { value: "60" } });
-    fireEvent.click(screen.getByRole("button", { name: "Use the MIS weight for Entrepreneurship" }));
-    expect(screen.getByTestId("only-missing")).toHaveTextContent("No hours in MIS (1)");
+    expect(screen.getByTestId("only-missing")).toHaveTextContent("No weight yet (1)");
+    const input = screen.getByLabelText("Apply Computer Basics weight in MIS");
+    fireEvent.change(input, { target: { value: "60" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(ReportCardWorkflowApi.saveModuleWeight).toHaveBeenCalledWith(3, 60));
+    expect(toast.success).toHaveBeenCalled();
+    expect(await screen.findByText("No weight yet (0)")).toBeInTheDocument();
+    // Entrepreneurship's 80 was set in Task Mentor: remove it, then save the template.
+    expect(within(screen.getByTestId("weight-row-2")).getByText("Task Mentor")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove the Task Mentor weight for Entrepreneurship" }));
     fireEvent.click(screen.getByTestId("save-tvet"));
-    await waitFor(() =>
-      expect(ReportCardWorkflowApi.saveScheme).toHaveBeenCalledWith({
-        tvet: expect.objectContaining({ headmaster_name: "Sample Head", district: "Gasabo", module_weights: { "3": 60 } }),
-      }),
-    );
-    expect(toast.success).toHaveBeenCalledWith("TVET template saved.");
+    await waitFor(() => expect(ReportCardWorkflowApi.saveScheme).toHaveBeenCalledWith({ tvet: expect.objectContaining({ module_weights: {} }) }));
   });
 
   it("checks the TVET options like the server", () => {

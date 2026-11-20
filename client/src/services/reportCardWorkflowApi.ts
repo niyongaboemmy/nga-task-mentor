@@ -264,6 +264,22 @@ export interface TemplateModule {
   override: number | null;
 }
 
+/** The school's identity block as MIS keeps it (this tenant's School). */
+export interface SchoolProfile {
+  school_id: number | null;
+  name: string | null;
+  address: string | null;
+  district: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  sector: string | null;
+  trade: string | null;
+  qualification_title: string | null;
+  head_teacher_name: string | null;
+  logo_url: string | null;
+}
+export type SchoolProfileField = "name" | "address" | "district" | "contact_email" | "contact_phone" | "sector" | "trade" | "qualification_title" | "head_teacher_name";
+
 export interface ReportCardScheme {
   /** The school's builder (Normal / TVET); a save without it keeps the current one. */
   builder?: ReportCardBuilderKind;
@@ -478,6 +494,17 @@ export const ReportCardWorkflowApi = {
     data: { builder: ReportCardBuilderKind; structure: BuilderStructure; competence_thresholds: { specific: number; general: number; complementary: number }; pass_mark: number };
   }> {
     return (await axios.get("/report-cards/structure")).data;
+  },
+  /** The school's identity block from MIS; can_edit = the caller may change it there (Manage schools). */
+  async templateSchool(fresh = false): Promise<{ success: boolean; data: { profile: SchoolProfile | null; can_edit: boolean; source: "mis" | "last" | "none" } }> {
+    return (await axios.get("/report-cards/templates/school", { params: fresh ? { fresh: 1 } : {} })).data;
+  },
+  async saveTemplateSchool(patch: Partial<Record<SchoolProfileField, string | null>>): Promise<{ success: boolean; data: { profile: SchoolProfile } }> {
+    return (await axios.put("/report-cards/templates/school", patch)).data;
+  },
+  /** Sets a module's weight on its MIS subject (null clears it). */
+  async saveModuleWeight(subjectId: number, weight: number | null): Promise<{ success: boolean; data: { id: number; weight: number | null } }> {
+    return (await axios.put(`/report-cards/templates/modules/${subjectId}/weight`, { weight })).data;
   },
   /** MIS modules with learning hours, for the TVET module-weight editor. */
   async templateModules(): Promise<{ success: boolean; data: { modules: TemplateModule[]; default_module_weight: number } }> {
