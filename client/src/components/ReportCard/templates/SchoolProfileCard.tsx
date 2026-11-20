@@ -40,7 +40,16 @@ const toForm = (p: SchoolProfile | null): Form => Object.fromEntries(FIELDS.map(
 const INPUT =
   "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-text-primary-light placeholder-gray-400 focus:border-blue-400/60 focus:outline-none focus:ring-2 focus:ring-blue-400/30 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-text-secondary-light dark:border-panel-line dark:bg-panel-raised dark:text-text-primary-dark dark:placeholder-white/25 dark:disabled:bg-white/[0.03]";
 
-export default function SchoolProfileCard({ template, onDraft }: { template: TvetTemplateOptions; onDraft?: (p: Partial<Record<SchoolProfileField, string>>) => void }) {
+export default function SchoolProfileCard({
+  template,
+  onDraft,
+  refreshKey = 0,
+}: {
+  template: TvetTemplateOptions;
+  onDraft?: (p: Partial<Record<SchoolProfileField, string>>) => void;
+  /** Bumped after the visual editor saves, to read the details again. */
+  refreshKey?: number;
+}) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
@@ -54,7 +63,7 @@ export default function SchoolProfileCard({ template, onDraft }: { template: Tve
     let live = true;
     setLoading(true);
     setFailed(false);
-    ReportCardWorkflowApi.templateSchool(reload > 0)
+    ReportCardWorkflowApi.templateSchool(reload > 0 || refreshKey > 0)
       .then((res) => {
         if (!live) return;
         const base = toForm(res.data.profile);
@@ -78,7 +87,7 @@ export default function SchoolProfileCard({ template, onDraft }: { template: Tve
     };
     // The template's fallbacks are read once per load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reload]);
+  }, [reload, refreshKey]);
 
   useEffect(() => onDraft?.(form), [form, onDraft]);
 

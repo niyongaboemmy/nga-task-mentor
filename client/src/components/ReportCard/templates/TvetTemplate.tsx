@@ -89,7 +89,7 @@ function tvetSections(doc: ReportCardDocument) {
   })).filter((s) => s.subjects.length > 0);
 }
 
-export function TvetTemplate({ doc, verificationUrl, unmapped, onOpen }: TemplateProps) {
+export function TvetTemplate({ doc, verificationUrl, unmapped, onOpen, editor }: TemplateProps) {
   const tv = doc.tvet!;
   const final = tv.final;
   const issued = doc.card.status === "approved" || doc.card.status === "published";
@@ -404,6 +404,8 @@ export function TvetTemplate({ doc, verificationUrl, unmapped, onOpen }: Templat
         .rc-row { cursor: pointer; transition: background-color .12s ease; }
         .rc-row:hover { background: #F1F5FB !important; }
         .rc-row:focus-visible { outline: 2px solid ${C.blue}; outline-offset: -2px; }
+        .rc-inline-field { cursor: text; border-radius: 3px; padding: 0 3px; margin: 0 -3px; outline: 1px dashed rgba(37,99,235,0.45); outline-offset: 1px; transition: background-color .12s, outline-color .12s; }
+        .rc-inline-field:hover, .rc-inline-field:focus-visible { background: #EFF6FF; outline: 1px solid #2563EB; }
       `}</style>
       {!issued && (
         <div
@@ -419,11 +421,11 @@ export function TvetTemplate({ doc, verificationUrl, unmapped, onOpen }: Templat
         <div style={{ minWidth: 0 }}>
           <div>REPUBLIC OF RWANDA</div>
           <div>MINISTRY OF EDUCATION</div>
-          <div>DISTRICT: {tv.school.district || "–"}</div>
-          <div>SCHOOL NAME: {school.name.toUpperCase()}</div>
-          {tv.school.email && <div>SCHOOL EMAIL: {tv.school.email}</div>}
-          {tv.school.phone && <div>TEL: {tv.school.phone}</div>}
-          {!tv.school.email && !tv.school.phone && school.contact_line && <div style={{ fontWeight: 400 }}>{school.contact_line}</div>}
+          <div>DISTRICT: {editor ? editor.field("district", tv.school.district, { placeholder: "Add district" }) : tv.school.district || "–"}</div>
+          <div>SCHOOL NAME: {editor ? editor.field("name", school.name, { upper: true, placeholder: "Add school name" }) : school.name.toUpperCase()}</div>
+          {(editor || tv.school.email) && <div>SCHOOL EMAIL: {editor ? editor.field("contact_email", tv.school.email, { placeholder: "Add email" }) : tv.school.email}</div>}
+          {(editor || tv.school.phone) && <div>TEL: {editor ? editor.field("contact_phone", tv.school.phone, { placeholder: "Add phone" }) : tv.school.phone}</div>}
+          {!editor && !tv.school.email && !tv.school.phone && school.contact_line && <div style={{ fontWeight: 400 }}>{school.contact_line}</div>}
         </div>
         {logo && <img src={logo} alt="" style={{ alignSelf: "center", height: 44, width: "auto", opacity: 0.95 }} />}
         <div style={{ textAlign: "right", minWidth: 0 }}>
@@ -440,14 +442,14 @@ export function TvetTemplate({ doc, verificationUrl, unmapped, onOpen }: Templat
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", fontSize: 10.5, fontWeight: 700, color: C.ink }}>
         {(
           [
-            ["QUALIFICATION TITLE", q?.title || "–"],
-            ["TRADE", q?.trade || doc.student.program_name || "–"],
-            ["RQF LEVEL", q?.rqf_level ? `Level ${q.rqf_level}` : "–"],
-            ["SECTOR", q?.sector || "–"],
-          ] as Array<[string, string]>
-        ).map(([k, v], i) => (
-          <div key={k} title={v} style={{ border: `1px solid ${C.grid}`, borderTop: "none", borderLeft: i % 2 ? "none" : `1px solid ${C.grid}`, padding: "5px 6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {k}: {v}
+            ["QUALIFICATION TITLE", q?.title || "–", editor?.field("qualification_title", q?.title ?? "", { placeholder: "Add qualification title" })],
+            ["TRADE", q?.trade || doc.student.program_name || "–", editor?.field("trade", q?.trade ?? "", { placeholder: "Add trade" })],
+            ["RQF LEVEL", q?.rqf_level ? `Level ${q.rqf_level}` : "–", null],
+            ["SECTOR", q?.sector || "–", editor?.field("sector", q?.sector ?? "", { placeholder: "Add sector" })],
+          ] as Array<[string, string, React.ReactNode]>
+        ).map(([k, v, edit], i) => (
+          <div key={k} title={editor ? undefined : v} style={{ border: `1px solid ${C.grid}`, borderTop: "none", borderLeft: i % 2 ? "none" : `1px solid ${C.grid}`, padding: "5px 6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {k}: {edit ?? v}
           </div>
         ))}
       </div>
@@ -657,7 +659,9 @@ export function TvetTemplate({ doc, verificationUrl, unmapped, onOpen }: Templat
         </div>
         <div style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ fontWeight: 700, color: C.ink }}>Headmaster&apos;s Names and Signature:</div>
-          <div style={{ color: C.ink }}>{tv.school.headmaster || " "}</div>
+          <div style={{ color: C.ink }} data-testid="headmaster-name">
+            {editor ? editor.field("head_teacher_name", tv.school.headmaster, { placeholder: "Add the head of school's name" }) : tv.school.headmaster || " "}
+          </div>
           <div style={{ display: "flex", gap: 8, alignItems: "stretch", flex: 1 }}>
             <div style={{ flex: 1, minHeight: 48, border: `1px dashed ${C.faint}`, borderRadius: 6, display: "grid", placeItems: "center", color: C.faint, fontSize: 9 }}>School stamp</div>
             {issued && verificationUrl && (

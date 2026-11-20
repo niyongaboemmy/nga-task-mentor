@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertCircle, Check, CheckCircle2, Eye, LayoutTemplate, Loader2, RotateCcw, Save, Settings2, Sparkles } from "lucide-react";
+import { AlertCircle, Check, CheckCircle2, Eye, LayoutTemplate, Loader2, PenLine, RotateCcw, Save, Settings2, Sparkles } from "lucide-react";
 import { toast } from "react-toastify";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Skeleton } from "../components/ui/Skeleton";
@@ -152,6 +152,8 @@ export default function ReportCardTemplatesPage() {
   const [switching, setSwitching] = useState(false);
   const [preview, setPreview] = useState<ReportCardBuilderKind | null>(null);
   const [formativeKey, setFormativeKey] = useState(0);
+  const [previewEdit, setPreviewEdit] = useState(false);
+  const [schoolKey, setSchoolKey] = useState(0);
 
   const [schoolDraft, setSchoolDraft] = useState<Partial<Record<SchoolProfileField, string>>>({});
 
@@ -365,6 +367,19 @@ export default function ReportCardTemplatesPage() {
                         <button type="button" onClick={() => setPreview(t.key)} className={GHOST} data-testid={`preview-${t.key}`}>
                           <Eye className="h-4 w-4" aria-hidden /> Preview
                         </button>
+                        {t.key === "tvet" && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPreviewEdit(true);
+                              setPreview("tvet");
+                            }}
+                            className={GHOST}
+                            data-testid="edit-visually"
+                          >
+                            <PenLine className="h-4 w-4" aria-hidden /> Edit on the card
+                          </button>
+                        )}
                         {active ? (
                           <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">Teachers map marks into {t.structure.categories.map((c) => c.short).join(", ")}.</span>
                         ) : (
@@ -384,7 +399,7 @@ export default function ReportCardTemplatesPage() {
           {builder === "tvet" && <FormativeDefaultPanel refreshKey={formativeKey} />}
 
           {/* 2. The school's details, kept in MIS (per tenant) */}
-          <SchoolProfileCard template={opts} onDraft={setSchoolDraft} />
+          <SchoolProfileCard template={opts} onDraft={setSchoolDraft} refreshKey={schoolKey} />
 
           {/* 3. TVET template options + live preview */}
           <section aria-labelledby="tpl-tvet" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -461,9 +476,21 @@ export default function ReportCardTemplatesPage() {
               <div className={CARD}>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Live preview</p>
-                  <button type="button" onClick={() => setPreview("tvet")} className="text-xs font-semibold text-blue-700 hover:underline dark:text-blue-300">
-                    Full size
-                  </button>
+                  <span className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreviewEdit(true);
+                        setPreview("tvet");
+                      }}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:underline dark:text-blue-300"
+                    >
+                      <PenLine className="h-3.5 w-3.5" aria-hidden /> Edit on the card
+                    </button>
+                    <button type="button" onClick={() => setPreview("tvet")} className="text-xs font-semibold text-blue-700 hover:underline dark:text-blue-300">
+                      Full size
+                    </button>
+                  </span>
                 </div>
                 <p className="mt-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">Sample learner, your settings{dirty ? " (unsaved)" : ""}.</p>
                 <div className="mt-3 overflow-hidden rounded-2xl border border-gray-100 bg-white dark:border-panel-line" data-testid="live-preview">
@@ -505,7 +532,31 @@ export default function ReportCardTemplatesPage() {
         onConfirm={() => void confirmSwitch()}
         onCancel={() => setSwitchTo(null)}
       />
-      {preview && <TemplatePreviewModal builder={preview} open onClose={() => setPreview(null)} decorate={preview === "tvet" ? decorate : undefined} />}
+      {preview && (
+        <TemplatePreviewModal
+          builder={preview}
+          open
+          onClose={() => {
+            setPreview(null);
+            setPreviewEdit(false);
+          }}
+          decorate={preview === "tvet" ? decorate : undefined}
+          editable
+          startEditing={previewEdit}
+          display={(() => {
+            try {
+              const s = JSON.parse(saved.current || "{}") as Partial<Opts>;
+              return { attendance: !!s.show_attendance, attributes: !!s.show_attributes };
+            } catch {
+              return { attendance: opts.show_attendance, attributes: opts.show_attributes };
+            }
+          })()}
+          onSaved={(what) => {
+            if (what.school) setSchoolKey((k) => k + 1);
+            if (what.display) setReload((r) => r + 1);
+          }}
+        />
+      )}
     </div>
   );
 }

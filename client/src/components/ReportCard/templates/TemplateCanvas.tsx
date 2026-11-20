@@ -1,9 +1,22 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { ReportCardDocumentView } from "../ReportCardDocumentView";
 import type { ReportCardDocument } from "../../../services/reportCardApi";
+import type { TemplateEditor } from "./types";
 
 /** A report card template scaled to the space it has (thumbnails, previews); `scale` fixes the zoom instead. */
-export default function TemplateCanvas({ doc, scale, interactive = false, className = "" }: { doc: ReportCardDocument; scale?: number; interactive?: boolean; className?: string }) {
+export default function TemplateCanvas({
+  doc,
+  scale,
+  interactive = false,
+  className = "",
+  editor,
+}: {
+  doc: ReportCardDocument;
+  scale?: number;
+  interactive?: boolean;
+  className?: string;
+  editor?: TemplateEditor;
+}) {
   const outer = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState(scale ?? 0.4);
@@ -32,7 +45,7 @@ export default function TemplateCanvas({ doc, scale, interactive = false, classN
         aria-hidden={!interactive}
         style={{ width: 794, transform: `scale(${s})`, transformOrigin: "top left", pointerEvents: interactive ? "auto" : "none" }}
       >
-        <ReportCardDocumentView doc={doc} />
+        <ReportCardDocumentView doc={doc} editor={editor} />
       </div>
     </div>
   );
