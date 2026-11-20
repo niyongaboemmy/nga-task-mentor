@@ -7,6 +7,8 @@ import {
   learningHours,
   moduleWeightOf,
   qualificationOf,
+  yearOf,
+  levelForYear,
   termIndex,
   tvetCell,
   tvetDecision,
@@ -130,7 +132,7 @@ describe("TVET (CAMIS) maths, checked against an issued card", () => {
     expect(qualificationOf([{ rqf_level: "3" }, { rqf_level: "3" }], "Software Development", null, null)).toEqual({
       rqf_level: "3",
       trade: "Software Development",
-      title: "TVET Certificate III in Software Development",
+      title: "Level 3",
       sector: null,
     });
   });
@@ -143,5 +145,20 @@ describe("module weight from MIS", () => {
     expect(moduleWeightOf({ learning_hours: "100 hours" })).toBe(100);
     expect(moduleWeightOf({ learning_hours: "5 (4 taught and 1 in self-study) per week" })).toBeNull();
     expect(moduleWeightOf({})).toBeNull();
+  });
+});
+
+describe("qualification level from the class year", () => {
+  it("reads the year from class or grade names, and maps Year 1/2/3 to Levels 3/4/5", () => {
+    expect([yearOf("SPES-Year1"), yearOf("Year 2"), yearOf(null, "Y3"), yearOf("Year Three"), yearOf("Year 10"), yearOf("Grade 1")]).toEqual([1, 2, 3, 3, null, null]);
+    expect([levelForYear(1), levelForYear(2), levelForYear(3), levelForYear(4), levelForYear(null)]).toEqual([3, 4, 5, null, null]);
+  });
+
+  it("prefers the grade's level in MIS, then the class year, then the modules' level", () => {
+    expect(qualificationOf([{ rqf_level: "3" }], "SPE", "SPES-Year2", null, 5).title).toBe("Level 5"); // MIS grade wins
+    expect(qualificationOf([{ rqf_level: "3" }], "SPE", "SPES-Year2", null).title).toBe("Level 4"); // Year 2
+    expect(qualificationOf([], "SPE", "L3 SOD A", null).title).toBe("Level 3");
+    expect(qualificationOf([{ rqf_level: "Level 4" }], "SPE", "Class A", null).title).toBe("Level 4");
+    expect(qualificationOf([], "SPE", "Class A", null)).toMatchObject({ rqf_level: null, title: null });
   });
 });

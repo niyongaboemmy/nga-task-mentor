@@ -70,7 +70,7 @@ function decorateTvet(doc: ReportCardDocument, o: Opts, school: Partial<Record<S
     school: school.name?.trim() ? { ...doc.school, name: school.name.trim() } : doc.school,
     qualification: {
       ...(doc.qualification ?? { rqf_level: null, trade: null, title: null, sector: null }),
-      title: o.qualification_title.trim() || school.qualification_title?.trim() || doc.qualification?.title || null,
+      title: o.qualification_title.trim() || doc.qualification?.title || school.qualification_title?.trim() || null,
       trade: school.trade?.trim() || doc.qualification?.trade || null,
       sector: v(school.sector, o.sector) || null,
     },

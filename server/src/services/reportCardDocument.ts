@@ -522,6 +522,8 @@ export function rankAverages(entries: Array<{ id: number; average: number | null
 }
 
 export interface StudentInfo {
+  /** The class grade's RQF level from MIS (Grade.rqf_level). */
+  grade_rqf_level?: number | null;
   name: string;
   registration_number: string | null;
   gender: string | null;
@@ -548,6 +550,7 @@ export async function resolveStudentInfo(
       class_group_id: s.class_group_id,
       class_name: g?.name ?? null,
       grade_name: g?.grade_name ?? null,
+      grade_rqf_level: g?.grade_rqf_level ?? null,
       program_name: g?.program_name ?? null,
     });
   }
@@ -924,9 +927,11 @@ export async function buildCardDocuments(
       .map((a) => ({ attribute_name: a.attribute_name, rating: a.rating }))
       .sort((a, b) => attrOrder(a.attribute_name) - attrOrder(b.attribute_name));
 
-    const qualification = tvet ? qualificationOf(subjects, s.program_name ?? misSchool?.trade ?? null, card.class_name ?? s.class_name, s.grade_name) : undefined;
+    const qualification = tvet
+      ? qualificationOf(subjects, s.program_name ?? misSchool?.trade ?? null, card.class_name ?? s.class_name, s.grade_name, s.grade_rqf_level ?? null)
+      : undefined;
     if (qualification) {
-      // Title: the template's own, else from the level and trade, else the school's (MIS).
+      // Title: the template's own, else "Level <n>" from the class year, else the school's (MIS).
       if (scheme.tvet.qualification_title) qualification.title = scheme.tvet.qualification_title;
       else if (!qualification.title && misSchool?.qualification_title) qualification.title = misSchool.qualification_title;
       qualification.sector = pick(misSchool?.sector, scheme.tvet.sector) || null;
@@ -1060,32 +1065,51 @@ export async function buildCardDocuments(
   return out;
 }
 
-const ROMAN: Record<string, string> = { "1": "I", "2": "II", "3": "III", "4": "IV", "5": "V" };
+/** "Year 1" / "SPES-Year1" / "Y2" / "Year Three" -> the year number (1-3); null otherwise. */
+export function yearOf(...names: Array<string | null | undefined>): number | null {
+  const words: Record<string, number> = { one: 1, two: 2, three: 3 };
+  for (const n of names) {
+    const m = String(n ?? "").toLowerCase().match(/(?:^|[^0-9a-z])(?:year|yr|y)[\s_-]*(1|2|3|one|two|three)(?![0-9])/);
+    if (m) return words[m[1]] ?? Number(m[1]);
+  }
+  return null;
+}
+
+/** A TVET year's RQF level: Year 1 -> 3, Year 2 -> 4, Year 3 -> 5. */
+export const levelForYear = (year: number | null) => (year != null && year >= 1 && year <= 3 ? year + 2 : null);
 
 /**
- * The RTB qualification block: RQF level (the modules' level from MIS, else
- * "L3"/"Level 3" in the class or grade name), trade (the programme) and the
- * title "TVET Certificate III in <trade>".
+ * The RTB qualification block. RQF level, first match wins: the class
+ * grade's level in MIS (Grade.rqf_level); the year in the class or grade
+ * name (Year 1 = Level 3, Year 2 = 4, Year 3 = 5); "L3"/"Level 3" in those
+ * names; the modules' own level. Title: "Level <n>", as TSS cards print it.
  */
 export function qualificationOf(
   subjects: Array<Pick<DocumentSubject, "rqf_level">>,
   program: string | null | undefined,
   className: string | null | undefined,
   gradeName: string | null | undefined,
+  gradeLevel?: number | null,
 ): NonNullable<ReportCardDocument["qualification"]> {
-  const counts = new Map<string, number>();
-  for (const s of subjects) {
-    const m = String(s.rqf_level ?? "").match(/[1-8]/);
-    if (m) counts.set(m[0], (counts.get(m[0]) ?? 0) + 1);
+  let level: string | null = gradeLevel != null && gradeLevel >= 1 && gradeLevel <= 8 ? String(gradeLevel) : null;
+  if (!level) {
+    const y = levelForYear(yearOf(className, gradeName));
+    if (y) level = String(y);
   }
-  let level: string | null = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   if (!level) {
     const m = `${className ?? ""} ${gradeName ?? ""}`.match(/\b(?:l|level|rqf)\s*\.?\s*([1-8])\b/i);
     level = m ? m[1] : null;
   }
+  if (!level) {
+    const counts = new Map<string, number>();
+    for (const s of subjects) {
+      const m = String(s.rqf_level ?? "").match(/[1-8]/);
+      if (m) counts.set(m[0], (counts.get(m[0]) ?? 0) + 1);
+    }
+    level = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  }
   const trade = program?.trim() || null;
-  const title = level && ROMAN[level] && trade ? `TVET Certificate ${ROMAN[level]} in ${trade}` : null;
-  return { rqf_level: level, trade, title, sector: null };
+  return { rqf_level: level, trade, title: level ? `Level ${level}` : null, sector: null };
 }
 
 /** The cohort of a card: every card of its class group this term (itself when it has no class). */

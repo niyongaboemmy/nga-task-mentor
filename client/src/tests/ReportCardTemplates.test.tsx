@@ -34,7 +34,7 @@ describe("TVET template (RTB / CAMIS)", () => {
     expect(screen.getByTestId("tvet-header")).toHaveTextContent("DISTRICT: Gasabo");
     expect(screen.getByTestId("tvet-header")).toHaveTextContent("SDMS ID No: 100000000001");
     expect(screen.getByTestId("report-title")).toHaveTextContent("LEARNER'S ASSESSMENT REPORT");
-    expect(d).toHaveTextContent("QUALIFICATION TITLE: TVET Certificate III in Software Programming and Embedded Systems");
+    expect(d).toHaveTextContent("QUALIFICATION TITLE: Level 3");
     expect(d).toHaveTextContent("SECTOR: ICT and Multimedia");
     // Groups: complementary, then CORE (general, specific).
     const table = screen.getByTestId("tvet-table");

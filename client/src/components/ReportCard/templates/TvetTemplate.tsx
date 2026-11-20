@@ -442,7 +442,18 @@ export function TvetTemplate({ doc, verificationUrl, unmapped, onOpen, editor }:
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", fontSize: 10.5, fontWeight: 700, color: C.ink }}>
         {(
           [
-            ["QUALIFICATION TITLE", q?.title || "–", editor?.field("qualification_title", q?.title ?? "", { placeholder: "Add qualification title" })],
+            [
+              "QUALIFICATION TITLE",
+              q?.title || "–",
+              // From the class year (MIS grade level); the school's own title is editable only when the level isn't known.
+              editor && q?.rqf_level ? (
+                <span key="auto" title="Set by the class year: Year 1 = Level 3, Year 2 = Level 4, Year 3 = Level 5 (MIS → Grades → RQF level)" style={{ borderBottom: "1px dotted #93A4BA", cursor: "help" }}>
+                  {q.title}
+                </span>
+              ) : (
+                editor?.field("qualification_title", q?.title ?? "", { placeholder: "Add qualification title" })
+              ),
+            ],
             ["TRADE", q?.trade || doc.student.program_name || "–", editor?.field("trade", q?.trade ?? "", { placeholder: "Add trade" })],
             ["RQF LEVEL", q?.rqf_level ? `Level ${q.rqf_level}` : "–", null],
             ["SECTOR", q?.sector || "–", editor?.field("sector", q?.sector ?? "", { placeholder: "Add sector" })],

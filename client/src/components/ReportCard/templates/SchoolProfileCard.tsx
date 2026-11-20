@@ -20,7 +20,7 @@ const FIELDS: Array<{ key: SchoolProfileField; label: string; placeholder?: stri
   { key: "contact_phone", label: "School phone", max: 50 },
   { key: "sector", label: "Sector", placeholder: "e.g. ICT and Multimedia", max: 100 },
   { key: "trade", label: "Trade", placeholder: "Used when a class has no programme", max: 150 },
-  { key: "qualification_title", label: "Qualification title", placeholder: "e.g. TVET Certificate III in …", max: 255, wide: true },
+  { key: "qualification_title", label: "Qualification title (when the class level isn't known)", placeholder: "Cards print “Level 3/4/5” from the class year", max: 255, wide: true },
   { key: "address", label: "Address", max: 255, wide: true },
 ];
 
