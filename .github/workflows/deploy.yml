@@ -22,6 +22,8 @@ jobs:
         env:
           DB_PASS: ${{ secrets.DB_PASS }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          # The MIS provisions new schools here (tenant management); same value as the MIS.
+          TENANCY_PROVISION_SECRET: ${{ secrets.TENANCY_PROVISION_SECRET }}
           SSO_CLIENT_SECRET: ${{ secrets.SSO_CLIENT_SECRET }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -41,7 +43,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: DB_PASS,JWT_SECRET,SSO_CLIENT_SECRET,OPENAI_API_KEY,GEMINI_API_KEY,GROQ_API_KEY,GLM_API_KEY,DEEPSEEK_API_KEY,OPENROUTER_API_KEY,JUDGE0_API_KEY,CLOUDFLARE_TURN_TOKEN_ID,CLOUDFLARE_TURN_API_TOKEN,SMTP_HOST,SMTP_USER,SMTP_PASS,FILE_SERVER_API_KEY,TMCODE_LAYER_SIGNING_KEY
+          envs: DB_PASS,JWT_SECRET,SSO_CLIENT_SECRET,OPENAI_API_KEY,GEMINI_API_KEY,GROQ_API_KEY,GLM_API_KEY,DEEPSEEK_API_KEY,OPENROUTER_API_KEY,JUDGE0_API_KEY,CLOUDFLARE_TURN_TOKEN_ID,CLOUDFLARE_TURN_API_TOKEN,SMTP_HOST,SMTP_USER,SMTP_PASS,FILE_SERVER_API_KEY,TMCODE_LAYER_SIGNING_KEY,TENANCY_PROVISION_SECRET
           script: |
             set -e
             cd /opt/apps/nga-task-mentor
@@ -79,6 +81,7 @@ jobs:
             FRONTEND_URL=https://taskmentor.amashuri.com
 
             JWT_SECRET="${JWT_SECRET}"
+            TENANCY_PROVISION_SECRET="${TENANCY_PROVISION_SECRET}"
             JWT_EXPIRE=30d
             JWT_COOKIE_EXPIRE=30
 
