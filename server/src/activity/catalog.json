@@ -18,6 +18,7 @@
     { "key": "tm.course.report_attributes", "label": "Report card general attributes", "module": "Report cards", "patterns": ["/courses/:courseId/report-card-attributes"] },
     { "key": "tm.report_cards", "label": "Report cards (classes)", "module": "Report cards", "patterns": ["/report-cards"] },
     { "key": "tm.report_cards.settings", "label": "Report card settings", "module": "Report cards", "patterns": ["/report-cards/settings"] },
+    { "key": "tm.report_cards.templates", "label": "Report card templates", "module": "Report cards", "patterns": ["/report-cards/templates"] },
     { "key": "tm.report_cards.workbench", "label": "Report card workbench", "module": "Report cards", "patterns": ["/report-cards/:classGroupId"] },
     { "key": "tm.report_cards.comments", "label": "Report card comments & attendance", "module": "Report cards", "patterns": ["/report-cards/:classGroupId/comments"] },
     { "key": "tm.school_reports", "label": "School reports", "module": "Results", "patterns": ["/reports/school"] },

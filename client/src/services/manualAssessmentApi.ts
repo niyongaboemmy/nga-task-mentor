@@ -42,6 +42,7 @@ export interface ManualAssessmentScore {
   manual_assessment_id: number;
   student_id: number;
   score: number;
+  status?: ManualScoreStatus;
 }
 
 export interface CreateManualAssessmentPayload {
@@ -65,8 +66,11 @@ export interface UpdateManualAssessmentPayload {
   max_score?: number;
 }
 
+/** scored (default) | absent (counts as 0 on the report card) | exempt (left out). */
+export type ManualScoreStatus = "scored" | "absent" | "exempt";
+
 export interface UpsertScoresPayload {
-  scores: Array<{ student_id: number; score: number }>;
+  scores: Array<{ student_id: number; score: number; status?: ManualScoreStatus }>;
 }
 
 export class ManualAssessmentApiService {
