@@ -119,8 +119,9 @@ describe("ReportCardBuilder", () => {
     expect(screen.getByText("Homework")).toBeInTheDocument();
     expect(screen.getByText("Mid-Term")).toBeInTheDocument();
     expect(screen.getByText("End of Term")).toBeInTheDocument();
+    expect(screen.getByText("Integrated Assessment")).toBeInTheDocument();
     expect(screen.getByText("15%")).toBeInTheDocument();
-    expect(screen.getByText("50%")).toBeInTheDocument();
+    expect(screen.getAllByText("50%")).toHaveLength(2); // EOT and IA (Term 3)
   });
 
   it("save button is disabled when no items are mapped", () => {

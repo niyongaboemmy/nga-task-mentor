@@ -63,6 +63,17 @@ export const CATEGORIES: Record<AssessmentCategory, CategoryMeta> = {
     dot: "bg-orange-500 dark:bg-orange-400",
     ring: "ring-orange-500/40",
   },
+  IA: {
+    label: "Integrated Assessment",
+    shortLabel: "IA",
+    weight: 50,
+    bg: "bg-blue-50/60 dark:bg-blue-950/30",
+    border: "border-blue-300 dark:border-blue-700/60",
+    badge: "bg-blue-900 text-white",
+    dot: "bg-blue-900 dark:bg-blue-200",
+    ring: "ring-blue-700/40",
+  },
 };
 
-export const CATEGORY_ORDER: AssessmentCategory[] = ["CW", "HW", "MD", "EOT"];
+/** CW/HW/MD are formative (FA), EOT is the comprehensive assessment (CA), IA the Term 3 integrated assessment. */
+export const CATEGORY_ORDER: AssessmentCategory[] = ["CW", "HW", "MD", "EOT", "IA"];

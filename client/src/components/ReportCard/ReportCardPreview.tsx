@@ -988,6 +988,7 @@ export default function ReportCardPreview({
       const res = await ReportCardApiService.getStudentReportCard(studentId, {
         term,
         academic_year: academicYear,
+        guide: "1",
       });
       if (res.success) {
         setData(res.data);

@@ -141,7 +141,7 @@ export default function SubjectGradesPage() {
     Partial<Record<AssessmentCategory, Array<{ dndId: string; assessment_id: number; assessment_type: "quiz" | "assignment" | "manual"; title: string; subject_id: number }>>>
   >(() => {
     if (!subject || initialMappings.length === 0) return {};
-    const dropped: Record<AssessmentCategory, any[]> = { CW: [], HW: [], MD: [], EOT: [] };
+    const dropped: Record<AssessmentCategory, any[]> = { CW: [], HW: [], MD: [], EOT: [], IA: [] };
     const allItems = [
       ...subject.quizzes.map((q) => ({ id: q.id, title: q.title, type: "quiz" as const })),
       ...subject.assignments.map((a) => ({ id: a.id, title: a.title, type: "assignment" as const })),

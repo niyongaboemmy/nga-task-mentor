@@ -11,13 +11,16 @@ import { cachedGradingBands, GradeBand, letterFor } from "./tenantSettings";
  *   EOT → 50
  */
 
-export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT";
+/** CW/HW/MD are formative (FA), EOT the comprehensive assessment (CA), IA the Term 3 integrated assessment. */
+export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT" | "IA";
 
 export const CATEGORY_WEIGHTS: Record<AssessmentCategory, number> = {
   CW: 15,
   HW: 10,
   MD: 25,
   EOT: 50,
+  // Term 3 only, on top of the 100 (a term's mark is over the categories assessed).
+  IA: 50,
 };
 
 export interface AssessmentScore {

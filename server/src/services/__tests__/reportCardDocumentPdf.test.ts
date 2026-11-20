@@ -7,13 +7,13 @@ const doc = (over: Partial<ReportCardDocument["card"]> = {}): ReportCardDocument
   card: { id: 1, uuid: "abc-123", version: 2, status: "published", term: "Term 2", academic_year: "2025-2026", approved_at: "2026-04-01T08:00:00Z", published_at: null, ...over },
   school: { name: "New Generation Coding Academy", address_line: "Kigali, Rwanda", contact_line: "info@nga.ac.rw", logo: "nga" },
   student: { id: 7, name: "Aline Uwase", registration_number: "REG-1", gender: "F", class_group_id: 3, class_name: "Grade 10", grade_name: null, program_name: "SPES" },
-  scheme: { category_weights: { CW: 15, HW: 10, MD: 25, EOT: 50 }, pass_mark: 50, bands: [...NGA_GRADING_BANDS], show_position: true, show_class_average: true, show_subject_teacher: true, head_title: "Principal" },
+  scheme: { category_weights: { CW: 15, HW: 10, MD: 25, EOT: 50, IA: 50 }, pass_mark: 50, bands: [...NGA_GRADING_BANDS], show_position: true, show_class_average: true, show_subject_teacher: true, head_title: "Principal" },
   groups: [
     {
       name: "Core modules",
       subjects: [
-        { subject_id: 1, name: "Physics (Design electrical and electronic circuit using optical instruments)", group: "Core modules", teacher: "NSHIMIYIMANA J.", categories: { CW: 14, HW: 9, MD: 22, EOT: 42 }, total: 87, grade: "A", remark: "Excellent", passed: true, class_average: 78, missing_marks: 0 },
-        { subject_id: 2, name: "English", group: "Core modules", teacher: null, categories: { CW: 5, HW: null, MD: 10, EOT: 20 }, total: 35, grade: "F", remark: "Weak", passed: false, class_average: 60, missing_marks: 0 },
+        { subject_id: 1, name: "Physics (Design electrical and electronic circuit using optical instruments)", group: "Core modules", teacher: "NSHIMIYIMANA J.", categories: { CW: 14, HW: 9, MD: 22, EOT: 42, IA: null }, total: 87, grade: "A", remark: "Excellent", passed: true, class_average: 78, missing_marks: 0 },
+        { subject_id: 2, name: "English", group: "Core modules", teacher: null, categories: { CW: 5, HW: null, MD: 10, EOT: 20, IA: null }, total: 35, grade: "F", remark: "Weak", passed: false, class_average: 60, missing_marks: 0 },
       ],
     },
   ],

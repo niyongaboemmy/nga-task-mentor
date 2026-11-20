@@ -357,7 +357,7 @@ describe("report card document view", () => {
     school: { name: "New Generation Coding Academy", address_line: "Kigali, Rwanda", contact_line: "info@nga.ac.rw", logo: "nga" },
     student: { id: 1, name: "Aline Uwase", registration_number: "1487250119", gender: "F", class_group_id: 5, class_name: "Grade10", grade_name: null, program_name: "SPES YEAR 1" },
     scheme: {
-      category_weights: { CW: 15, HW: 10, MD: 25, EOT: 50 },
+      category_weights: { CW: 15, HW: 10, MD: 25, EOT: 50, IA: 50 },
       pass_mark: 50,
       bands: [
         { min: 90, letter: "A*", remark: "" },
@@ -373,7 +373,7 @@ describe("report card document view", () => {
       {
         name: "Core modules",
         subjects: [
-          { subject_id: 1, name: "Networking Fundamentals", group: "Core modules", teacher: "Ntabomvura L.", categories: { CW: 13.33, HW: 9, MD: 21, EOT: 45 }, total: 88.33, grade: "A", remark: "", passed: true, class_average: 77.06, missing_marks: 0 },
+          { subject_id: 1, name: "Networking Fundamentals", group: "Core modules", teacher: "Ntabomvura L.", categories: { CW: 13.33, HW: 9, MD: 21, EOT: 45, IA: null }, total: 88.33, grade: "A", remark: "", passed: true, class_average: 77.06, missing_marks: 0 },
         ],
       },
     ],
@@ -389,12 +389,17 @@ describe("report card document view", () => {
     render(<ReportCardDocumentView doc={doc("published")} verificationUrl="https://x/verify?v=2" />);
     const d = screen.getByTestId("report-card-document");
     expect(within(d).getByAltText("New Generation Coding Academy")).toBeInTheDocument();
-    for (const t of ["1487250119", "Core modules", "Networking Fundamentals", "Ntabomvura L.", "77.06", "13.33", "88.33", "Excused", "Principal"]) {
+    // CAMIS header, title and learner block.
+    expect(d).toHaveTextContent("REPUBLIC OF RWANDA");
+    expect(d).toHaveTextContent("MINISTRY OF EDUCATION");
+    expect(screen.getByTestId("report-title")).toHaveTextContent("LEARNER'S TERMLY ASSESSMENT REPORT");
+    // FA = CW+HW+MD (13.33+9+21), CA = EOT; IA is N/A before Term 3.
+    for (const t of ["1487250119", "Other modules", "Networking Fundamentals", "Ntabomvura L.", "43.33", "45", "88.33", "N/A", "Excused"]) {
       expect(within(d).getByText(t)).toBeInTheDocument();
     }
     expect(d).toHaveTextContent("86.64%"); // exact, never rounded
-    expect(d).toHaveTextContent("3rd");
-    expect(d).toHaveTextContent("of 40");
+    expect(screen.getByTestId("summary-position")).toHaveTextContent("3/40");
+    expect(d).toHaveTextContent("School manager (Principal)");
     expect(d).toHaveTextContent("Next term begins on Monday, 20 April 2026");
     expect(d).toHaveTextContent("Version 2");
     expect(within(d).getByText("60%")).toBeInTheDocument(); // present 3 of 5 days
@@ -419,17 +424,56 @@ describe("report card document view", () => {
     expect(within(d).getByText("Competent", { selector: "span" })).toBeInTheDocument();
     expect(within(d).getByText("NYC")).toBeInTheDocument();
     expect(within(d).getByText("2/18")).toBeInTheDocument();
-    expect(d).toHaveTextContent("Position in class3rdof 40");
+    expect(screen.getByTestId("summary-position")).toHaveTextContent("Position3/40");
+    expect(screen.getByText("Core modules — Specific")).toBeInTheDocument();
     expect(d).toHaveTextContent("Needs attention: Programming in C");
     fireEvent.click(within(d).getByTestId("module-2"));
     expect(d).toHaveTextContent("38 of 100 points = 38%");
     expect(d).toHaveTextContent("17th of 18 in the class");
   });
 
+  it("prints the year on the Term 3 card: earlier terms, IA, annual total, decision, behaviour and deliberation", () => {
+    const d0 = doc("published");
+    d0.card = { ...d0.card, term: "Term 3" };
+    const base = d0.groups[0].subjects[0];
+    d0.groups[0] = {
+      name: "Specific modules",
+      subjects: [
+        {
+          ...base,
+          code: "SPENF301",
+          category: "specific",
+          competent: true,
+          weight: 120,
+          term_cell: { term: "Term 3", fa: 43.33, ia: 40, ca: 45, total: 85.55 },
+          earlier_terms: [
+            { term: "Term 1", fa: 40, ia: null, ca: 41, total: 81 },
+            { term: "Term 2", fa: 42, ia: null, ca: 44, total: 86 },
+          ],
+          annual: { total: 84.18, competent: true, terms_assessed: 3 },
+        },
+      ],
+    };
+    d0.behaviour = { mark: 36, max: 40, earlier: [{ term: "Term 1", mark: 35 }, { term: "Term 2", mark: 38 }] };
+    d0.qualification = { rqf_level: "3", trade: "Networking", title: "TVET Certificate III in Networking", sector: null };
+    d0.annual = { terms: ["Term 1", "Term 2", "Term 3"], average: 84.18, position: 2, position_of: 40, modules_competent: 1, modules_nyc: 0, total_marks: 84.18, total_max: 100 };
+    render(<ReportCardDocumentView doc={d0} />);
+    expect(screen.getByTestId("report-title")).toHaveTextContent("LEARNER'S ASSESSMENT REPORT");
+    const d = screen.getByTestId("report-card-document");
+    expect(d).toHaveTextContent("TVET Certificate III in Networking");
+    expect(d).toHaveTextContent("Level 3");
+    const row = screen.getByTestId("module-1");
+    for (const t of ["120", "81", "86", "85.55", "84.18", "C"]) expect(within(row).getByText(t)).toBeInTheDocument();
+    expect(screen.getByTestId("behaviour-row")).toHaveTextContent("109/120");
+    expect(screen.getByTestId("summary-position")).toHaveTextContent("2/40");
+    expect(screen.getByTestId("deliberation")).toHaveTextContent("Promoted at 1st sitting");
+    expect(screen.getByTestId("competent-line")).toHaveTextContent("Competent in 1 of 1 module over the year.");
+  });
+
   it("guides staff on a draft: lists unassessed subjects and the marks that aren't mapped", () => {
     const d0 = doc("draft");
     d0.groups[0].subjects.push({
-      subject_id: 2, name: "Citizenship I", group: "Core modules", teacher: null, categories: { CW: null, HW: null, MD: null, EOT: null },
+      subject_id: 2, name: "Citizenship I", group: "Core modules", teacher: null, categories: { CW: null, HW: null, MD: null, EOT: null, IA: null },
       total: null, grade: null, remark: null, passed: null, class_average: null, missing_marks: 0, mapped: false,
     });
     const onOpen = vi.fn();

@@ -159,7 +159,7 @@ describe("report card scheme", () => {
         { assessment_id: 1, assessment_type: "manual", category: "CW", raw_score: 8, max_score: 10 },
         { assessment_id: 2, assessment_type: "manual", category: "EOT", raw_score: 50, max_score: 100 },
       ],
-      { CW: 40, HW: 0, MD: 0, EOT: 60 },
+      { CW: 40, HW: 0, MD: 0, EOT: 60, IA: 50 },
     );
     expect(g.categories.CW?.scaled_score).toBe(32);
     expect(g.categories.EOT?.scaled_score).toBe(30);

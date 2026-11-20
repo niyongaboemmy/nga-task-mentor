@@ -143,6 +143,7 @@ function readShape(card: ReportCard, doc: ReportCardDocument, rawMappings: Repor
       returned_reason: card.returned_reason,
       class_teacher_comment: card.class_teacher_comment ?? null,
       head_teacher_comment: card.head_teacher_comment ?? null,
+      behaviour_mark: card.behaviour_mark ?? null,
       attendance: {
         present: doc.attendance.present,
         absent: doc.attendance.absent,
@@ -436,6 +437,7 @@ export const saveAttributes = async (req: Request, res: Response) => {
       attendance_excused: body.attendance_excused ?? reportCard.attendance_excused,
       attendance_sick: body.attendance_sick ?? reportCard.attendance_sick,
       ...(attendanceTouched && body.attendance_source !== "imported" ? { attendance_source: "manual" as const } : {}),
+      ...(body.behaviour_mark !== undefined ? { behaviour_mark: body.behaviour_mark == null ? null : Math.round(body.behaviour_mark * 100) / 100 } : {}),
       ...(mayHeadComment && body.head_teacher_comment !== undefined ? { head_teacher_comment: body.head_teacher_comment ?? null } : {}),
     });
 
@@ -678,7 +680,9 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
     }
     const doc = await documentFor(req, reportCard, { staff: canViewAll });
     const rawMappings = canViewAll ? await ReportCardAssessment.findAll({ where: { report_card_id: reportCard.id } }) : [];
-    const unmapped = canViewAll ? await unmappedFor(req, reportCard, doc, rawMappings).catch(() => ({})) : undefined;
+    // The mapping guidance is for the card preview (?guide=1), not bulk readers like the comments page.
+    const wantsGuide = String(req.query.guide ?? "") === "1";
+    const unmapped = canViewAll && wantsGuide ? await unmappedFor(req, reportCard, doc, rawMappings).catch(() => ({})) : undefined;
     res.status(200).json({ success: true, data: { ...readShape(reportCard, doc, rawMappings), ...(unmapped ? { unmapped } : {}) } });
   } catch (error) {
     sendControllerError(res, error, "getStudentReportCard");

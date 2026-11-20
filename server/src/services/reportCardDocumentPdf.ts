@@ -109,14 +109,46 @@ export async function renderReportCardPdf(doc: ReportCardDocument, opts: PdfOpti
   return collect(pdf, () => drawCard(pdf, doc, art));
 }
 
-/** Draws one report card from the top of the current page of `pdf`. */
+type DocSubject = ReportCardDocument["groups"][number]["subjects"][number];
+
+/** CAMIS groups modules complementary → core general → core specific. */
+export const RTB_GROUPS: Array<{ key: "complementary" | "general" | "specific" | null; label: string }> = [
+  { key: "complementary", label: "Complementary modules" },
+  { key: "general", label: "Core modules — General" },
+  { key: "specific", label: "Core modules — Specific" },
+  { key: null, label: "Other modules" },
+];
+
+export function rtbGroups(doc: ReportCardDocument): Array<{ label: string; subjects: DocSubject[] }> {
+  const all = doc.groups.flatMap((g) => g.subjects);
+  return RTB_GROUPS.map((g) => ({
+    label: g.label,
+    subjects: all.filter((s) => (s.category ?? null) === g.key).sort((a, b) => (a.code ?? a.name).localeCompare(b.code ?? b.name)),
+  })).filter((g) => g.subjects.length > 0);
+}
+
+/** FA / IA / CA maxima from the category weights. */
+export function camisMax(doc: ReportCardDocument): { fa: number; ia: number; ca: number } {
+  const w = doc.scheme.category_weights as Record<string, number>;
+  return { fa: (w.CW ?? 0) + (w.HW ?? 0) + (w.MD ?? 0), ia: w.IA ?? 50, ca: w.EOT ?? 0 };
+}
+
+/** The deliberation choices CAMIS prints on the final-term card. */
+export const DELIBERATIONS = ["Promoted at 1st sitting", "Promoted after re-assessment", "Re-assessment required", "Advised to repeat", "Dismissed"];
+
+/** Draws one report card (RTB / CAMIS learner's assessment report) from the top of the current page of `pdf`. */
 function drawCard(pdf: PDFKit.PDFDocument, doc: ReportCardDocument, art: CardArt): void {
   const { watermark, url, qr, logo } = art;
 
-  const M = 30;
+  const M = 28;
   const W = pdf.page.width - M * 2;
   const bottom = pdf.page.height - M;
   let y = M;
+  const annual = doc.annual ?? null;
+  const showComp = doc.scheme.show_competence !== false;
+  const showRank = doc.scheme.show_subject_rank !== false && !annual;
+  const max = camisMax(doc);
+  const finalTerm = !!annual;
 
   const drawWatermark = () => {
     if (!watermark) return;
@@ -132,232 +164,311 @@ function drawCard(pdf: PDFKit.PDFDocument, doc: ReportCardDocument, art: CardArt
       pdf.addPage();
       drawWatermark();
       y = M;
+      return true;
     }
+    return false;
   };
   const label = (t: string, x: number, yy: number, w?: number, align: "left" | "center" | "right" = "left") =>
-    pdf
-      .font(F.bold)
-      .fontSize(6.5)
-      .fillColor(C.muted)
-      .text(t.toUpperCase(), x, yy, { width: w, align, lineBreak: false, characterSpacing: 0.4 });
+    pdf.font(F.bold).fontSize(6.3).fillColor(C.muted).text(t.toUpperCase(), x, yy, { width: w, align, lineBreak: false, characterSpacing: 0.4 });
+  /** One line that shrinks, then ends in "…", to fit. */
+  const fit = (text: string, x: number, yy: number, room: number, size: number, font = F.bold, color: string = C.ink, align: "left" | "center" | "right" = "left") => {
+    pdf.font(font);
+    let sz = size;
+    while (sz > size - 2 && pdf.fontSize(sz).widthOfString(text) > room) sz -= 0.5;
+    let t = text;
+    if (pdf.fontSize(sz).widthOfString(t) > room) {
+      while (t.length > 1 && pdf.widthOfString(`${t}…`) > room) t = t.slice(0, -1);
+      t = `${t.trimEnd()}…`;
+    }
+    pdf.fillColor(color).text(t, x, yy + (size - sz) / 2, { width: room, align, lineBreak: false });
+  };
   drawWatermark();
 
-  // ── Header: official logo (or name) | document title + school contacts ─
-  const headH = 58;
-  if (logo) {
-    pdf.image(logo, M, y, { height: 58 });
-  } else {
-    pdf.font(F.bold).fontSize(15).fillColor(C.navy).text(doc.school.name, M, y + 12, { width: W * 0.55, lineBreak: false, ellipsis: true });
-  }
-  const rightW = 260;
-  const rx = M + W - rightW;
-  pdf.font(F.bold).fontSize(13).fillColor(C.navy).text("STUDENT REPORT CARD", rx, y + 6, { width: rightW, align: "right", lineBreak: false });
-  pdf.font(F.normal).fontSize(8.5).fillColor(C.text).text(`${doc.card.term}  ·  ${doc.card.academic_year}`, rx, y + 24, {
-    width: rightW,
-    align: "right",
-    lineBreak: false,
-  });
-  const contact = [doc.school.address_line, doc.school.contact_line].filter(Boolean).join("  ·  ");
-  if (contact) {
-    pdf.font(F.normal).fontSize(6.8).fillColor(C.muted).text(contact, rx - 40, y + 40, { width: rightW + 40, align: "right", lineBreak: false, ellipsis: true });
-  }
-  y += headH + 6;
-  pdf.rect(M, y, W, 2.2).fill(C.navy);
-  pdf.rect(M, y, 46, 2.2).fill(C.accent);
-  y += 12;
-
-  // ── Student panel ─────────────────────────────────────────────────────
-  const fields: Array<[string, string]> = [
-    ["Student", doc.student.name],
-    ["Reg. No.", doc.student.registration_number ?? "—"],
-    ["Class", doc.student.class_name ?? "—"],
-    ["Programme", doc.student.program_name ?? doc.student.grade_name ?? "—"],
+  // ── Header: Republic / Ministry / school (left) · logo (right) ────────
+  const hdr: Array<[string, string]> = [
+    ["REPUBLIC OF RWANDA", F.bold],
+    ["MINISTRY OF EDUCATION", F.bold],
+    [doc.school.name.toUpperCase(), F.bold],
+    ...(doc.school.address_line ? [[doc.school.address_line, F.normal] as [string, string]] : []),
+    ...(doc.school.contact_line ? [[doc.school.contact_line, F.normal] as [string, string]] : []),
   ];
-  const panelH = 36;
-  pdf.roundedRect(M, y, W, panelH, 5).fill(C.navySoft);
-  // The name gets the most room; any value too long shrinks a little, then ends in "…", always on one line.
-  const weights = [1.7, 1, 1, 1.3].slice(0, fields.length);
-  const unit = (W - 24) / weights.reduce((a, b) => a + b, 0);
-  let x = M + 12;
-  fields.forEach(([k, v], i) => {
-    const cw = unit * weights[i];
-    const room = cw - 12;
-    label(k, x, y + 8, room);
-    pdf.font(F.bold);
-    let size = 9.5;
-    while (size > 7.5 && pdf.fontSize(size).widthOfString(v) > room) size -= 0.5;
-    let text = v;
-    if (pdf.fontSize(size).widthOfString(text) > room) {
-      while (text.length > 1 && pdf.widthOfString(`${text}…`) > room) text = text.slice(0, -1);
-      text = `${text.trimEnd()}…`;
-    }
-    pdf.fillColor(C.ink).text(text, x, y + 18 + (9.5 - size) / 2, { lineBreak: false });
-    x += cw;
+  let hy = y;
+  hdr.forEach(([t, f], i) => {
+    pdf.font(f).fontSize(i < 3 ? 8 : 6.8).fillColor(i < 2 ? C.ink : i === 2 ? C.navy : C.muted).text(t, M, hy, { width: W * 0.62, lineBreak: false, ellipsis: true });
+    hy += i < 3 ? 10.5 : 9;
   });
-  y += panelH + 12;
+  if (logo) pdf.image(logo, M + W - 150, y, { fit: [150, 52], align: "right" });
+  y = Math.max(hy, y + 54) + 6;
 
-  // ── Results table (RTB modules) ───────────────────────────────────────
-  const w = doc.scheme.category_weights;
-  const showCA = doc.scheme.show_class_average;
-  const showT = doc.scheme.show_subject_teacher;
-  const showRank = doc.scheme.show_subject_rank !== false;
-  const showComp = doc.scheme.show_competence !== false;
-  const hasCodes = doc.groups.some((g) => g.subjects.some((x) => x.code));
-  type Col = { key: string; label: string; sub?: string; width: number; align: "left" | "center" };
-  const cols: Col[] = [
-    ...(hasCodes ? [{ key: "code", label: "Code", width: 52, align: "left" as const }] : []),
-    { key: "name", label: "Module", width: 0, align: "left" },
-    { key: "CW", label: "CW", sub: `/${w.CW}`, width: 31, align: "center" },
-    { key: "HW", label: "HW", sub: `/${w.HW}`, width: 31, align: "center" },
-    { key: "MD", label: "MD", sub: `/${w.MD}`, width: 31, align: "center" },
-    { key: "EOT", label: "EOT", sub: `/${w.EOT}`, width: 31, align: "center" },
-    { key: "TOT", label: "Mark", sub: "/100", width: 42, align: "center" },
-    { key: "GR", label: "Grade", width: 36, align: "center" },
-    ...(showRank ? [{ key: "RK", label: "Pos.", sub: "in class", width: 38, align: "center" as const }] : []),
-    ...(showCA ? [{ key: "CA", label: "Class", sub: "avg", width: 36, align: "center" as const }] : []),
-    ...(showComp ? [{ key: "DEC", label: "Decision", width: 62, align: "center" as const }] : []),
+  // ── Title bar ─────────────────────────────────────────────────────────
+  const title = finalTerm ? "LEARNER'S ASSESSMENT REPORT" : "LEARNER'S TERMLY ASSESSMENT REPORT";
+  pdf.roundedRect(M, y, W, 24, 6).fill(C.navy);
+  pdf.font(F.bold).fontSize(11).fillColor(C.white).text(title, M, y + 7, { width: W, align: "center", lineBreak: false, characterSpacing: 0.6 });
+  y += 30;
+
+  // ── Learner + qualification ───────────────────────────────────────────
+  const q = doc.qualification;
+  const rows: Array<Array<[string, string]>> = [
+    [
+      ["Learner's name", doc.student.name],
+      ["SDMS ID / Reg. No.", doc.student.registration_number ?? "—"],
+      ["Class", doc.student.class_name ?? "—"],
+      ["Academic year", finalTerm ? doc.card.academic_year : `${doc.card.academic_year} · ${doc.card.term}`],
+    ],
+    [
+      ["Qualification title", q?.title ?? "—"],
+      ["Trade", q?.trade ?? doc.student.program_name ?? "—"],
+      ["RQF level", q?.rqf_level ? `Level ${q.rqf_level}` : "—"],
+      ...(q?.sector ? [["Sector", q.sector] as [string, string]] : []),
+    ],
   ];
-  const nameIdx = cols.findIndex((c) => c.key === "name");
-  cols[nameIdx].width = W - cols.reduce((a2, c) => a2 + c.width, 0);
-  const nameW = cols[nameIdx].width;
-  let anyPartial = false;
+  const idH = 62;
+  pdf.roundedRect(M, y, W, idH, 6).fill(C.navySoft);
+  rows.forEach((r, ri) => {
+    const weights = r.length === 4 ? [1.6, 1.1, 0.9, 1.1] : [1.8, 1.3, 0.8];
+    const unit = (W - 20) / weights.reduce((a2, b2) => a2 + b2, 0);
+    let x = M + 10;
+    r.forEach(([k, v], i) => {
+      const cw = unit * weights[i];
+      label(k, x, y + 7 + ri * 28, cw - 8);
+      fit(v, x, y + 16 + ri * 28, cw - 8, 8.8);
+      x += cw;
+    });
+  });
+  y += idH + 8;
+
+  // ── Module table ──────────────────────────────────────────────────────
+  type Col = { key: string; label: string; sub?: string; group?: string; width: number };
+  const t3 = doc.card.term;
+  const earlierTerms = annual ? annual.terms.slice(0, -1) : [];
+  const termCols = (term: string, idx: number, withIA: boolean): Col[] => [
+    { key: `fa${idx}`, label: "FA", sub: `/${max.fa}`, group: term, width: 0 },
+    ...(withIA ? [{ key: `ia${idx}`, label: "IA", sub: `/${max.ia}`, group: term, width: 0 }] : []),
+    { key: `ca${idx}`, label: "CA", sub: `/${max.ca}`, group: term, width: 0 },
+    { key: `to${idx}`, label: "TO", sub: "/100", group: term, width: 0 },
+  ];
+  const cols: Col[] = annual
+    ? [
+        { key: "name", label: "Module", width: 0 },
+        { key: "wt", label: "Wt", sub: "hrs", width: 24 },
+        ...earlierTerms.flatMap((t, i) => termCols(t, i, false)),
+        ...termCols(t3, 9, true),
+        { key: "at", label: "AT", sub: "/100", group: "Annual", width: 30 },
+        { key: "re", label: "Re", group: "Annual", width: 22 },
+        ...(showComp ? [{ key: "de", label: "De", group: "Annual", width: 30 }] : []),
+      ]
+    : [
+        { key: "name", label: "Module", width: 0 },
+        { key: "wt", label: "Weight", sub: "hours", width: 38 },
+        ...termCols(t3, 9, true),
+        ...(showRank ? [{ key: "rk", label: "Pos.", sub: "in class", width: 36 }] : []),
+        ...(showComp ? [{ key: "de", label: "Decision", width: 62 }] : []),
+      ];
+  const termW = annual ? 26 : 44;
+  for (const c of cols) if (c.width === 0 && c.key !== "name") c.width = c.key.startsWith("to") ? termW + 4 : termW;
+  const nameCol = cols.find((c) => c.key === "name")!;
+  nameCol.width = W - cols.reduce((a2, c) => a2 + c.width, 0);
+  const grouped = cols.some((c) => c.group);
+  const fs = annual ? 6.8 : 7.8;
 
   const header = () => {
-    ensure(26);
-    pdf.rect(M, y, W, 24).fill(C.navy);
+    const hh = grouped ? 30 : 24;
+    ensure(hh + 20);
+    pdf.rect(M, y, W, hh).fill(C.navy);
     let x = M;
+    // Group labels over their columns (term names / Annual).
+    if (grouped) {
+      let gx = M;
+      let i = 0;
+      while (i < cols.length) {
+        const g = cols[i].group;
+        let gw = 0;
+        let j = i;
+        while (j < cols.length && cols[j].group === g) gw += cols[j++].width;
+        if (g) {
+          pdf.font(F.bold).fontSize(6.4).fillColor(C.white).text(g.toUpperCase(), gx, y + 4, { width: gw, align: "center", lineBreak: false });
+          pdf.moveTo(gx + 3, y + 12.5).lineTo(gx + gw - 3, y + 12.5).lineWidth(0.4).stroke("#5B7896");
+        }
+        gx += gw;
+        i = j;
+      }
+    }
+    const top = grouped ? y + 14 : y + 5;
     for (const c of cols) {
-      pdf.font(F.bold).fontSize(6.9).fillColor(C.white).text(c.label.toUpperCase(), x + 5, y + (c.sub ? 5 : 9), {
-        width: c.width - 10,
-        align: c.align,
-        lineBreak: false,
-      });
-      if (c.sub) pdf.font(F.normal).fontSize(6).fillColor("#BFD0E3").text(c.sub, x + 5, y + 14, { width: c.width - 10, align: c.align, lineBreak: false });
+      const align = c.key === "name" ? "left" : "center";
+      pdf.font(F.bold).fontSize(6.6).fillColor(C.white).text(c.label.toUpperCase(), x + 3, top + (c.sub ? 0 : 4), { width: c.width - 6, align, lineBreak: false });
+      if (c.sub) pdf.font(F.normal).fontSize(5.6).fillColor("#BFD0E3").text(c.sub, x + 3, top + 8, { width: c.width - 6, align, lineBreak: false });
       x += c.width;
     }
-    y += 24;
+    y += hh;
   };
   header();
 
-  let zebra = 0;
-  const named = doc.groups.some((g) => g.name);
-  for (const group of doc.groups) {
-    if (named) {
-      ensure(17);
-      pdf.rect(M, y, W, 16).fill(C.navySoft);
-      pdf.font(F.bold).fontSize(7.3).fillColor(C.navy).text((group.name ?? "Other modules").toUpperCase(), M + 6, y + 5, {
-        width: W / 2,
-        lineBreak: false,
-        characterSpacing: 0.4,
-      });
-      const marked = group.subjects.filter((x) => x.total != null);
-      const comp = marked.filter((x) => x.competent).length;
-      const info = `${group.subjects.length} module${group.subjects.length === 1 ? "" : "s"}` + (showComp && marked.length ? `  ·  ${comp} of ${marked.length} competent` : "");
-      pdf.font(F.normal).fontSize(6.8).fillColor(C.muted).text(info, M + W / 2, y + 5, { width: W / 2 - 6, align: "right", lineBreak: false });
-      y += 16;
-    }
-    for (const s of group.subjects) {
-      pdf.font(F.normal).fontSize(7.8);
-      const nameH = Math.min(pdf.heightOfString(s.name, { width: nameW - 10 }), 20);
-      const teacherLine = showT && s.teacher ? 9 : 0;
-      const h = Math.max(19, nameH + teacherLine + 8);
-      if (y + h > bottom) {
-        ensure(h + 30);
-        header();
+  const cellText = (v: string, x: number, c: Col, h: number, o: { font?: string; color?: string; size?: number } = {}) => {
+    pdf.font(o.font ?? F.normal).fontSize(o.size ?? fs);
+    pdf.fillColor(o.color ?? C.text).text(v, x + 2, y + (h - (o.size ?? fs)) / 2 + 0.5, { width: c.width - 4, align: "center", lineBreak: false });
+  };
+  const num = (v: number | null | undefined, na = false) => (v != null ? exact(v) : na ? "N/A" : "–");
+  const tone = (v: number | null | undefined, na = false) => (v != null ? C.text : na ? C.muted : C.faint);
+  const pill = (text: string, x: number, c: Col, h: number, ok: boolean) => {
+    const pw = Math.min(c.width - 6, annual ? 24 : 52);
+    const px = x + (c.width - pw) / 2;
+    pdf.roundedRect(px, y + h / 2 - 6, pw, 12, 6).fill(ok ? "#E7F6EE" : C.redSoft);
+    pdf.font(F.bold).fontSize(annual ? 6 : 6.8).fillColor(ok ? "#05603A" : C.red).text(text, px, y + h / 2 - 3.2, { width: pw, align: "center", lineBreak: false });
+  };
+  const rowLine = (h: number) => pdf.moveTo(M, y + h).lineTo(M + W, y + h).lineWidth(0.4).stroke(C.line);
+
+  // Behaviour row (first, outside every total).
+  if (doc.behaviour) {
+    const h = 18;
+    pdf.rect(M, y, W, h).fill("#F4F7FB");
+    let x = M;
+    const b = doc.behaviour;
+    const earlierB = new Map((b.earlier ?? []).map((e) => [e.term, e.mark]));
+    for (const c of cols) {
+      if (c.key === "name") pdf.font(F.bold).fontSize(fs).fillColor(C.navy).text("Behaviour (Conduct)", x + 6, y + (h - fs) / 2 + 0.5, { width: c.width - 10, lineBreak: false });
+      else if (c.key.startsWith("to")) {
+        const idx = Number(c.key.slice(2));
+        const mark = idx === 9 ? b.mark : earlierB.get(earlierTerms[idx]) ?? null;
+        cellText(mark != null ? `${exact(mark)}/${b.max}` : "–", x, c, h, { font: F.bold, color: mark != null ? C.ink : C.faint, size: fs - 0.4 });
+      } else if (c.key === "at") {
+        const marks = [...earlierTerms.map((t) => earlierB.get(t) ?? null), b.mark].filter((m): m is number => m != null);
+        cellText(marks.length ? `${exact(marks.reduce((a2, m) => a2 + m, 0))}/${b.max * marks.length}` : "–", x, c, h, { font: F.bold, color: marks.length ? C.ink : C.faint, size: fs - 0.6 });
       }
-      pdf.rect(M, y, W, h).fill(zebra++ % 2 ? C.zebra : C.white);
-      let x = M;
-      const failing = s.competent === false || (s.competent == null && s.passed === false);
+      x += c.width;
+    }
+    rowLine(h);
+    y += h;
+  }
+
+  const groups = rtbGroups(doc);
+  let anyPartial = false;
+  for (const g of groups) {
+    if (ensure(16 + 20)) header();
+    pdf.rect(M, y, W, 15).fill(C.navySoft);
+    pdf.font(F.bold).fontSize(6.8).fillColor(C.navy).text(g.label.toUpperCase(), M + 6, y + 4.5, { width: W / 2, lineBreak: false, characterSpacing: 0.4 });
+    const marked = g.subjects.filter((x2) => (annual ? x2.annual?.total : x2.total) != null);
+    const comp = marked.filter((x2) => (annual ? x2.annual?.competent : x2.competent) === true).length;
+    pdf
+      .font(F.normal)
+      .fontSize(6.4)
+      .fillColor(C.muted)
+      .text(`${g.subjects.length} module${g.subjects.length === 1 ? "" : "s"}${showComp && marked.length ? `  ·  ${comp} of ${marked.length} competent` : ""}`, M + W / 2, y + 4.5, {
+        width: W / 2 - 6,
+        align: "right",
+        lineBreak: false,
+      });
+    y += 15;
+    for (const s of g.subjects) {
+      pdf.font(F.normal).fontSize(fs);
+      const nameH = Math.min(pdf.heightOfString(s.name, { width: nameCol.width - 10 }), fs * 2.6);
+      const h = Math.max(20, nameH + (s.code ? 8 : 0) + 7);
+      if (ensure(h)) header();
       const partial = s.total != null && s.weight_covered != null && s.weight_covered < 100;
       if (partial) anyPartial = true;
-      const cell = (v: string, c: Col, o: { font?: string; color?: string; size?: number } = {}) => {
-        pdf.font(o.font ?? F.normal).fontSize(o.size ?? 7.8);
-        const th = pdf.heightOfString(v || " ", { width: c.width - 10 });
-        // +1: glyphs sit high in their line box; this lines numbers up with the pills.
-        pdf.fillColor(o.color ?? C.text).text(v, x + 5, y + Math.max(4, (h - th) / 2) + 1, { width: c.width - 10, align: c.align, height: h - 4, ellipsis: true });
-      };
-      const pill = (text: string, c: Col, bg: string, fg: string, pw: number) => {
-        const px = x + (c.width - pw) / 2;
-        pdf.roundedRect(px, y + h / 2 - 6.5, pw, 13, 6.5).fill(bg);
-        pdf.font(F.bold).fontSize(6.9).fillColor(fg).text(text, px, y + h / 2 - 3.4, { width: pw, align: "center", lineBreak: false });
-      };
+      const failing = s.competent === false;
+      let x = M;
+      const tc = s.term_cell ?? { term: t3, fa: null, ia: null, ca: null, total: s.total };
       for (const c of cols) {
         if (c.key === "name") {
-          const top = y + Math.max(4, (h - nameH - teacherLine) / 2);
-          pdf.font(F.normal).fontSize(7.8).fillColor(C.ink).text(s.name, x + 5, top, { width: nameW - 10, height: 20, ellipsis: true });
-          if (teacherLine) pdf.font(F.normal).fontSize(6.4).fillColor(C.muted).text(s.teacher!, x + 5, top + nameH + 1, { width: nameW - 10, lineBreak: false, ellipsis: true });
-        } else if (c.key === "code") cell(s.code ?? "", c, { color: C.muted, size: 7 });
-        else if (c.key === "TOT")
-          cell(s.total == null ? "–" : `${exact(s.total)}${partial ? "*" : ""}`, c, { font: F.bold, size: 8.6, color: s.total == null ? C.faint : failing ? C.red : C.ink });
-        else if (c.key === "GR") {
-          if (s.grade) pill(s.grade, c, failing ? C.redSoft : C.navySoft, failing ? C.red : C.navy, 22);
-          else cell("–", c, { color: C.faint });
-        } else if (c.key === "RK") cell(s.rank != null ? `${s.rank}/${s.rank_of}` : "–", c, { color: s.rank != null ? C.text : C.faint, size: 7.6 });
-        else if (c.key === "CA") cell(s.class_average != null ? exact(s.class_average) : "–", c, { color: s.class_average != null ? C.muted : C.faint });
-        else if (c.key === "DEC") {
-          if (s.competent != null) {
-            if (s.competent) pill("Competent", c, "#E7F6EE", "#05603A", 52);
-            else pill("NYC", c, C.redSoft, C.red, 34);
-          } else if (s.total == null) cell("Not assessed", c, { font: F.italic, color: C.muted, size: 6.8 });
-        } else {
-          const v = s.categories[c.key as "CW"];
-          cell(v != null ? exact(v) : "–", c, { color: v != null ? C.text : C.faint });
+          const top = y + (h - nameH - (s.code ? 8 : 0)) / 2;
+          if (s.code) pdf.font(F.bold).fontSize(5.9).fillColor(C.muted).text(s.code, x + 6, top, { width: c.width - 10, lineBreak: false, characterSpacing: 0.3 });
+          pdf.font(F.normal).fontSize(fs).fillColor(s.total == null && !s.annual?.total ? C.muted : C.ink).text(s.name, x + 6, top + (s.code ? 8 : 0), { width: c.width - 10, height: fs * 2.6, ellipsis: true });
+        } else if (c.key === "wt") cellText(s.weight != null ? exact(s.weight) : "–", x, c, h, { color: s.weight != null ? C.text : C.faint });
+        else if (/^(fa|ia|ca|to)\d+$/.test(c.key)) {
+          const kind = c.key.slice(0, 2) as "fa" | "ia" | "ca" | "to";
+          const idx = Number(c.key.slice(2));
+          const cell = idx === 9 ? tc : (s.earlier_terms ?? []).find((e) => e.term === earlierTerms[idx]) ?? null;
+          const v = kind === "to" ? (cell?.total ?? null) : (cell?.[kind] ?? null);
+          const na = kind === "ia" && !finalTerm;
+          if (kind === "to") {
+            const txt = v != null ? `${exact(v)}${idx === 9 && partial ? "*" : ""}` : "–";
+            cellText(txt, x, c, h, { font: F.bold, color: v == null ? C.faint : idx === 9 && failing && !annual ? C.red : C.ink });
+          } else cellText(num(v, na), x, c, h, { color: tone(v, na) });
+        } else if (c.key === "at") {
+          const v = s.annual?.total ?? null;
+          cellText(v != null ? exact(v) : "–", x, c, h, { font: F.bold, color: v == null ? C.faint : s.annual?.competent === false ? C.red : C.ink });
+        } else if (c.key === "re") cellText("–", x, c, h, { color: C.faint });
+        else if (c.key === "rk") cellText(s.rank != null ? `${s.rank}/${s.rank_of}` : "–", x, c, h, { color: s.rank != null ? C.text : C.faint });
+        else if (c.key === "de") {
+          const comp = annual ? (s.annual?.competent ?? null) : s.competent;
+          if (comp != null) pill(annual ? (comp ? "C" : "NYC") : comp ? "Competent" : "NYC", x, c, h, comp);
+          else cellText(annual ? "–" : "Not assessed", x, c, h, { font: annual ? F.normal : F.italic, color: C.faint, size: annual ? fs : 6.4 });
         }
         x += c.width;
       }
-      pdf.moveTo(M, y + h).lineTo(M + W, y + h).lineWidth(0.4).stroke(C.line);
+      rowLine(h);
       y += h;
     }
   }
-  if (doc.groups.length === 0) {
+  if (!groups.length) {
     ensure(20);
     pdf.font(F.italic).fontSize(8).fillColor(C.muted).text("No modules recorded for this term.", M + 6, y + 6);
     y += 20;
   }
-  if (anyPartial) {
-    y += 4;
-    pdf.font(F.italic).fontSize(6.6).fillColor(C.muted).text("* Mark over the work assessed so far (categories with no marks yet are left out).", M, y, { width: W, lineBreak: false });
-    y += 6;
-  }
-  y += 10;
 
-  // ── Summary tiles ─────────────────────────────────────────────────────
+  // Totals / percentage / position rows (under the term total and the annual total).
   const sm = doc.summary;
-  const ord = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
-  const tiles: Array<[string, string, string?]> = [
-    ["Average", sm.average != null ? `${exact(sm.average)}%` : "—", sm.remark ?? undefined],
-    ...(doc.scheme.show_position && sm.position != null ? [["Position in class", ord(sm.position), `of ${sm.position_of}`] as [string, string, string]] : []),
-    ["Grade", sm.grade ?? "—"],
-    ...(showComp
-      ? [["Competent", `${sm.modules_competent ?? 0}/${(sm.modules_competent ?? 0) + (sm.modules_nyc ?? 0)}`] as [string, string]]
-      : [["Modules passed", `${sm.subjects_passed}/${sm.subjects_counted}`] as [string, string]]),
-    ...(showCA && sm.class_average != null ? [["Class average", `${exact(sm.class_average)}%`] as [string, string]] : []),
+  const termTotal = groups.flatMap((g2) => g2.subjects).filter((x2) => x2.total != null);
+  const termMax = termTotal.length * 100;
+  const summaryRows: Array<[string, string, string | null]> = [
+    // Annual columns are narrow: the maximum goes in the label there.
+    [
+      annual ? `Totals (out of ${termMax || annual.total_max})` : "Totals",
+      termMax ? (annual ? exact(sm.total_marks) : `${exact(sm.total_marks)}/${termMax}`) : "–",
+      annual ? (annual.total_max ? `${exact(annual.total_marks)}/${annual.total_max}` : "–") : null,
+    ],
+    ["Percentage", sm.average != null ? `${exact(sm.average)}%` : "–", annual ? (annual.average != null ? `${exact(annual.average)}%` : "–") : null],
+    ...(doc.scheme.show_position
+      ? [["Position", sm.position != null ? `${sm.position}/${sm.position_of}` : "–", annual ? (annual.position != null ? `${annual.position}/${annual.position_of}` : "–") : null] as [string, string, string | null]]
+      : []),
   ];
-  ensure(48);
-  const gap = 8;
-  const tw = (W - gap * (tiles.length - 1)) / tiles.length;
-  tiles.forEach(([k, v, sub], i) => {
-    const x = M + i * (tw + gap);
-    const primary = i === 0;
-    pdf.roundedRect(x, y, tw, 38, 6).fill(primary ? C.navy : C.navySoft);
-    pdf
-      .font(F.bold)
-      .fontSize(6.5)
-      .fillColor(primary ? "#BFD0E3" : C.muted)
-      .text(k.toUpperCase(), x + 10, y + 7, { width: tw - 20, lineBreak: false, characterSpacing: 0.4 });
-    pdf.font(F.bold).fontSize(15).fillColor(primary ? C.white : C.navy).text(v, x + 10, y + 17, { width: tw - 20, lineBreak: false });
-    if (sub) {
-      const vw = pdf.font(F.bold).fontSize(15).widthOfString(v);
-      const sw = pdf.font(F.normal).fontSize(7.2).widthOfString(sub);
-      pdf.fillColor(primary ? "#DCE6F2" : C.muted);
-      // Beside the value when it fits; otherwise on the label line, right-aligned, so it never wraps.
-      if (vw + 4 + sw <= tw - 20) pdf.text(sub, x + 14 + vw, y + 23, { lineBreak: false });
-      else pdf.text(sub, x + 10, y + 7, { width: tw - 20, align: "right", lineBreak: false });
+  const toCol = cols.findIndex((c) => c.key === "to9");
+  const atCol = cols.findIndex((c) => c.key === "at");
+  const xOf = (i: number) => M + cols.slice(0, i).reduce((a2, c) => a2 + c.width, 0);
+  for (const [k, termV, yearV] of summaryRows) {
+    const h = 16;
+    if (ensure(h)) header();
+    pdf.rect(M, y, W, h).fill(C.navySoft);
+    pdf.font(F.bold).fontSize(6.8).fillColor(C.navy).text(k.toUpperCase(), M + 6, y + 5, { width: nameCol.width, lineBreak: false, characterSpacing: 0.4 });
+    const toX = xOf(toCol);
+    const spanTo = annual ? cols[toCol].width : cols.slice(toCol).reduce((a2, c) => a2 + c.width, 0);
+    fit(termV, annual ? toX + 1 : toX + 2, y + 4.6, annual ? cols[toCol].width - 2 : spanTo - 4, fs, F.bold, C.ink, annual ? "center" : "left");
+    if (yearV != null && atCol >= 0) {
+      const ax = xOf(atCol);
+      const aw = cols.slice(atCol).reduce((a2, c) => a2 + c.width, 0);
+      pdf.font(F.bold).fontSize(fs).fillColor(C.navy).text(yearV, ax + 2, y + 4.6, { width: aw - 4, align: "left", lineBreak: false });
     }
-  });
-  y += 48;
+    pdf.moveTo(M, y + h).lineTo(M + W, y + h).lineWidth(0.4).stroke(C.white);
+    y += h;
+  }
+  if (anyPartial) {
+    pdf.font(F.italic).fontSize(6.2).fillColor(C.muted).text("* Term mark over the work assessed so far (categories with no marks yet are left out).", M, y + 3, { width: W, lineBreak: false });
+    y += 10;
+  }
+  if (showComp) {
+    const comp = annual ? annual.modules_competent : (sm.modules_competent ?? 0);
+    const nyc = annual ? annual.modules_nyc : (sm.modules_nyc ?? 0);
+    pdf.font(F.bold).fontSize(7.4).fillColor(C.navy).text(`Competent in ${comp} of ${comp + nyc} module${comp + nyc === 1 ? "" : "s"}${annual ? " over the year" : ""}.`, M, y + 4, { width: W, lineBreak: false });
+    y += 14;
+  }
+  y += 4;
 
-  // ── Attendance + attributes ───────────────────────────────────────────
+  // ── Class trainer's comment (+ head of school's) ──────────────────────
+  const comment = (ttl: string, text: string | null) => {
+    const body = text?.trim() || "—";
+    pdf.font(F.normal).fontSize(8.2);
+    const h = Math.min(Math.max(pdf.heightOfString(body, { width: W - 24 }) + 22, 36), 90);
+    ensure(h + 6);
+    pdf.roundedRect(M, y, W, h, 6).lineWidth(0.6).stroke(C.line);
+    label(ttl, M + 12, y + 7, W - 24);
+    pdf.font(F.normal).fontSize(8.2).fillColor(C.text).text(body, M + 12, y + 17, { width: W - 24, height: h - 20, ellipsis: true });
+    y += h + 6;
+  };
+  comment("Class trainer's comment", doc.comments.class_teacher);
+  if (doc.comments.head_teacher?.trim()) comment(`${doc.scheme.head_title}'s comment`, doc.comments.head_teacher);
+
+  // ── Attendance + general attributes (school additions, compact) ───────
   const a = doc.attendance;
   const attRows: Array<[string, number]> = [
     ["Present", a.present],
@@ -366,140 +477,124 @@ function drawCard(pdf: PDFKit.PDFDocument, doc: ReportCardDocument, art: CardArt
     ["Late", a.late],
     ["Sick", a.sick],
   ];
-  const attW = 176;
-  const rowH = 13;
-  const blockH = 14 + Math.max(attRows.length, Math.max(doc.attributes.length, 1)) * rowH;
-  ensure(blockH + 6);
+  const rowH = 11.5;
+  const attW = 168;
+  const blockH = 12 + Math.max(attRows.length, Math.max(doc.attributes.length, 1)) * rowH;
+  ensure(blockH + 4);
   const top = y;
   label("Attendance", M, top, 90);
-  label("Days", M + 96, top, 34, "center");
-  label("%", M + 136, top, 40, "center");
-  let ay = top + 12;
+  label("Days", M + 92, top, 34, "center");
+  label("%", M + 128, top, 40, "center");
+  let ay = top + 11;
   for (const [k, n] of attRows) {
-    pdf.font(F.normal).fontSize(8).fillColor(C.text).text(k, M, ay + 2.5, { width: 90, lineBreak: false });
-    pdf.font(F.bold).fontSize(8).fillColor(C.ink).text(String(n), M + 96, ay + 2.5, { width: 34, align: "center", lineBreak: false });
-    pdf.font(F.normal).fontSize(8).fillColor(C.muted).text(a.total ? `${pct(n, a.total)}%` : "—", M + 136, ay + 2.5, { width: 40, align: "center", lineBreak: false });
+    pdf.font(F.normal).fontSize(7.4).fillColor(C.text).text(k, M, ay + 2.2, { width: 90, lineBreak: false });
+    pdf.font(F.bold).fontSize(7.4).fillColor(C.ink).text(String(n), M + 92, ay + 2.2, { width: 34, align: "center", lineBreak: false });
+    pdf.font(F.normal).fontSize(7.4).fillColor(C.muted).text(a.total ? `${pct(n, a.total)}%` : "–", M + 128, ay + 2.2, { width: 40, align: "center", lineBreak: false });
     pdf.moveTo(M, ay + rowH).lineTo(M + attW, ay + rowH).lineWidth(0.4).stroke(C.line);
     ay += rowH;
   }
-  const bx = M + attW + 22;
-  const bw = W - attW - 22;
+  const bx = M + attW + 20;
+  const bw = W - attW - 20;
   const ratings = ["Excellent", "Very good", "Good"];
-  const rw = 54;
+  const rw = 50;
   label("General attributes", bx, top, bw - ratings.length * rw);
   ratings.forEach((r, i) => label(r, bx + bw - ratings.length * rw + i * rw, top, rw, "center"));
-  let by = top + 12;
+  let by = top + 11;
   if (doc.attributes.length === 0) {
-    pdf.font(F.italic).fontSize(8).fillColor(C.muted).text("Not rated.", bx, by + 2.5);
+    pdf.font(F.italic).fontSize(7.4).fillColor(C.muted).text("Not rated.", bx, by + 2.2);
     by += rowH;
   }
   for (const attr of doc.attributes) {
-    pdf.font(F.normal).fontSize(8).fillColor(C.text).text(attr.attribute_name, bx, by + 2.5, { width: bw - ratings.length * rw - 6, lineBreak: false, ellipsis: true });
+    pdf.font(F.normal).fontSize(7.4).fillColor(C.text).text(attr.attribute_name, bx, by + 2.2, { width: bw - ratings.length * rw - 6, lineBreak: false, ellipsis: true });
     ratings.forEach((r, i) => {
       const cx = bx + bw - ratings.length * rw + i * rw + rw / 2;
-      if (attr.rating === r) pdf.circle(cx, by + 6.5, 3.4).fill(C.navy);
-      else pdf.circle(cx, by + 6.5, 3.4).lineWidth(0.6).stroke(C.line);
+      if (attr.rating === r) pdf.circle(cx, by + 5.8, 3.1).fill(C.navy);
+      else pdf.circle(cx, by + 5.8, 3.1).lineWidth(0.6).stroke(C.line);
     });
     pdf.moveTo(bx, by + rowH).lineTo(bx + bw, by + rowH).lineWidth(0.4).stroke(C.line);
     by += rowH;
   }
-  y = Math.max(ay, by) + 10;
+  y = Math.max(ay, by) + 8;
 
-  // ── Comments ──────────────────────────────────────────────────────────
-  const comment = (title: string, text: string | null) => {
-    const body = text?.trim() || "—";
-    pdf.font(F.normal).fontSize(8.5);
-    const h = Math.min(Math.max(pdf.heightOfString(body, { width: W - 24 }) + 24, 38), 100);
-    ensure(h + 8);
-    pdf.roundedRect(M, y, W, h, 5).lineWidth(0.6).stroke(C.line);
-    label(title, M + 12, y + 8, W - 24);
-    pdf.font(F.normal).fontSize(8.5).fillColor(C.text).text(body, M + 12, y + 19, { width: W - 24, height: h - 22, ellipsis: true });
-    y += h + 8;
-  };
-  comment("Class teacher's comment", doc.comments.class_teacher);
-  if (doc.comments.head_teacher?.trim()) comment(`${doc.scheme.head_title}'s comment`, doc.comments.head_teacher);
+  // ── Legend ────────────────────────────────────────────────────────────
+  const th = doc.scheme.competence_thresholds;
+  const legend =
+    `FA Formative assessment (CW+HW+MD) · IA Integrated assessment (Term 3) · CA Comprehensive assessment (end of term) · TO Term total` +
+    (annual ? " · AT Annual total (average of the terms assessed) · Re Re-assessment · De Decision" : "") +
+    ` · C Competent · NYC Not Yet Competent · N/A Not applicable · Weight = learning hours (credits × 10)` +
+    (showComp && th ? ` · Competent from ${th.specific}% (specific modules), ${th.general}% (general), ${th.complementary}% (complementary).` : ".");
+  pdf.font(F.normal).fontSize(6);
+  const lh = pdf.heightOfString(legend, { width: W });
+  ensure(lh + 6);
+  pdf.fillColor(C.muted).text(legend, M, y, { width: W });
+  y += lh + 6;
 
-  // ── Grading scale ─────────────────────────────────────────────────────
-  ensure(44);
-  label("Grading scale", M, y);
-  y += 10;
-  const bands = [...doc.scheme.bands].sort((p, q) => q.min - p.min);
-  const bwid = W / Math.max(bands.length, 1);
-  bands.forEach((b, i) => {
-    const x = M + i * bwid;
-    pdf.roundedRect(x + 1.5, y, bwid - 3, 22, 4).fill(C.navySoft);
-    pdf.font(F.bold).fontSize(8.5).fillColor(C.navy).text(b.letter, x, y + 3.5, { width: bwid, align: "center", lineBreak: false });
-    pdf
-      .font(F.normal)
-      .fontSize(6)
-      .fillColor(C.muted)
-      .text(`${b.min}–${i === 0 ? 100 : bands[i - 1].min - 1}`, x, y + 13.5, { width: bwid, align: "center", lineBreak: false });
-  });
-  y += 28;
-  pdf
-    .font(F.normal)
-    .fontSize(6.3)
-    .fillColor(C.muted)
-    .text(
-      "CW Class work · HW Homework · MD Midterm · EOT End of term exam · Pos. position in class" +
-        (doc.scheme.show_competence !== false && doc.scheme.competence_thresholds
-          ? ` · Competent: specific modules ${doc.scheme.competence_thresholds.specific}%+, general/complementary ${doc.scheme.competence_thresholds.general}%+ · NYC: not yet competent`
-          : ""),
-      M,
-      y,
-      { width: W, lineBreak: false },
-    );
-  y += 16;
-
-  // ── Next term, then signatures and verification in one band ──────────
   if (doc.next_term_begins_on) {
-    ensure(18);
+    ensure(14);
     const d = new Date(`${doc.next_term_begins_on}T00:00:00Z`);
     const when = d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
-    pdf.font(F.bold).fontSize(8.6).fillColor(C.navy).text(`Next term begins on ${when}`, M, y, { width: W, align: "center", lineBreak: false });
-    y += 16;
+    pdf.font(F.bold).fontSize(8).fillColor(C.navy).text(`Next term begins on ${when}`, M, y, { width: W, align: "center", lineBreak: false });
+    y += 13;
   }
-  const bandH = 62;
+
+  // ── Deliberation (final term) ─────────────────────────────────────────
+  if (finalTerm) {
+    const graduating = q?.rqf_level === "5";
+    const options = graduating ? ["Graduated", ...DELIBERATIONS.slice(1)] : DELIBERATIONS;
+    const dh = 36;
+    ensure(dh + 4);
+    pdf.roundedRect(M, y, W, dh, 6).lineWidth(0.6).stroke(C.line);
+    label("Deliberation", M + 10, y + 6, 120);
+    const ow = (W - 20) / options.length;
+    options.forEach((o, i) => {
+      const ox = M + 10 + i * ow;
+      pdf.roundedRect(ox, y + 18, 8, 8, 1.5).lineWidth(0.7).stroke(C.navy);
+      fit(o, ox + 12, y + 19, ow - 14, 6.8, F.normal, C.text);
+    });
+    y += dh + 6;
+  }
+
+  // ── Signatures, stamp, verification ───────────────────────────────────
+  const bandH = 66;
   ensure(bandH);
   pdf.moveTo(M, y).lineTo(M + W, y).lineWidth(0.4).stroke(C.line);
   const bandTop = y + 8;
-  const sigW = 130;
-  const sigY = bandTop + 30;
+  const sigW = 118;
+  const sigY = bandTop + 34;
+  pdf.font(F.normal).fontSize(6.6).fillColor(C.muted).text("Date: ____________________", M, bandTop + 2, { width: sigW, lineBreak: false });
   pdf.moveTo(M, sigY).lineTo(M + sigW, sigY).lineWidth(0.6).stroke(C.muted);
-  pdf.moveTo(M + sigW + 24, sigY).lineTo(M + sigW * 2 + 24, sigY).lineWidth(0.6).stroke(C.muted);
+  pdf.moveTo(M + sigW + 18, sigY).lineTo(M + sigW * 2 + 18, sigY).lineWidth(0.6).stroke(C.muted);
   pdf
     .font(F.normal)
-    .fontSize(7)
+    .fontSize(6.8)
     .fillColor(C.muted)
-    .text("Class teacher", M, sigY + 4, { width: sigW, align: "center", lineBreak: false })
-    .text(doc.scheme.head_title, M + sigW + 24, sigY + 4, { width: sigW, align: "center", lineBreak: false });
-  const vx = M + sigW * 2 + 48;
+    .text("Class trainer", M, sigY + 4, { width: sigW, align: "center", lineBreak: false })
+    .text(`School manager (${doc.scheme.head_title})`, M + sigW + 18, sigY + 4, { width: sigW, align: "center", lineBreak: false });
+  // Stamp area.
+  const stX = M + sigW * 2 + 32;
+  pdf.save();
+  pdf.roundedRect(stX, bandTop, 64, 50, 6).dash(2, { space: 2 }).lineWidth(0.6).stroke(C.faint);
+  pdf.restore();
+  pdf.undash();
+  pdf.font(F.normal).fontSize(6).fillColor(C.faint).text("School stamp", stX, bandTop + 22, { width: 64, align: "center", lineBreak: false });
+  const vx = stX + 76;
   const vw = W - (vx - M);
   if (qr) {
-    const qs = 50;
-    pdf.image(qr, M + W - qs, bandTop, { width: qs, height: qs });
-    const tw2 = vw - qs - 8;
+    const qsz = 50;
+    pdf.image(qr, M + W - qsz, bandTop, { width: qsz, height: qsz });
+    const tw2 = vw - qsz - 8;
     const issuedOn = doc.card.approved_at ? new Date(doc.card.approved_at) : new Date();
-    pdf.font(F.bold).fontSize(7.2).fillColor(C.navy).text("Verify this report card", vx, bandTop + 2, { width: tw2, lineBreak: false });
+    pdf.font(F.bold).fontSize(7).fillColor(C.navy).text("Verify this report", vx, bandTop + 2, { width: tw2, lineBreak: false });
     pdf
       .font(F.normal)
-      .fontSize(6.4)
+      .fontSize(6.2)
       .fillColor(C.muted)
-      .text(
-        `Scan the code. Version ${doc.card.version}, approved ${issuedOn.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}.`,
-        vx,
-        bandTop + 13,
-        { width: tw2 },
-      );
-    pdf.font(F.normal).fontSize(5.8).fillColor(C.navy).text(url, vx, bandTop + 33, { width: tw2, height: 16, ellipsis: true });
+      .text(`Scan the code. Version ${doc.card.version}, approved ${issuedOn.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}.`, vx, bandTop + 12, { width: tw2 });
+    pdf.font(F.normal).fontSize(5.6).fillColor(C.navy).text(url, vx, bandTop + 32, { width: tw2, height: 16, ellipsis: true });
   } else {
-    pdf.font(F.italic).fontSize(7).fillColor(C.red).text("Provisional — not yet approved. This document can't be verified.", vx, bandTop + 14, {
-      width: vw,
-      align: "right",
-    });
+    pdf.font(F.italic).fontSize(6.8).fillColor(C.red).text("Provisional — not yet approved. This report can't be verified.", vx, bandTop + 14, { width: vw, align: "right" });
   }
   y = bandTop + bandH - 8;
-
 }
 
 // ─── Class pack: ranking cover + one card per page, best first ──────────────

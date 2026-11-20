@@ -155,13 +155,13 @@ export async function getBranding(): Promise<Branding> {
 // category weights, the pass mark, the behaviour attributes, how subjects are
 // grouped (core/specific modules), what the card shows, and the signatures.
 
-export type SchemeCategory = "CW" | "HW" | "MD" | "EOT";
+export type SchemeCategory = "CW" | "HW" | "MD" | "EOT" | "IA";
 /** RTB module categories (TVET curricula group modules this way). */
 export type ModuleCategory = "specific" | "general" | "complementary";
 export const MODULE_CATEGORIES: ModuleCategory[] = ["specific", "general", "complementary"];
 
 export interface ReportCardScheme {
-  /** Category weights out of 100 (must sum to 100). */
+  /** Category weights: CW+HW+MD+EOT sum to 100; IA (Term 3 integrated assessment) is extra. */
   category_weights: Record<SchemeCategory, number>;
   /** A subject total at or above this passes. */
   pass_mark: number;
@@ -202,7 +202,7 @@ export const NGA_ATTRIBUTES: readonly string[] = Object.freeze([
 ]);
 
 export const DEFAULT_REPORT_CARD_SCHEME: Readonly<ReportCardScheme> = Object.freeze({
-  category_weights: { CW: 15, HW: 10, MD: 25, EOT: 50 },
+  category_weights: { CW: 15, HW: 10, MD: 25, EOT: 50, IA: 50 },
   pass_mark: 50,
   attributes: [...NGA_ATTRIBUTES],
   subject_groups: [],
@@ -223,7 +223,7 @@ export function normalizeScheme(raw: unknown): ReportCardScheme | string {
   const d = DEFAULT_REPORT_CARD_SCHEME;
   const r = (raw && typeof raw === "object" ? raw : {}) as Partial<ReportCardScheme>;
   const weights = { ...d.category_weights, ...(r.category_weights ?? {}) };
-  for (const k of ["CW", "HW", "MD", "EOT"] as SchemeCategory[]) {
+  for (const k of ["CW", "HW", "MD", "EOT", "IA"] as SchemeCategory[]) {
     const w = Number(weights[k]);
     if (!Number.isFinite(w) || w < 0 || w > 100) return `Weight for ${k} must be between 0 and 100.`;
     weights[k] = w;

@@ -195,7 +195,7 @@ describe("ReportCardSettingsPage", () => {
     fireEvent.click(screen.getByTestId("save-scheme"));
     await waitFor(() => expect(ReportCardWorkflowApi.saveScheme).toHaveBeenCalledTimes(1));
     expect(ReportCardWorkflowApi.saveScheme).toHaveBeenCalledWith({
-      category_weights: { CW: 15, HW: 10, MD: 25, EOT: 50 },
+      category_weights: { CW: 15, HW: 10, MD: 25, EOT: 50, IA: 50 },
       pass_mark: 40,
       attributes: ["Punctuality", "Commitment to society", "Neatness & order"],
       subject_groups: [
@@ -276,8 +276,10 @@ describe("settings validation", () => {
       show_subject_rank: true,
       show_competence: true,
       thresholds: { specific: "70", general: "50", complementary: "50" },
+      ia: "50",
     };
     expect(validateScheme(base)).toEqual([]);
+    expect(validateScheme({ ...base, ia: "120" })).toContain("The IA weight must be between 0 and 100.");
     expect(validateScheme({ ...base, weights: { ...base.weights, CW: "-1" } })).toContain("The CW weight must be between 0 and 100.");
     expect(validateScheme({ ...base, pass_mark: "120" })).toContain("The pass mark must be between 0 and 100.");
     expect(validateScheme({ ...base, attributes: Array.from({ length: 17 }, (_, i) => ({ key: i, name: `A${i}` })) })).toContain(

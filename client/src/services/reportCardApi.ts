@@ -1,7 +1,8 @@
 import axios from "../utils/axiosConfig";
 import type { AiAnswer } from "./myAiApi";
 
-export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT";
+/** CW/HW/MD are formative (FA), EOT the comprehensive assessment (CA), IA the Term 3 integrated assessment. */
+export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT" | "IA";
 export type AssessmentType = "quiz" | "assignment" | "manual";
 export type AttributeRating = "Excellent" | "Very good" | "Good";
 /** draft -> reviewed -> approved -> published; only a draft can be edited. */
@@ -38,6 +39,8 @@ export interface AttributesSavePayload {
   attendance_late?: number;
   attendance_excused?: number;
   attendance_sick?: number;
+  /** Behaviour out of 40; null clears it. */
+  behaviour_mark?: number | null;
   attendance_source?: "manual" | "imported";
   attributes: AttributeItem[];
 }
@@ -185,6 +188,8 @@ export interface ReportCardMeta {
   returned_reason?: string | null;
   class_teacher_comment: string | null;
   head_teacher_comment?: string | null;
+  /** Behaviour out of 40 (null = not given). */
+  behaviour_mark?: number | null;
   attendance: {
     present: number;
     absent: number;
@@ -200,6 +205,15 @@ export interface ReportCardMeta {
  * The rendered card (server services/reportCardDocument.ts): a snapshot for
  * approved/published cards, a live render for drafts.
  */
+/** One term of a module, CAMIS style. */
+export interface TermCell {
+  term: string;
+  fa: number | null;
+  ia: number | null;
+  ca: number | null;
+  total: number | null;
+}
+
 export interface DocumentSubject {
   subject_id: number;
   name: string;
@@ -226,6 +240,15 @@ export interface DocumentSubject {
   rank_of?: number | null;
   /** False when the card maps no assessment for it yet. */
   mapped?: boolean;
+  /** Module weight = learning hours (credits x 10). */
+  weight?: number | null;
+  rqf_level?: string | null;
+  /** This term in CAMIS columns (FA = CW+HW+MD, IA, CA = EOT, total /100). */
+  term_cell?: TermCell;
+  /** Final-term card: the earlier terms of the year. */
+  earlier_terms?: TermCell[];
+  /** Final-term card: the module over the year. */
+  annual?: { total: number | null; competent: boolean | null; terms_assessed: number };
 }
 
 /** RTB module categories. */
@@ -286,6 +309,20 @@ export interface ReportCardDocument {
   comments: { class_teacher: string | null; head_teacher: string | null };
   next_term_begins_on: string | null;
   grades: SubjectGrade[];
+  /** Behaviour out of 40 (outside every total). */
+  behaviour?: { mark: number | null; max: number; earlier?: Array<{ term: string; mark: number | null }> };
+  qualification?: { rqf_level: string | null; trade: string | null; title: string | null; sector: string | null };
+  /** Final-term card only: the year. */
+  annual?: {
+    terms: string[];
+    average: number | null;
+    position: number | null;
+    position_of: number | null;
+    modules_competent: number;
+    modules_nyc: number;
+    total_marks: number;
+    total_max: number;
+  };
 }
 
 /** A counted assessment with marks that isn't mapped to the card (so it counts nowhere). */
@@ -633,7 +670,7 @@ export class ReportCardApiService {
 
   static async getStudentReportCard(
     studentId: number,
-    params?: { term?: string; academic_year?: string },
+    params?: { term?: string; academic_year?: string; /** "1": include the staff mapping guidance (unmapped marks). */ guide?: "1" },
   ): Promise<ReportCardResponse> {
     await loadGradingBands(); // letters below use the school's own scale
     const response = await axios.get(`/report-cards/student/${studentId}`, { params });

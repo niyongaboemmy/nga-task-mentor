@@ -39,8 +39,16 @@ const C = {
 };
 
 const LOGOS: Record<string, string> = { nga: ngaLogo };
-const CATS = ["CW", "HW", "MD", "EOT"] as const;
-const CAT_NAME: Record<(typeof CATS)[number], string> = { CW: "Class work", HW: "Homework", MD: "Midterm", EOT: "End of term exam" };
+const CATS = ["CW", "HW", "MD", "EOT", "IA"] as const;
+const CAT_NAME: Record<(typeof CATS)[number], string> = { CW: "Class work", HW: "Homework", MD: "Midterm", EOT: "End of term exam", IA: "Integrated (Term 3)" };
+/** CAMIS groups modules complementary → core general → core specific. */
+const RTB_GROUPS: Array<{ key: "complementary" | "general" | "specific" | null; label: string }> = [
+  { key: "complementary", label: "Complementary modules" },
+  { key: "general", label: "Core modules — General" },
+  { key: "specific", label: "Core modules — Specific" },
+  { key: null, label: "Other modules" },
+];
+const DELIBERATIONS = ["Promoted at 1st sitting", "Promoted after re-assessment", "Re-assessment required", "Advised to repeat", "Dismissed"];
 const RATINGS = ["Excellent", "Very good", "Good"];
 /** Exact marks, never rounded to whole numbers: up to 2 decimals (the precision marks are stored at), trailing zeros dropped. */
 const exact = (n: number | null | undefined) => (n == null ? "" : String(Number(n.toFixed(2))));
@@ -101,20 +109,93 @@ export function ReportCardDocumentView({
   const issued = doc.card.status === "approved" || doc.card.status === "published";
   const school = doc.school;
   const logo = school.logo ? LOGOS[school.logo] : undefined;
-  const w = doc.scheme.category_weights;
-  const showCA = doc.scheme.show_class_average;
+  const w = doc.scheme.category_weights as Record<string, number>;
   const showT = doc.scheme.show_subject_teacher;
-  const showRank = doc.scheme.show_subject_rank !== false;
   const showComp = doc.scheme.show_competence !== false;
-  const hasCodes = doc.groups.some((g) => g.subjects.some((s) => s.code));
-  const named = doc.groups.some((g) => g.name);
-  const cols = 7 + (hasCodes ? 1 : 0) + (showRank ? 1 : 0) + (showCA ? 1 : 0) + (showComp ? 1 : 0);
+  const annual = doc.annual ?? null;
+  const finalTerm = !!annual;
+  const showRank = doc.scheme.show_subject_rank !== false && !annual;
+  const q = doc.qualification;
   const a = doc.attendance;
   const pct = (n: number) => (a.total > 0 ? `${exact((n / a.total) * 100)}%` : "—");
-  const bands = [...doc.scheme.bands].sort((x, y) => y.min - x.min);
   const sm = doc.summary;
-  const contact = [school.address_line, school.contact_line].filter(Boolean).join("  ·  ");
   const thresholds = doc.scheme.competence_thresholds;
+
+  // CAMIS columns: FA (CW+HW+MD), IA (Term 3), CA (EOT), TO per term; Term 3 adds the year.
+  const max = { fa: (w.CW ?? 0) + (w.HW ?? 0) + (w.MD ?? 0), ia: w.IA ?? 50, ca: w.EOT ?? 0 };
+  const earlierTerms = annual ? annual.terms.slice(0, -1) : [];
+  const earlierBehaviour = new Map((doc.behaviour?.earlier ?? []).map((e) => [e.term, e.mark]));
+  type Col = { key: string; label: string; sub?: string; group?: string; width?: number; title?: string };
+  const termW = annual ? 30 : 48;
+  const termCols = (term: string, idx: number, withIA: boolean): Col[] => [
+    { key: `fa${idx}`, label: "FA", sub: `/${max.fa}`, group: term, width: termW, title: "Formative assessment (CW+HW+MD)" },
+    ...(withIA ? [{ key: `ia${idx}`, label: "IA", sub: `/${max.ia}`, group: term, width: termW, title: "Integrated assessment (Term 3)" }] : []),
+    { key: `ca${idx}`, label: "CA", sub: `/${max.ca}`, group: term, width: termW, title: "Comprehensive assessment (end of term)" },
+    { key: `to${idx}`, label: "TO", sub: "/100", group: term, width: termW + 6, title: "Term total" },
+  ];
+  const columns: Col[] = annual
+    ? [
+        { key: "name", label: "Module" },
+        { key: "wt", label: "Wt", sub: "hrs", width: 32, title: "Learning hours" },
+        ...earlierTerms.flatMap((t, i) => termCols(t, i, false)),
+        ...termCols(doc.card.term, 9, true),
+        { key: "at", label: "AT", sub: "/100", group: "Annual", width: 38, title: "Annual total" },
+        { key: "re", label: "Re", group: "Annual", width: 26, title: "Re-assessment" },
+        ...(showComp ? [{ key: "de", label: "De", group: "Annual", width: 46, title: "Decision" }] : []),
+      ]
+    : [
+        { key: "name", label: "Module" },
+        { key: "wt", label: "Weight", sub: "hours", width: 52, title: "Learning hours (credits × 10)" },
+        ...termCols(doc.card.term, 9, true),
+        ...(showRank ? [{ key: "rk", label: "Pos.", sub: "in class", width: 50, title: "Position in the class for this module" }] : []),
+        ...(showComp ? [{ key: "de", label: "Decision", width: 86 }] : []),
+      ];
+  const cols = columns.length;
+  const grouped = columns.some((c) => c.group);
+  const headerRow1: Array<{ label: string; sub?: string; span: number; rowSpan: number; width?: number; left?: boolean; title?: string }> = [];
+  for (let i = 0; i < columns.length; ) {
+    const c = columns[i];
+    if (!c.group) {
+      headerRow1.push({ label: c.label, sub: c.sub, span: 1, rowSpan: grouped ? 2 : 1, width: c.width, left: c.key === "name", title: c.title });
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < columns.length && columns[j].group === c.group) j++;
+    headerRow1.push({ label: c.group!, span: j - i, rowSpan: 1 });
+    i = j;
+  }
+  const cellFs: React.CSSProperties = { fontSize: annual ? 9.5 : 11, padding: annual ? "7px 2px" : "8px 5px" };
+  const toIdx = columns.findIndex((c) => c.key === "to9");
+  const atIdx = columns.findIndex((c) => c.key === "at");
+  const rtbGroups = RTB_GROUPS.map((g) => ({
+    label: g.label,
+    subjects: doc.groups
+      .flatMap((x) => x.subjects)
+      .filter((x) => (x.category ?? null) === g.key)
+      .sort((x, y) => (x.code ?? x.name).localeCompare(y.code ?? y.name)),
+  })).filter((g) => g.subjects.length > 0);
+  const termCounted = rtbGroups.flatMap((g) => g.subjects).filter((x) => x.total != null).length;
+  const summaryRows: Array<{ label: string; term: string; year?: string }> = [
+    {
+      label: annual ? `Totals (out of ${termCounted * 100 || annual.total_max})` : "Totals",
+      term: termCounted ? (annual ? exact(sm.total_marks) : `${exact(sm.total_marks)}/${termCounted * 100}`) : "–",
+      year: annual ? (annual.total_max ? `${exact(annual.total_marks)}/${annual.total_max}` : "–") : undefined,
+    },
+    { label: "Percentage", term: sm.average != null ? `${exact(sm.average)}%` : "–", year: annual ? (annual.average != null ? `${exact(annual.average)}%` : "–") : undefined },
+    ...(doc.scheme.show_position
+      ? [
+          {
+            label: "Position",
+            term: sm.position != null ? `${sm.position}/${sm.position_of}` : "–",
+            year: annual ? (annual.position != null ? `${annual.position}/${annual.position_of}` : "–") : undefined,
+          },
+        ]
+      : []),
+  ];
+  const compYes = annual ? annual.modules_competent : (sm.modules_competent ?? 0);
+  const compNo = annual ? annual.modules_nyc : (sm.modules_nyc ?? 0);
+  const deliberations = q?.rqf_level === "5" ? ["Graduated", ...DELIBERATIONS.slice(1)] : DELIBERATIONS;
   const [open, setOpen] = useState<Set<number>>(new Set());
   const all = useMemo(() => doc.groups.flatMap((g) => g.subjects), [doc]);
   const marked = all.filter((s) => s.total != null);
@@ -144,16 +225,6 @@ export function ReportCardDocumentView({
       onOpen(url);
     }
   };
-
-  const competentCount = sm.modules_competent ?? marked.filter((s) => s.competent).length;
-  const decided = competentCount + (sm.modules_nyc ?? marked.filter((s) => s.competent === false).length);
-  const tiles: Array<{ k: string; v: string; sub?: string }> = [
-    { k: "Average", v: sm.average != null ? `${exact(sm.average)}%` : "—", sub: sm.remark ?? undefined },
-    ...(doc.scheme.show_position && sm.position != null ? [{ k: "Position in class", v: ordinal(sm.position), sub: `of ${sm.position_of}` }] : []),
-    { k: "Grade", v: sm.grade ?? "—" },
-    ...(showComp ? [{ k: "Competent", v: `${competentCount}/${decided}`, sub: "modules" }] : [{ k: "Passed", v: `${sm.subjects_passed}/${sm.subjects_counted}` }]),
-    ...(showCA && sm.class_average != null ? [{ k: "Class average", v: `${exact(sm.class_average)}%` }] : []),
-  ];
 
   const unmappedPanel = (s: DocumentSubject) => {
     const items = itemsOf(s);
@@ -221,7 +292,7 @@ export function ReportCardDocumentView({
           <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 18 }}>
             <div>
               <div style={cap}>How the mark is worked out</div>
-              {CATS.map((c) => {
+              {CATS.filter((c) => c !== "IA" || finalTerm || s.categories.IA != null).map((c) => {
                 const v = s.categories[c];
                 return (
                   <div key={c} style={{ display: "grid", gridTemplateColumns: "120px 1fr 56px", alignItems: "center", gap: 8, marginTop: 6, fontSize: 10.5 }}>
@@ -341,38 +412,59 @@ export function ReportCardDocumentView({
         </div>
       )}
 
-      {/* Header */}
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-        {logo ? (
-          <img src={logo} alt={school.name} style={{ height: 74, width: "auto", display: "block" }} />
-        ) : (
-          <div style={{ fontSize: 20, fontWeight: 800, color: C.navy }}>{school.name}</div>
-        )}
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: C.navy, letterSpacing: 0.4 }}>STUDENT REPORT CARD</div>
-          <div style={{ fontSize: 12, color: C.text, marginTop: 2 }}>
-            {doc.card.term} · {doc.card.academic_year}
-          </div>
-          {contact && <div style={{ fontSize: 9.5, color: C.muted, marginTop: 6 }}>{contact}</div>}
+      {/* Header: Republic / Ministry / school · logo (CAMIS) */}
+      <header style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+        <div style={{ lineHeight: 1.45 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>REPUBLIC OF RWANDA</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>MINISTRY OF EDUCATION</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>{school.name.toUpperCase()}</div>
+          {school.address_line && <div style={{ fontSize: 9.5, color: C.muted }}>{school.address_line}</div>}
+          {school.contact_line && <div style={{ fontSize: 9.5, color: C.muted }}>{school.contact_line}</div>}
         </div>
+        {logo && <img src={logo} alt={school.name} style={{ height: 70, width: "auto", display: "block" }} />}
       </header>
-      <div style={{ position: "relative", height: 3, background: C.navy, marginTop: 10 }}>
-        <span style={{ position: "absolute", left: 0, top: 0, height: 3, width: 60, background: C.accent }} />
+
+      {/* Title */}
+      <div
+        style={{ marginTop: 12, background: C.navy, color: "#fff", borderRadius: 10, padding: "8px 0", textAlign: "center", fontSize: 14, fontWeight: 700, letterSpacing: 1 }}
+        data-testid="report-title"
+      >
+        {finalTerm ? "LEARNER'S ASSESSMENT REPORT" : "LEARNER'S TERMLY ASSESSMENT REPORT"}
       </div>
 
-      {/* Student */}
-      <section style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr 1fr 1.3fr", gap: 12, background: C.navySoft, borderRadius: 12, padding: "11px 16px", marginTop: 16 }}>
+      {/* Learner + qualification */}
+      <section style={{ background: C.navySoft, borderRadius: 12, padding: "10px 14px", marginTop: 10, display: "grid", gap: 8 }}>
         {(
           [
-            ["Student", doc.student.name],
-            ["Reg. No.", doc.student.registration_number ?? "—"],
-            ["Class", doc.student.class_name ?? "—"],
-            ["Programme", doc.student.program_name ?? doc.student.grade_name ?? "—"],
-          ] as Array<[string, string]>
-        ).map(([k, v]) => (
-          <div key={k} style={{ minWidth: 0 }}>
-            <div style={cap}>{k}</div>
-            <div title={v} style={{ fontSize: 13, fontWeight: 700, color: C.ink, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v}</div>
+            {
+              cols: "1.6fr 1.1fr 0.9fr 1.1fr",
+              items: [
+                ["Learner's name", doc.student.name],
+                ["SDMS ID / Reg. No.", doc.student.registration_number ?? "—"],
+                ["Class", doc.student.class_name ?? "—"],
+                ["Academic year", finalTerm ? doc.card.academic_year : `${doc.card.academic_year} · ${doc.card.term}`],
+              ],
+            },
+            {
+              cols: q?.sector ? "1.6fr 1.1fr 0.9fr 1.1fr" : "1.8fr 1.3fr 0.8fr",
+              items: [
+                ["Qualification title", q?.title ?? "—"],
+                ["Trade", q?.trade ?? doc.student.program_name ?? "—"],
+                ["RQF level", q?.rqf_level ? `Level ${q.rqf_level}` : "—"],
+                ...(q?.sector ? [["Sector", q.sector]] : []),
+              ],
+            },
+          ] as Array<{ cols: string; items: Array<[string, string]> }>
+        ).map((row, ri) => (
+          <div key={ri} style={{ display: "grid", gridTemplateColumns: row.cols, gap: 12 }}>
+            {row.items.map(([k, v]) => (
+              <div key={k} style={{ minWidth: 0 }}>
+                <div style={cap}>{k}</div>
+                <div title={v} style={{ fontSize: 12, fontWeight: 700, color: C.ink, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {v}
+                </div>
+              </div>
+            ))}
           </div>
         ))}
       </section>
@@ -434,66 +526,121 @@ export function ReportCardDocumentView({
         </div>
       )}
 
-      {/* Modules */}
-      <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, marginTop: 12, tableLayout: "fixed" }}>
+      {/* Modules (RTB / CAMIS): Behaviour, then complementary → core general → core specific */}
+      <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, marginTop: 12, tableLayout: "fixed" }} data-testid="modules-table">
+        {/* Explicit widths: the grouped header row can't size a fixed table. */}
+        <colgroup>
+          {columns.map((c) => (
+            <col key={c.key} style={c.width ? { width: c.width } : undefined} />
+          ))}
+        </colgroup>
         <thead>
           <tr>
-            {hasCodes && <th style={{ ...th, textAlign: "left", width: 66, paddingLeft: 10, borderTopLeftRadius: 10 }}>Code</th>}
-            <th style={{ ...th, textAlign: "left", paddingLeft: 22, borderTopLeftRadius: hasCodes ? 0 : 10 }}>Module</th>
-            {CATS.map((c) => (
-              <th key={c} style={{ ...th, width: 38 }} title={CAT_NAME[c]}>
-                {c}
-                <div style={sub}>/{w[c]}</div>
+            {headerRow1.map((h, i) => (
+              <th
+                key={i}
+                colSpan={h.span}
+                rowSpan={h.rowSpan}
+                title={h.title}
+                style={{
+                  ...th,
+                  textAlign: h.left ? "left" : "center",
+                  paddingLeft: h.left ? 12 : undefined,
+                  borderTopLeftRadius: i === 0 ? 10 : 0,
+                  borderTopRightRadius: i === headerRow1.length - 1 ? 10 : 0,
+                  borderBottom: h.rowSpan === 1 ? "1px solid #3E5A78" : undefined,
+                  fontSize: h.rowSpan === 1 ? 8.5 : th.fontSize,
+                }}
+              >
+                {h.label}
+                {h.sub && <div style={sub}>{h.sub}</div>}
               </th>
             ))}
-            <th style={{ ...th, width: 58 }} title="Mark out of 100">
-              Mark<div style={sub}>/100</div>
-            </th>
-            <th style={{ ...th, width: 46 }}>Grade</th>
-            {showRank && (
-              <th style={{ ...th, width: 44 }} title="Position in the class for this module">
-                Pos.<div style={sub}>in class</div>
-              </th>
-            )}
-            {showCA && (
-              <th style={{ ...th, width: 46 }}>
-                Class<div style={sub}>avg</div>
-              </th>
-            )}
-            {showComp && <th style={{ ...th, width: 84, borderTopRightRadius: 10 }}>Decision</th>}
           </tr>
+          {grouped && (
+            <tr>
+              {columns
+                .filter((c) => c.group)
+                .map((c) => (
+                  <th key={c.key} style={{ ...th, fontSize: annual ? 8 : 9, padding: annual ? "6px 2px" : th.padding }} title={c.title}>
+                    {c.label}
+                    {c.sub && <div style={sub}>{c.sub}</div>}
+                  </th>
+                ))}
+            </tr>
+          )}
         </thead>
         <tbody>
-          {doc.groups.length === 0 && (
+          {doc.behaviour && (
+            <tr data-testid="behaviour-row" style={{ background: "#F4F7FB" }}>
+              {columns.map((c) => {
+                if (c.key === "name")
+                  return (
+                    <td key={c.key} style={{ ...td, ...cellFs, textAlign: "left", paddingLeft: 12, fontWeight: 700, color: C.navy }}>
+                      Behaviour (Conduct)
+                    </td>
+                  );
+                if (/^to\d+$/.test(c.key)) {
+                  const idx = Number(c.key.slice(2));
+                  const mark = idx === 9 ? doc.behaviour!.mark : (earlierBehaviour.get(earlierTerms[idx]) ?? null);
+                  return (
+                    <td key={c.key} style={{ ...td, ...cellFs, fontWeight: 700, color: C.ink }}>
+                      {mark != null ? `${exact(mark)}/${doc.behaviour!.max}` : dash}
+                    </td>
+                  );
+                }
+                if (c.key === "at") {
+                  const marks = [...earlierTerms.map((t) => earlierBehaviour.get(t) ?? null), doc.behaviour!.mark].filter((m): m is number => m != null);
+                  return (
+                    <td key={c.key} style={{ ...td, ...cellFs, fontWeight: 700, color: C.ink }}>
+                      {marks.length ? `${exact(marks.reduce((x, m) => x + m, 0))}/${doc.behaviour!.max * marks.length}` : dash}
+                    </td>
+                  );
+                }
+                return <td key={c.key} style={{ ...td, ...cellFs }} />;
+              })}
+            </tr>
+          )}
+          {rtbGroups.length === 0 && (
             <tr>
               <td colSpan={cols} style={{ ...td, fontStyle: "italic", color: C.muted }}>
                 No modules recorded for this term.
               </td>
             </tr>
           )}
-          {doc.groups.map((g, gi) => {
-            const gMarked = g.subjects.filter((x) => x.total != null);
-            const gComp = gMarked.filter((x) => x.competent).length;
+          {rtbGroups.map((g) => {
+            const gMarked = g.subjects.filter((x) => (annual ? x.annual?.total : x.total) != null);
+            const gComp = gMarked.filter((x) => (annual ? x.annual?.competent : x.competent) === true).length;
             return (
-              <React.Fragment key={g.name ?? `g${gi}`}>
-                {named && (
-                  <tr>
-                    <td colSpan={cols} style={{ ...td, textAlign: "left", background: C.navySoft, padding: "7px 10px" }}>
-                      <span style={{ ...cap, color: C.navy }}>{g.name ?? "Other modules"}</span>
-                      <span style={{ float: "right", fontSize: 9.5, color: C.muted, fontWeight: 500 }}>
-                        {g.subjects.length} module{g.subjects.length === 1 ? "" : "s"}
-                        {showComp && gMarked.length ? ` · ${gComp} of ${gMarked.length} competent` : ""}
-                      </span>
-                    </td>
-                  </tr>
-                )}
+              <React.Fragment key={g.label}>
+                <tr>
+                  <td colSpan={cols} style={{ ...td, textAlign: "left", background: C.navySoft, padding: "7px 12px" }}>
+                    <span style={{ ...cap, color: C.navy }}>{g.label}</span>
+                    <span style={{ float: "right", fontSize: 9.5, color: C.muted, fontWeight: 500 }}>
+                      {plural(g.subjects.length, "module")}
+                      {showComp && gMarked.length ? ` · ${gComp} of ${gMarked.length} competent` : ""}
+                    </span>
+                  </td>
+                </tr>
                 {g.subjects.map((s) => {
-                  const failing = s.competent === false || (s.competent == null && s.passed === false);
+                  const failing = s.competent === false;
                   const partial = s.total != null && s.weight_covered != null && s.weight_covered < 100;
                   const isOpen = open.has(s.subject_id);
                   const canOpen = expandable(s);
-                  const none = s.total == null;
+                  const none = s.total == null && s.annual?.total == null;
                   const nUnmapped = itemsOf(s).length;
+                  // Cards frozen before the CAMIS columns: split the stored categories here.
+                  const sum = (xs: Array<number | null | undefined>) => {
+                    const v = xs.filter((x): x is number => x != null);
+                    return v.length ? Math.round(v.reduce((p, n) => p + n, 0) * 100) / 100 : null;
+                  };
+                  const tc = s.term_cell ?? {
+                    term: doc.card.term,
+                    fa: sum([s.categories.CW, s.categories.HW, s.categories.MD]),
+                    ia: s.categories.IA ?? null,
+                    ca: s.categories.EOT ?? null,
+                    total: s.total,
+                  };
                   return (
                     <React.Fragment key={s.subject_id}>
                       <tr
@@ -503,66 +650,95 @@ export function ReportCardDocumentView({
                         aria-expanded={canOpen ? isOpen : undefined}
                         data-testid={`module-${s.subject_id}`}
                       >
-                        {hasCodes && <td style={{ ...td, textAlign: "left", paddingLeft: 10, fontSize: 9.5, color: C.muted, letterSpacing: 0.2 }}>{s.code ?? ""}</td>}
-                        <td style={{ ...td, textAlign: "left", color: none ? C.muted : C.ink, whiteSpace: "normal" }}>
-                          <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
-                            <span
-                              className="rc-no-print"
-                              aria-hidden="true"
-                              style={{ flex: "0 0 11px", color: C.muted, fontSize: 9, lineHeight: "15px", transition: "transform .15s ease", transform: isOpen ? "rotate(90deg)" : "none", visibility: canOpen ? "visible" : "hidden" }}
-                            >
-                              ▸
-                            </span>
-                            <div style={{ minWidth: 0, lineHeight: 1.35 }}>
-                              <div style={{ fontWeight: 500 }}>{s.name}</div>
-                              {showT && s.teacher && <div style={{ fontSize: 9, color: C.muted, marginTop: 1 }}>{s.teacher}</div>}
-                              {(s.missing_marks > 0 && !issued) || nUnmapped > 0 || (guide && none && s.mapped === false) ? (
-                                <div className="rc-no-print" style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 3 }}>
-                                  {s.missing_marks > 0 && !issued && (
-                                    <span style={{ fontSize: 8.5, fontWeight: 600, color: "#B45309", background: "#FEF3C7", borderRadius: 999, padding: "1px 7px" }}>
-                                      {plural(s.missing_marks, "mark")} pending
-                                    </span>
-                                  )}
-                                  {nUnmapped > 0 && (
-                                    <span data-testid={`unmapped-chip-${s.subject_id}`} style={{ fontSize: 8.5, fontWeight: 600, color: C.blue, background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 999, padding: "0 7px" }}>
-                                      {nUnmapped} not mapped
-                                    </span>
-                                  )}
-                                  {guide && none && s.mapped === false && nUnmapped === 0 && (
-                                    <span style={{ fontSize: 8.5, fontWeight: 600, color: C.muted, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, padding: "0 7px" }}>Nothing mapped</span>
-                                  )}
+                        {columns.map((c) => {
+                          if (c.key === "name")
+                            return (
+                              <td key={c.key} style={{ ...td, ...cellFs, textAlign: "left", color: none ? C.muted : C.ink, whiteSpace: "normal" }}>
+                                <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+                                  <span
+                                    className="rc-no-print"
+                                    aria-hidden="true"
+                                    style={{ flex: "0 0 10px", color: C.muted, fontSize: 9, lineHeight: "26px", transition: "transform .15s ease", transform: isOpen ? "rotate(90deg)" : "none", visibility: canOpen ? "visible" : "hidden" }}
+                                  >
+                                    ▸
+                                  </span>
+                                  <div style={{ minWidth: 0, lineHeight: 1.3 }}>
+                                    {s.code && <div style={{ fontSize: 8.5, fontWeight: 700, color: C.muted, letterSpacing: 0.3 }}>{s.code}</div>}
+                                    <div style={{ fontWeight: 500 }}>{s.name}</div>
+                                    {showT && s.teacher && <div style={{ fontSize: 8.5, color: C.muted, marginTop: 1 }}>{s.teacher}</div>}
+                                    {(s.missing_marks > 0 && !issued) || nUnmapped > 0 || (guide && s.total == null && s.mapped === false) ? (
+                                      <div className="rc-no-print" style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 3 }}>
+                                        {s.missing_marks > 0 && !issued && (
+                                          <span style={{ fontSize: 8.5, fontWeight: 600, color: "#B45309", background: "#FEF3C7", borderRadius: 999, padding: "1px 7px" }}>
+                                            {plural(s.missing_marks, "mark")} pending
+                                          </span>
+                                        )}
+                                        {nUnmapped > 0 && (
+                                          <span data-testid={`unmapped-chip-${s.subject_id}`} style={{ fontSize: 8.5, fontWeight: 600, color: C.blue, background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 999, padding: "0 7px" }}>
+                                            {nUnmapped} not mapped
+                                          </span>
+                                        )}
+                                        {guide && s.total == null && s.mapped === false && nUnmapped === 0 && (
+                                          <span style={{ fontSize: 8.5, fontWeight: 600, color: C.muted, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, padding: "0 7px" }}>Nothing mapped</span>
+                                        )}
+                                      </div>
+                                    ) : null}
+                                  </div>
                                 </div>
-                              ) : null}
-                            </div>
-                          </div>
-                        </td>
-                        {CATS.map((c) => (
-                          <td key={c} style={td}>
-                            {s.categories[c] == null ? dash : exact(s.categories[c])}
-                          </td>
-                        ))}
-                        <td style={{ ...td, fontWeight: 800, fontSize: 12, color: failing ? C.red : C.ink }} title={partial ? "Over the work assessed so far" : undefined}>
-                          {none ? (
-                            dash
-                          ) : (
-                            <span style={{ position: "relative" }}>
-                              {exact(s.total)}
-                              {partial && <span style={{ position: "absolute", left: "100%", top: -3, fontSize: 9, fontWeight: 700, color: C.muted, marginLeft: 1 }}>*</span>}
-                            </span>
-                          )}
-                        </td>
-                        <td style={td}>{s.grade ? <Pill tone={failing ? "red" : "navy"}>{s.grade}</Pill> : dash}</td>
-                        {showRank && <td style={td}>{s.rank != null ? `${s.rank}/${s.rank_of}` : dash}</td>}
-                        {showCA && <td style={{ ...td, color: C.muted }}>{s.class_average != null ? exact(s.class_average) : dash}</td>}
-                        {showComp && (
-                          <td style={td}>
-                            {s.competent != null ? (
-                              <Pill tone={s.competent ? "green" : "red"}>{s.competent ? "Competent" : "NYC"}</Pill>
-                            ) : none ? (
-                              <span style={{ fontSize: 9.5, fontStyle: "italic", color: C.muted }}>Not assessed</span>
-                            ) : null}
-                          </td>
-                        )}
+                              </td>
+                            );
+                          if (c.key === "wt") return <td key={c.key} style={{ ...td, ...cellFs }}>{s.weight != null ? exact(s.weight) : dash}</td>;
+                          if (/^(fa|ia|ca|to)\d+$/.test(c.key)) {
+                            const kind = c.key.slice(0, 2) as "fa" | "ia" | "ca" | "to";
+                            const idx = Number(c.key.slice(2));
+                            const cell = idx === 9 ? tc : ((s.earlier_terms ?? []).find((e) => e.term === earlierTerms[idx]) ?? null);
+                            const v = kind === "to" ? (cell?.total ?? null) : (cell?.[kind] ?? null);
+                            const na = kind === "ia" && !finalTerm;
+                            if (kind === "to")
+                              return (
+                                <td key={c.key} style={{ ...td, ...cellFs, fontWeight: 800, color: idx === 9 && failing && !annual ? C.red : C.ink }} title={idx === 9 && partial ? "Over the work assessed so far" : undefined}>
+                                  {v == null ? (
+                                    dash
+                                  ) : (
+                                    <span style={{ position: "relative" }}>
+                                      {exact(v)}
+                                      {idx === 9 && partial && <span style={{ position: "absolute", left: "100%", top: -3, fontSize: 8, fontWeight: 700, color: C.muted, marginLeft: 1 }}>*</span>}
+                                    </span>
+                                  )}
+                                </td>
+                              );
+                            return (
+                              <td key={c.key} style={{ ...td, ...cellFs, color: na ? C.muted : C.text, fontSize: na ? 8.5 : cellFs.fontSize }}>
+                                {v != null ? exact(v) : na ? "N/A" : dash}
+                              </td>
+                            );
+                          }
+                          if (c.key === "at") {
+                            const v = s.annual?.total ?? null;
+                            return (
+                              <td key={c.key} style={{ ...td, ...cellFs, fontWeight: 800, color: s.annual?.competent === false ? C.red : C.ink }}>
+                                {v != null ? exact(v) : dash}
+                              </td>
+                            );
+                          }
+                          if (c.key === "re") return <td key={c.key} style={{ ...td, ...cellFs }}>{dash}</td>;
+                          if (c.key === "rk") return <td key={c.key} style={{ ...td, ...cellFs }}>{s.rank != null ? `${s.rank}/${s.rank_of}` : dash}</td>;
+                          if (c.key === "de") {
+                            const comp = annual ? (s.annual?.competent ?? null) : s.competent;
+                            return (
+                              <td key={c.key} style={{ ...td, ...cellFs }}>
+                                {comp != null ? (
+                                  <Pill tone={comp ? "green" : "red"}>{annual ? (comp ? "C" : "NYC") : comp ? "Competent" : "NYC"}</Pill>
+                                ) : none && !annual ? (
+                                  <span style={{ fontSize: 9.5, fontStyle: "italic", color: C.muted }}>Not assessed</span>
+                                ) : (
+                                  dash
+                                )}
+                              </td>
+                            );
+                          }
+                          return <td key={c.key} style={td} />;
+                        })}
                       </tr>
                       {isOpen && detail(s)}
                     </React.Fragment>
@@ -571,24 +747,38 @@ export function ReportCardDocumentView({
               </React.Fragment>
             );
           })}
+          {summaryRows.map((r) => (
+            <tr key={r.label} data-testid={`summary-${r.label.split(" ")[0].toLowerCase()}`}>
+              <td colSpan={toIdx} style={{ ...td, textAlign: "left", paddingLeft: 12, background: C.navySoft, borderBottom: "1px solid #fff" }}>
+                <span style={{ ...cap, color: C.navy }}>{r.label}</span>
+              </td>
+              {annual ? (
+                <>
+                  <td style={{ ...td, ...cellFs, background: C.navySoft, borderBottom: "1px solid #fff", fontWeight: 800, color: C.ink }}>{r.term}</td>
+                  {atIdx - toIdx > 1 && <td colSpan={atIdx - toIdx - 1} style={{ ...td, background: C.navySoft, borderBottom: "1px solid #fff" }} />}
+                  <td colSpan={cols - atIdx} style={{ ...td, ...cellFs, background: C.navySoft, borderBottom: "1px solid #fff", fontWeight: 800, color: C.navy, textAlign: "left" }}>
+                    {r.year}
+                  </td>
+                </>
+              ) : (
+                <td colSpan={cols - toIdx} style={{ ...td, background: C.navySoft, borderBottom: "1px solid #fff", fontWeight: 800, color: C.ink, textAlign: "left" }}>
+                  {r.term}
+                </td>
+              )}
+            </tr>
+          ))}
         </tbody>
       </table>
-      {anyPartial && (
-        <div style={{ fontSize: 9, color: C.muted, fontStyle: "italic", marginTop: 4 }}>* Mark over the work assessed so far (categories with no marks yet are left out).</div>
+      {anyPartial && <div style={{ fontSize: 9, color: C.muted, fontStyle: "italic", marginTop: 4 }}>* Term mark over the work assessed so far (categories with no marks yet are left out).</div>}
+      {showComp && (
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.navy, marginTop: 6 }} data-testid="competent-line">
+          Competent in {compYes} of {compYes + compNo} module{compYes + compNo === 1 ? "" : "s"}
+          {annual ? " over the year" : ""}.
+        </div>
       )}
 
-      {/* Summary */}
-      <section style={{ display: "grid", gridTemplateColumns: `repeat(${tiles.length}, 1fr)`, gap: 10, marginTop: 16 }}>
-        {tiles.map((t, i) => (
-          <div key={t.k} style={{ borderRadius: 12, padding: "10px 14px", background: i === 0 ? C.navy : C.navySoft, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 58 }}>
-            <div style={{ ...cap, color: i === 0 ? "#BFD0E3" : C.muted }}>{t.k}</div>
-            <div style={{ marginTop: 3, display: "flex", alignItems: "baseline", gap: 6 }}>
-              <span style={{ fontSize: 21, fontWeight: 800, color: i === 0 ? "#fff" : C.navy }}>{t.v}</span>
-              {t.sub && <span style={{ fontSize: 10, color: i === 0 ? "#DCE6F2" : C.muted }}>{t.sub}</span>}
-            </div>
-          </div>
-        ))}
-      </section>
+      <Comment title="Class trainer's comment" text={doc.comments.class_teacher} />
+      {doc.comments.head_teacher?.trim() && <Comment title={`${doc.scheme.head_title}'s comment`} text={doc.comments.head_teacher} />}
 
       {/* Attendance + attributes */}
       <section style={{ display: "grid", gridTemplateColumns: "210px 1fr", gap: 28, marginTop: 16 }}>
@@ -660,24 +850,12 @@ export function ReportCardDocumentView({
         </table>
       </section>
 
-      <Comment title="Class teacher's comment" text={doc.comments.class_teacher} />
-      {doc.comments.head_teacher?.trim() && <Comment title={`${doc.scheme.head_title}'s comment`} text={doc.comments.head_teacher} />}
-
-      {/* Grading scale + key */}
-      <div style={{ ...cap, marginTop: 14 }}>Grading scale</div>
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${bands.length}, 1fr)`, gap: 4, marginTop: 5 }}>
-        {bands.map((b, i) => (
-          <div key={b.letter} style={{ textAlign: "center", padding: "5px 0", borderRadius: 8, background: C.navySoft }}>
-            <div style={{ fontSize: 12.5, fontWeight: 800, color: C.navy }}>{b.letter}</div>
-            <div style={{ fontSize: 8.5, color: C.muted }}>
-              {b.min}–{i === 0 ? 100 : bands[i - 1].min - 1}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div style={{ fontSize: 8.5, color: C.muted, marginTop: 5 }}>
-        CW Class work · HW Homework · MD Midterm · EOT End of term exam · Pos. position in class
-        {showComp && thresholds ? ` · Competent: specific modules ${thresholds.specific}%+, general/complementary ${thresholds.general}%+ · NYC: not yet competent` : ""}
+      {/* Legend */}
+      <div style={{ fontSize: 8.5, color: C.muted, marginTop: 12, lineHeight: 1.5 }} data-testid="legend">
+        FA Formative assessment (CW+HW+MD) · IA Integrated assessment (Term 3) · CA Comprehensive assessment (end of term) · TO Term total
+        {annual ? " · AT Annual total (average of the terms assessed) · Re Re-assessment · De Decision" : ""} · C Competent · NYC Not Yet Competent · N/A Not applicable ·
+        Weight = learning hours (credits × 10)
+        {showComp && thresholds ? ` · Competent from ${thresholds.specific}% (specific modules), ${thresholds.general}% (general), ${thresholds.complementary}% (complementary).` : "."}
       </div>
 
       {doc.next_term_begins_on && (
@@ -687,14 +865,33 @@ export function ReportCardDocumentView({
         </div>
       )}
 
-      {/* Signatures + verification */}
-      <footer style={{ borderTop: `1px solid ${C.line}`, marginTop: 12, paddingTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr 1.3fr", gap: 18, alignItems: "end" }}>
-        <Signature label="Class teacher" />
-        <Signature label={doc.scheme.head_title} />
+      {/* Deliberation (final term) */}
+      {finalTerm && (
+        <div style={{ border: `1px solid ${C.line}`, borderRadius: 12, marginTop: 12, padding: "10px 14px" }} data-testid="deliberation">
+          <div style={cap}>Deliberation</div>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${deliberations.length}, 1fr)`, gap: 8, marginTop: 6 }}>
+            {deliberations.map((o) => (
+              <span key={o} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: C.text }}>
+                <span style={{ width: 11, height: 11, border: `1.4px solid ${C.navy}`, borderRadius: 3, flexShrink: 0 }} />
+                {o}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Signatures, stamp + verification */}
+      <footer style={{ borderTop: `1px solid ${C.line}`, marginTop: 12, paddingTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr 86px 1.3fr", gap: 16, alignItems: "end" }}>
+        <div>
+          <div style={{ fontSize: 9, color: C.muted, marginBottom: 14 }}>Date: ______________</div>
+          <Signature label="Class trainer" />
+        </div>
+        <Signature label={`School manager (${doc.scheme.head_title})`} />
+        <div style={{ height: 62, border: `1px dashed ${C.faint}`, borderRadius: 8, display: "grid", placeItems: "center", fontSize: 8.5, color: C.faint }}>School stamp</div>
         {issued ? (
           <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end" }}>
             <div style={{ minWidth: 0, textAlign: "right" }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.navy }}>Verify this report card</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.navy }}>Verify this report</div>
               <div style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>
                 Version {doc.card.version}
                 {doc.card.approved_at ? `, approved ${new Date(doc.card.approved_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}` : ""}
@@ -705,7 +902,7 @@ export function ReportCardDocumentView({
           </div>
         ) : (
           <div style={{ fontSize: 10, color: C.red, fontStyle: "italic", textAlign: "right" }}>
-            Provisional — {statusMeta(doc.card.status).label.toLowerCase()}, not yet approved. This document can't be verified.
+            Provisional — {statusMeta(doc.card.status).label.toLowerCase()}, not yet approved. This report can't be verified.
           </div>
         )}
       </footer>

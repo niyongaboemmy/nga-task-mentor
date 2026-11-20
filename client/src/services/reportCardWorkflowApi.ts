@@ -168,7 +168,7 @@ export interface WorkbenchData {
     attributes: string[];
     pass_mark: number;
     require_distinct_approver: boolean;
-    category_weights?: { CW: number; HW: number; MD: number; EOT: number };
+    category_weights?: { CW: number; HW: number; MD: number; EOT: number; IA?: number };
     competence_thresholds?: { specific: number; general: number; complementary: number };
   };
   subjects: WorkbenchSubject[];
@@ -225,7 +225,7 @@ export interface DiffData {
 // ─── Scheme ──────────────────────────────────────────────────────────────────
 
 export interface ReportCardScheme {
-  category_weights: { CW: number; HW: number; MD: number; EOT: number };
+  category_weights: { CW: number; HW: number; MD: number; EOT: number; IA?: number };
   pass_mark: number;
   attributes: string[];
   subject_groups: Array<{ name: string; subject_ids: number[] }>;

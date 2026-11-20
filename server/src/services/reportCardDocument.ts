@@ -4,7 +4,7 @@ import { Op } from "sequelize";
 import { ReportCard } from "../models/ReportCard.model";
 import { ReportCardAssessment } from "../models/ReportCardAssessment.model";
 import { ReportCardAttribute } from "../models/ReportCardAttribute.model";
-import { ReportCycle } from "../models/ReportCardWorkflow.model";
+import { ReportCycle, ReportCardSnapshot } from "../models/ReportCardWorkflow.model";
 import { User } from "../models/User.model";
 import {
   calculateSubjectGrade,
@@ -39,8 +39,59 @@ import { tk } from "../tenancy/keys";
 
 export const DOCUMENT_SCHEMA = 1;
 
-export type Cat = "CW" | "HW" | "MD" | "EOT";
-const CATS: Cat[] = ["CW", "HW", "MD", "EOT"];
+export type Cat = "CW" | "HW" | "MD" | "EOT" | "IA";
+const CATS: Cat[] = ["CW", "HW", "MD", "EOT", "IA"];
+
+/** Behaviour (conduct) is out of 40 on RTB/CAMIS cards. */
+export const BEHAVIOUR_MAX = 40;
+
+/**
+ * One term of a module in CAMIS terms: FA (formative = CW+HW+MD), IA
+ * (integrated, Term 3) and CA (comprehensive = EOT), each as scaled points,
+ * and the term mark out of 100.
+ */
+export interface TermCell {
+  term: string;
+  fa: number | null;
+  ia: number | null;
+  ca: number | null;
+  total: number | null;
+}
+
+/** "Term 3" / "Term III" / "Third term" -> 3; null when it doesn't say. */
+export function termIndex(term: string | null | undefined): number | null {
+  const t = String(term ?? "").toLowerCase();
+  const word: Record<string, number> = { first: 1, second: 2, third: 3, one: 1, two: 2, three: 3 };
+  for (const [w, n] of Object.entries(word)) if (new RegExp(`\\b${w}\\b`).test(t)) return n;
+  const roman = t.match(/\b(iii|ii|i)\b/);
+  if (roman) return roman[1].length;
+  const digit = t.match(/\b([1-4])\b/);
+  return digit ? Number(digit[1]) : null;
+}
+
+/** The last term of the year carries the annual results (CAMIS prints the year on it). */
+export const isFinalTerm = (term: string | null | undefined) => termIndex(term) === 3;
+
+const sumOrNull = (xs: Array<number | null | undefined>) => {
+  const v = xs.filter((x): x is number => x != null);
+  return v.length ? Math.round(v.reduce((a, b) => a + b, 0) * 100) / 100 : null;
+};
+
+/** A subject grade as CAMIS columns. */
+export function termCellOf(term: string, g: Pick<SubjectGrade, "categories" | "total_score"> | null | undefined): TermCell {
+  const c = (k: Cat) => g?.categories?.[k as keyof SubjectGrade["categories"]]?.scaled_score ?? null;
+  return { term, fa: sumOrNull([c("CW"), c("HW"), c("MD")]), ia: c("IA"), ca: c("EOT"), total: g ? g.total_score : null };
+}
+
+/** "120", "120 hours", "12 credits" -> learning hours (credits x 10). */
+export function learningHours(raw: unknown): number | null {
+  const t = String(raw ?? "").toLowerCase();
+  const m = t.match(/(\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return /credit/.test(t) ? n * 10 : n;
+}
 
 export interface DocumentSubject {
   subject_id: number;
@@ -72,6 +123,16 @@ export interface DocumentSubject {
   rank_of?: number | null;
   /** False when the card maps no assessment for it yet (listed because the class takes it). */
   mapped?: boolean;
+  /** Module weight = learning hours (credits x 10), from MIS. */
+  weight?: number | null;
+  /** RQF level of the module (MIS), e.g. "3". */
+  rqf_level?: string | null;
+  /** This term in CAMIS columns. */
+  term_cell?: TermCell;
+  /** Final-term card: the earlier terms of the year, in order. */
+  earlier_terms?: TermCell[];
+  /** Final-term card: the module over the year (average of the terms assessed). */
+  annual?: { total: number | null; competent: boolean | null; terms_assessed: number };
 }
 
 export interface ReportCardDocument {
@@ -139,6 +200,21 @@ export interface ReportCardDocument {
   next_term_begins_on: string | null;
   /** Per-assessment detail behind each subject (the preview's drill-down). */
   grades: SubjectGrade[];
+  /** Behaviour out of 40 (outside every total); the earlier terms' too on a final-term card. */
+  behaviour?: { mark: number | null; max: number; earlier?: Array<{ term: string; mark: number | null }> };
+  /** RTB qualification block (CAMIS): level, trade, title. */
+  qualification?: { rqf_level: string | null; trade: string | null; title: string | null; sector: string | null };
+  /** Final-term card only: the year (CAMIS annual report). */
+  annual?: {
+    terms: string[];
+    average: number | null;
+    position: number | null;
+    position_of: number | null;
+    modules_competent: number;
+    modules_nyc: number;
+    total_marks: number;
+    total_max: number;
+  };
 }
 
 // ─── Subject names (MIS catalogue, cached briefly per tenant) ───────────────
@@ -147,6 +223,8 @@ const SUBJECT_TTL_MS = 5 * 60 * 1000;
 interface SubjectInfo {
   name: string;
   code: string | null;
+  learning_hours?: number | null;
+  rqf_level?: string | null;
 }
 const subjectInfoCache = new Map<string, { at: number; info: Record<number, SubjectInfo> }>();
 
@@ -171,6 +249,8 @@ export async function resolveSubjectInfo(req: Request, subjectIds: number[]): Pr
             info[Number(id)] = {
               name: s.name || s.subject_name || s.title || `Subject #${id}`,
               code: typeof s.code === "string" && s.code.trim() ? s.code.trim() : null,
+              learning_hours: learningHours(s.learning_hours ?? s.credits),
+              rqf_level: s.rqf_level != null && String(s.rqf_level).trim() ? String(s.rqf_level).trim() : null,
             };
           }
         }
@@ -475,6 +555,67 @@ export async function buildCardDocuments(
     });
   }
 
+  // Final-term cohorts (CAMIS annual report): each member's earlier terms of
+  // the year. A frozen earlier card counts with its snapshot's grades.
+  const earlierByCard = new Map<number, Array<{ term: string; grades: SubjectGrade[]; behaviour: number | null }>>();
+  for (const members of byCohort.values()) {
+    const finals = members.filter((m) => isFinalTerm(m.term));
+    if (!finals.length) continue;
+    const cur = termIndex(finals[0].term) ?? 3;
+    const siblings = await ReportCard.findAll({
+      where: { academic_year: finals[0].academic_year, student_id: { [Op.in]: [...new Set(members.map((m) => m.student_id))] } },
+    });
+    const earlier = siblings.filter((c) => {
+      const i = termIndex(c.term);
+      return i != null && i < cur;
+    });
+    const gradesOf = new Map<number, SubjectGrade[]>();
+    const frozenIds = earlier.filter((c) => c.status === "approved" || c.status === "published").map((c) => c.id!);
+    if (frozenIds.length) {
+      const snaps = await ReportCardSnapshot.findAll({
+        where: { report_card_id: { [Op.in]: frozenIds }, superseded_at: { [Op.is]: null } as any },
+      });
+      for (const sn of snaps as any[]) gradesOf.set(Number(sn.report_card_id), (sn.payload as ReportCardDocument | null)?.grades ?? []);
+    }
+    for (const c of earlier) if (!gradesOf.has(c.id!)) gradesOf.set(c.id!, (await computeCardGrades(c, scheme.category_weights)).grades);
+    for (const m of finals) {
+      const byTerm = new Map<string, ReportCard>();
+      for (const c of earlier.filter((x) => x.student_id === m.student_id).sort((a, b) => (termIndex(a.term) ?? 0) - (termIndex(b.term) ?? 0))) {
+        if (!byTerm.has(c.term)) byTerm.set(c.term, c);
+      }
+      earlierByCard.set(
+        m.id!,
+        [...byTerm.values()].map((c) => ({ term: c.term, grades: gradesOf.get(c.id!) ?? [], behaviour: c.behaviour_mark ?? null })),
+      );
+    }
+  }
+  /** A final-term card's modules over the year: subject id -> average of the term marks assessed. */
+  const annualOf = (card: ReportCard): Map<number, { total: number; terms: number }> => {
+    const out = new Map<number, { sum: number; n: number }>();
+    const add = (grades: SubjectGrade[]) => {
+      for (const g of grades) {
+        const a = out.get(g.subject_id) ?? { sum: 0, n: 0 };
+        a.sum += g.total_score;
+        a.n += 1;
+        out.set(g.subject_id, a);
+      }
+    };
+    for (const e of earlierByCard.get(card.id!) ?? []) add(e.grades);
+    add(computed.get(card.id!)!.grades);
+    return new Map([...out].map(([sid, a]) => [sid, { total: round2(a.sum / a.n), terms: a.n }]));
+  };
+  const annualAverage = (card: ReportCard) => {
+    const totals = [...annualOf(card).values()].map((x) => x.total);
+    return totals.length ? round2(totals.reduce((a, b) => a + b, 0) / totals.length) : null;
+  };
+  const annualRanks = new Map<string, { ranks: Map<number, number>; of: number }>();
+  for (const [k, members] of byCohort) {
+    const finals = members.filter((m) => isFinalTerm(m.term));
+    if (!finals.length) continue;
+    const avgs = finals.map((m) => ({ id: m.id!, average: annualAverage(m) }));
+    annualRanks.set(k, { ranks: rankAverages(avgs), of: avgs.filter((a) => a.average != null).length });
+  }
+
   const cycles = await ReportCycle.findAll({
     where: {
       class_group_id: { [Op.in]: [...new Set(cards.map(classOf).filter((x): x is number => x != null))] },
@@ -523,7 +664,11 @@ export async function buildCardDocuments(
       return list.length ? list.map((t) => t.name).join(", ") : null;
     };
     const gradeBySubject = new Map(g.grades.map((x) => [x.subject_id, x]));
-    const subjectIds = [...new Set([...g.mappedSubjects, ...gradeBySubject.keys(), ...classSubjectsOf(cg)])];
+    const final = isFinalTerm(card.term);
+    const annual = final ? annualOf(card) : null;
+    const subjectIds = [
+      ...new Set([...g.mappedSubjects, ...gradeBySubject.keys(), ...classSubjectsOf(cg), ...(annual ? annual.keys() : [])]),
+    ];
     const subjects: DocumentSubject[] = subjectIds.map((sid) => {
       const grade = gradeBySubject.get(sid);
       const total = grade ? grade.total_score : null;
@@ -554,6 +699,20 @@ export async function buildCardDocuments(
         rank: stats.subjectRanks.get(sid)?.ranks.get(card.id!) ?? null,
         rank_of: stats.subjectRanks.get(sid)?.of ?? null,
         mapped: g.mappedSubjects.has(sid) || gradeBySubject.has(sid),
+        weight: subjectInfo[sid]?.learning_hours ?? null,
+        rqf_level: subjectInfo[sid]?.rqf_level ?? null,
+        term_cell: termCellOf(card.term, grade),
+        ...(final
+          ? {
+              earlier_terms: (earlierByCard.get(card.id!) ?? []).map((e) =>
+                termCellOf(e.term, e.grades.find((x) => x.subject_id === sid)),
+              ),
+              annual: (() => {
+                const a = annual!.get(sid);
+                return { total: a?.total ?? null, competent: a ? a.total >= threshold : null, terms_assessed: a?.terms ?? 0 };
+              })(),
+            }
+          : {}),
       };
     });
     subjects.sort((a, b) => groupOrder(a.group) - groupOrder(b.group) || a.name.localeCompare(b.name));
@@ -647,9 +806,62 @@ export async function buildCardDocuments(
       },
       next_term_begins_on: cycle?.next_term_begins_on ?? null,
       grades: g.grades,
+      behaviour: {
+        mark: card.behaviour_mark ?? null,
+        max: BEHAVIOUR_MAX,
+        ...(final ? { earlier: (earlierByCard.get(card.id!) ?? []).map((e) => ({ term: e.term, mark: e.behaviour })) } : {}),
+      },
+      qualification: qualificationOf(subjects, s.program_name, card.class_name ?? s.class_name, s.grade_name),
+      ...(final
+        ? {
+            annual: (() => {
+              const withYear = subjects.filter((x) => x.annual?.total != null);
+              const rk = annualRanks.get(cohortKey(card));
+              const position = rk?.ranks.get(card.id!) ?? null;
+              return {
+                terms: [...(earlierByCard.get(card.id!) ?? []).map((e) => e.term), card.term],
+                average: annualAverage(card),
+                position,
+                position_of: position != null ? (rk?.of ?? null) : null,
+                modules_competent: withYear.filter((x) => x.annual!.competent === true).length,
+                modules_nyc: withYear.filter((x) => x.annual!.competent === false).length,
+                total_marks: round2(withYear.reduce((a, x) => a + (x.annual!.total as number), 0)),
+                total_max: withYear.length * 100,
+              };
+            })(),
+          }
+        : {}),
     });
   }
   return out;
+}
+
+const ROMAN: Record<string, string> = { "1": "I", "2": "II", "3": "III", "4": "IV", "5": "V" };
+
+/**
+ * The RTB qualification block: RQF level (the modules' level from MIS, else
+ * "L3"/"Level 3" in the class or grade name), trade (the programme) and the
+ * title "TVET Certificate III in <trade>".
+ */
+export function qualificationOf(
+  subjects: Array<Pick<DocumentSubject, "rqf_level">>,
+  program: string | null | undefined,
+  className: string | null | undefined,
+  gradeName: string | null | undefined,
+): NonNullable<ReportCardDocument["qualification"]> {
+  const counts = new Map<string, number>();
+  for (const s of subjects) {
+    const m = String(s.rqf_level ?? "").match(/[1-8]/);
+    if (m) counts.set(m[0], (counts.get(m[0]) ?? 0) + 1);
+  }
+  let level: string | null = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  if (!level) {
+    const m = `${className ?? ""} ${gradeName ?? ""}`.match(/\b(?:l|level|rqf)\s*\.?\s*([1-8])\b/i);
+    level = m ? m[1] : null;
+  }
+  const trade = program?.trim() || null;
+  const title = level && ROMAN[level] && trade ? `TVET Certificate ${ROMAN[level]} in ${trade}` : null;
+  return { rqf_level: level, trade, title, sector: null };
 }
 
 /** The cohort of a card: every card of its class group this term (itself when it has no class). */

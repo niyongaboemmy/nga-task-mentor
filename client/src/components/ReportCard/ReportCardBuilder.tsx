@@ -486,6 +486,7 @@ export default function ReportCardBuilder({
     HW: initialDropped?.HW ?? [],
     MD: initialDropped?.MD ?? [],
     EOT: initialDropped?.EOT ?? [],
+    IA: initialDropped?.IA ?? [],
   });
   const [activeDragItem, setActiveDragItem] =
     useState<AssessmentDragItem | null>(null);
@@ -505,6 +506,7 @@ export default function ReportCardBuilder({
       HW: initialDropped?.HW ?? [],
       MD: initialDropped?.MD ?? [],
       EOT: initialDropped?.EOT ?? [],
+      IA: initialDropped?.IA ?? [],
     });
     setSyncKey((k) => k + 1);
   }, [initialDropped]);

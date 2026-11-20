@@ -50,6 +50,8 @@ interface BandRow {
 
 interface SchemeForm {
   weights: Record<Category, string>;
+  /** Term 3 integrated assessment weight (extra, outside the 100). */
+  ia: string;
   pass_mark: string;
   attributes: Array<{ key: number; name: string }>;
   groups: Array<{ key: number; name: string; subject_ids: number[] }>;
@@ -108,6 +110,8 @@ export function validateScheme(f: SchemeForm): string[] {
     else sum += w;
   }
   if (errors.length === 0 && Math.abs(sum - 100) > 0.001) errors.push(`Category weights must add up to 100 (they add up to ${sum}).`);
+  const ia = num(f.ia);
+  if (!Number.isFinite(ia) || ia < 0 || ia > 100) errors.push("The IA weight must be between 0 and 100.");
   const pass = num(f.pass_mark);
   if (!Number.isFinite(pass) || pass < 0 || pass > 100) errors.push("The pass mark must be between 0 and 100.");
   const names = f.attributes.map((a) => a.name.trim());
@@ -136,6 +140,7 @@ const toForm = (s: ReportCardScheme): SchemeForm => ({
     MD: String(s.category_weights?.MD ?? 0),
     EOT: String(s.category_weights?.EOT ?? 0),
   },
+  ia: String((s.category_weights as Record<string, number> | undefined)?.IA ?? 50),
   pass_mark: String(s.pass_mark ?? 50),
   attributes: (s.attributes ?? []).map((name) => ({ key: key(), name })),
   groups: (s.subject_groups ?? []).map((g) => ({ key: key(), name: g.name, subject_ids: [...(g.subject_ids ?? [])] })),
@@ -154,7 +159,7 @@ const toForm = (s: ReportCardScheme): SchemeForm => ({
 });
 
 const fromForm = (f: SchemeForm): ReportCardScheme => ({
-  category_weights: { CW: num(f.weights.CW), HW: num(f.weights.HW), MD: num(f.weights.MD), EOT: num(f.weights.EOT) },
+  category_weights: { CW: num(f.weights.CW), HW: num(f.weights.HW), MD: num(f.weights.MD), EOT: num(f.weights.EOT), IA: num(f.ia) },
   pass_mark: num(f.pass_mark),
   attributes: f.attributes.map((a) => a.name.trim()).filter(Boolean),
   subject_groups: f.groups.map((g) => ({ name: g.name.trim(), subject_ids: g.subject_ids })),
@@ -522,6 +527,24 @@ export default function ReportCardSettingsPage() {
             >
               Total: {weightSum} / 100
             </p>
+            <label className="mt-4 flex max-w-[16rem] flex-col gap-1">
+              <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/80">
+                IA <span className="font-normal">· Integrated assessment (Term 3)</span>
+              </span>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                inputMode="decimal"
+                value={form.ia}
+                onChange={(e) => patch({ ia: e.target.value })}
+                aria-label="IA weight"
+                className={`${INPUT} w-full`}
+              />
+              <span className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
+                Extra to the 100: a Term 3 mark is over FA (CW+HW+MD), IA and CA (EOT) together.
+              </span>
+            </label>
             <label className="mt-4 flex max-w-[12rem] flex-col gap-1">
               <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/80">Pass mark (%)</span>
               <input

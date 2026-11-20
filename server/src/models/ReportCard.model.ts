@@ -27,6 +27,8 @@ export interface IReportCardAttributes {
   attendance_excused?: number;
   attendance_sick?: number;
   attendance_source?: "manual" | "imported";
+  /** Behaviour (conduct) mark out of 40, entered by the class teacher; outside every total. */
+  behaviour_mark?: number | null;
   version?: number;
   class_group_id?: number | null;
   class_name?: string | null;
@@ -170,6 +172,17 @@ export class ReportCard extends Model<
 
   @Column({ type: DataType.ENUM("manual", "imported"), allowNull: false, defaultValue: "manual", field: "attendance_source" })
   public attendance_source!: "manual" | "imported";
+
+  @Column({
+    type: DataType.DECIMAL(5, 2),
+    allowNull: true,
+    field: "behaviour_mark",
+    get(this: ReportCard) {
+      const v = this.getDataValue("behaviour_mark" as any);
+      return v == null ? null : Number(v);
+    },
+  })
+  public behaviour_mark?: number | null;
 
   /** Bumped on every approval; the snapshot of that approval has this version. */
   @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })

@@ -44,6 +44,7 @@ async function loadCards(students: StudentRow[], term: string, academicYear: str
       sick: att.sick ?? 0,
       attributes: attrs,
       comment: rc.report_card.class_teacher_comment ?? "",
+      behaviour: rc.report_card.behaviour_mark ?? null,
     };
     if (rc.report_card.status && rc.report_card.status !== "draft") locked.add(student.id);
   });

@@ -31,12 +31,13 @@ import {
 // switching it remounts the page, so there's no local term/year picker here
 // to drift out of sync with the rest of the profile.
 
-const CATEGORY_ORDER: AssessmentCategory[] = ["CW", "HW", "MD", "EOT"];
+const CATEGORY_ORDER: AssessmentCategory[] = ["CW", "HW", "MD", "EOT", "IA"];
 const CATEGORY_META: Record<AssessmentCategory, { label: string; color: string }> = {
   CW:  { label: "CW",  color: "bg-blue-500" },
   HW:  { label: "HW",  color: "bg-gray-400" },
   MD:  { label: "MD",  color: "bg-blue-700" },
   EOT: { label: "EOT", color: "bg-orange-500" },
+  IA:  { label: "IA",  color: "bg-blue-900" },
 };
 
 export interface StudentReportCardDashboardProps {
