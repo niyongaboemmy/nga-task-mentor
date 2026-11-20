@@ -187,7 +187,7 @@ describe("SchoolReportsPage", () => {
 
   it("asks for the selected period, issued cards only by default", async () => {
     renderPage();
-    expect(await screen.findByText("Aline Uwase")).toBeInTheDocument();
+    expect(await screen.findByRole("row", { name: /Aline Uwase/ })).toBeInTheDocument();
     expect(schoolReports).toHaveBeenCalledWith({
       term: "Term 2",
       academic_year: "2026-2027",
@@ -201,7 +201,7 @@ describe("SchoolReportsPage", () => {
 
   it("renders all five tabs", async () => {
     renderPage();
-    await screen.findByText("Aline Uwase");
+    await screen.findByRole("row", { name: /Aline Uwase/ });
     for (const name of ["Broadsheet", "Performance", "Gender", "Trends", "At risk"]) {
       expect(screen.getByRole("tab", { name: new RegExp(name) })).toBeInTheDocument();
     }
@@ -209,19 +209,19 @@ describe("SchoolReportsPage", () => {
 
   it("shows the broadsheet with positions, grades and the subject footer", async () => {
     renderPage();
-    await screen.findByText("Aline Uwase");
+    await screen.findByRole("row", { name: /Aline Uwase/ });
     expect(screen.getByText("1/3")).toBeInTheDocument();
     expect(screen.getByText("97.5%")).toBeInTheDocument();
-    expect(screen.getByText("Subject mean")).toBeInTheDocument();
-    expect(screen.getByText("Pass rate")).toBeInTheDocument();
+    expect(screen.getByRole("rowheader", { name: "Subject mean" })).toBeInTheDocument();
+    expect(screen.getByRole("rowheader", { name: "Pass rate" })).toBeInTheDocument();
     // Eric has no Physics mark: a dash, not a 0.
-    const eric = screen.getByText("Eric Mugisha").closest("tr")!;
+    const eric = screen.getByRole("row", { name: /Eric Mugisha/ });
     expect(within(eric).getAllByText("—").length).toBeGreaterThan(0);
   });
 
   it("exports the open tab through the Excel-safe CSV writer", async () => {
     renderPage();
-    await screen.findByText("Aline Uwase");
+    await screen.findByRole("row", { name: /Aline Uwase/ });
     fireEvent.click(screen.getByRole("button", { name: "Export the broadsheet as CSV" }));
     expect(downloadCsv).toHaveBeenCalledTimes(1);
     const [filename, rows] = downloadCsv.mock.calls[0] as [string, unknown[][]];
@@ -236,7 +236,7 @@ describe("SchoolReportsPage", () => {
 
   it("shows the gender gap and flags students with no gender in MIS", async () => {
     renderPage();
-    await screen.findByText("Aline Uwase");
+    await screen.findByRole("row", { name: /Aline Uwase/ });
     openTab("Gender");
     expect(await screen.findByTestId("gender-gap")).toHaveTextContent("Girls +3.2 vs boys");
     expect(screen.getByText(/Gender is missing in MIS for 1 student\b/)).toBeInTheDocument();
@@ -293,7 +293,7 @@ describe("SchoolReportsPage", () => {
 
   it("asks again with include_drafts and labels the numbers provisional", async () => {
     renderPage();
-    await screen.findByText("Aline Uwase");
+    await screen.findByRole("row", { name: /Aline Uwase/ });
     schoolReports.mockResolvedValue({ success: true, data: fixture({ provisional: true, basis: "issued_and_drafts", drafts_included: 4 }) });
     fireEvent.click(screen.getByRole("checkbox", { name: /Include drafts \(provisional\)/ }));
     expect(await screen.findByText("Provisional — includes draft cards.")).toBeInTheDocument();
@@ -315,6 +315,61 @@ describe("SchoolReportsPage", () => {
     expect(await screen.findByText("Server is busy")).toBeInTheDocument();
     expect(toastError).toHaveBeenCalledWith("Server is busy");
     fireEvent.click(screen.getByRole("button", { name: /Try again/ }));
-    expect(await screen.findByText("Aline Uwase")).toBeInTheDocument();
+    expect(await screen.findByRole("row", { name: /Aline Uwase/ })).toBeInTheDocument();
+  });
+
+  describe("interactive broadsheet", () => {
+    it("filters by gender from the filter panel, shows the chip and a live summary", async () => {
+      renderPage();
+      await screen.findByRole("row", { name: /Aline Uwase/ });
+      fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Boys" }));
+      await waitFor(() => expect(screen.queryByRole("row", { name: /Aline Uwase/ })).not.toBeInTheDocument());
+      expect(screen.getByRole("row", { name: /Eric Mugisha/ })).toBeInTheDocument();
+      expect(screen.getByTestId("active-filters")).toHaveTextContent("Showing 1 of 2");
+      expect(screen.getByTestId("broadsheet-summary")).toHaveTextContent("of 2");
+      fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+      expect(await screen.findByRole("row", { name: /Aline Uwase/ })).toBeInTheDocument();
+    });
+
+    it("reads filters from the URL so a view can be shared", async () => {
+      renderPage("/reports/school?fs=2");
+      // Failing Physics (below 50): nobody, Aline has 50.4.
+      expect(await screen.findByText("No student matches these filters.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Remove filter Failing Physics" })).toBeInTheDocument();
+    });
+
+    it("sorts by a subject column and toggles the direction", async () => {
+      renderPage();
+      await screen.findByRole("row", { name: /Aline Uwase/ });
+      const names = () => screen.getAllByRole("row", { name: /^Open / }).map((r) => r.getAttribute("aria-label"));
+      fireEvent.click(screen.getByRole("button", { name: "Physics" }));
+      expect(names()[0]).toMatch(/Aline/); // best first; Eric has no Physics mark (always last)
+      fireEvent.click(screen.getByRole("button", { name: "Student" }));
+      expect(screen.getByRole("columnheader", { name: "Student" })).toHaveAttribute("aria-sort", "ascending");
+      expect(names()).toEqual(["Open Aline Uwase's details", "Open Eric Mugisha's details"]);
+      fireEvent.click(screen.getByRole("button", { name: "Student" }));
+      expect(names()[0]).toMatch(/Eric/);
+    });
+
+    it("opens a student's drawer and steps to the next one", async () => {
+      renderPage();
+      fireEvent.click(await screen.findByRole("row", { name: /Aline Uwase/ }));
+      const drawer = await screen.findByTestId("student-drawer");
+      expect(within(within(drawer).getByRole("region", { name: "Subject marks" })).getByText("Mathematics")).toBeInTheDocument();
+      expect(within(drawer).getByText("NGA/001 · S4 MPC · Girl · Published")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Next student" }));
+      expect(await screen.findByRole("dialog", { name: "Eric Mugisha" })).toBeInTheDocument();
+    });
+
+    it("exports only what the filters show", async () => {
+      renderPage("/reports/school?g=male");
+      await screen.findByRole("row", { name: /Eric Mugisha/ });
+      fireEvent.click(screen.getByRole("button", { name: "Export the broadsheet as CSV" }));
+      const [filename, rows] = downloadCsv.mock.calls.at(-1) as [string, unknown[][]];
+      expect(filename).toBe("broadsheet-all-classes-term-2-2026-2027-filtered.csv");
+      expect(rows.some((r) => r[1] === "Eric Mugisha")).toBe(true);
+      expect(rows.some((r) => r[1] === "Aline Uwase")).toBe(false);
+    });
   });
 });
