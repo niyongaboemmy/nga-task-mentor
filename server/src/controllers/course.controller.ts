@@ -1,4 +1,5 @@
 import { COUNTED_MARKS } from "../models/Assignment.model";
+import { loadWeightingForRequest, subjectIsMapped, weightedSubjectMark } from "../services/marksWeighting";
 import { Request, Response } from "express";
 import axios from "axios";
 import {
@@ -981,6 +982,11 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         finalStudents.flatMap((s) => [s.id, s.user_id, s.mis_user_id]),
       );
 
+    // The report card's own way of weighing marks (mapped categories, kinds of
+    // work inside them, the builder's weights) for the overall mark, when the
+    // subject maps its work this term; else the plain points total as before.
+    const weighting = await loadWeightingForRequest(req, [Number(courseId)]);
+
     // 7. Aggregate Data
     const studentsWithGrades = finalStudents.map((student) => {
       // A student is known by their MIS id on the roster and by the local
@@ -1077,6 +1083,18 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       const quizPercentage = percentOf(quizzesPoints, quizzesMaxPoints);
       const assessmentPercentage = percentOf(assessmentsPoints, assessmentsMaxPoints);
 
+      const weighted = weightedSubjectMark(weighting, Number(courseId), [
+        ...studentAssignments
+          .filter((a) => a.counts_to_final && a.submitted && a.grade != null)
+          .map((a) => ({ type: "assignment" as const, id: a.assignment_id, component: "assignment", raw: pointsOf(a.grade), max: Number(a.max_score) })),
+        ...studentQuizzes
+          .filter((q) => q.submitted)
+          .map((q) => ({ type: "quiz" as const, id: q.quiz_id, component: "quiz", raw: Number(q.score) || 0, max: Number(q.max_score) })),
+        ...studentAssessments
+          .filter((a: any) => a.counts_to_final && a.recorded)
+          .map((a: any) => ({ type: "manual" as const, id: a.assessment_id, component: a.assessment_type || "manual", raw: Number(a.score) || 0, max: Number(a.max_score) })),
+      ]);
+
       return {
         student: {
           id: student.id,
@@ -1091,7 +1109,10 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         summary: {
           total_points_earned: totalPointsEarned,
           total_max_points: totalMaxPoints,
-          total_percentage: Math.round(totalPercentage * 100) / 100,
+          // Weighted like the report card when the subject maps its work; else the points total.
+          total_percentage: Math.round((weighted ? weighted.percentage : totalPercentage) * 100) / 100,
+          points_percentage: Math.round(totalPercentage * 100) / 100,
+          weighting: weighted ? "report_card" : "points",
           assignment_percentage: Math.round(assignmentPercentage * 100) / 100,
           quiz_percentage: Math.round(quizPercentage * 100) / 100,
           assessment_percentage: Math.round(assessmentPercentage * 100) / 100,
@@ -1137,6 +1158,8 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       data: {
         course_id: courseId,
         students: responseData,
+        // How "overall" is worked out: like the report card (this term's mapping) or the points total.
+        weighting: { mapped: subjectIsMapped(weighting, Number(courseId)), builder: weighting.grading.builder, term: weighting.term, academic_year: weighting.academicYear },
         assignments: assignments.map((a) => ({
           id: a.id,
           title: a.title,
@@ -1302,6 +1325,10 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
         req.user.id,
       ]);
 
+    // Overall per subject the report card's way when the subject maps its
+    // work this term (mapped categories, kinds of work, builder weights).
+    const weighting = await loadWeightingForRequest(req, courseIds.map(Number).filter((n: number) => !isNaN(n)));
+
     // 4. Aggregate
     const reportCards = subjects.map((subject: any) => {
       const courseId = subject.id || subject.subject_id;
@@ -1412,8 +1439,22 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
         totalPointsEarned += Number(item.score) || 0;
       }
 
-      const percentage =
+      const pointsPercentage =
         totalMaxPoints > 0 ? (totalPointsEarned / totalMaxPoints) * 100 : 0;
+      const weighted = weightedSubjectMark(
+        weighting,
+        Number(courseId),
+        items
+          .filter((i) => i.countsToFinal && i.marked && i.maxScore > 0)
+          .map((i) => ({
+            type: i.kind,
+            id: Number(i.id),
+            component: i.kind === "manual" ? (i as any).assessmentType || "manual" : i.kind,
+            raw: Number(i.score) || 0,
+            max: i.maxScore,
+          })),
+      );
+      const percentage = weighted ? weighted.percentage : pointsPercentage;
 
       const markedCount = items.filter((i) => i.marked).length;
       const status =
@@ -1426,6 +1467,9 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
         totalMaxPoints,
         totalPointsEarned: Math.round(totalPointsEarned * 100) / 100,
         percentage: Math.round(percentage * 100) / 100,
+        pointsPercentage: Math.round(pointsPercentage * 100) / 100,
+        // "report_card": weighted like the report card; "points": all marks added up.
+        weighting: weighted ? "report_card" : "points",
         status,
         items,
         markedCount,

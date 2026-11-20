@@ -25,6 +25,7 @@ import {
 } from "./tenantSettings";
 import { getMisToken } from "../utils/misUtils";
 import { getSchoolProfile } from "./schoolProfile";
+import { getComponentWeights, weightsFor } from "./componentWeights";
 import { effectiveCategory, gradingOf, type Grading, type ReportCardBuilderKind } from "./reportCardBuilders";
 import type { SchoolDirectory } from "./schoolDirectory";
 import { tk } from "../tenancy/keys";
@@ -458,7 +459,7 @@ export async function computeCardGrades(reportCard: ReportCard, grading?: Gradin
     resolveCardStudent(reportCard.student_id),
   ]);
   const { builder, weights: w } = grading ?? gradingOf(await getReportCardScheme());
-  const marks = await loadStudentMarks(identity, assessmentMappings);
+  const [marks, componentConfig] = await Promise.all([loadStudentMarks(identity, assessmentMappings), getComponentWeights()]);
 
   const subjectMap = new Map<number, AssessmentScore[]>();
   const missingBySubject = new Map<number, number>();
@@ -491,11 +492,15 @@ export async function computeCardGrades(reportCard: ReportCard, grading?: Gradin
       category,
       raw_score: score.raw_score,
       max_score: score.max_score,
+      component: marks.components.get(key),
     });
     subjectMap.set(mapping.subject_id, list);
   }
 
-  const grades = Array.from(subjectMap.entries()).map(([subject_id, list]) => calculateSubjectGrade(subject_id, list, w));
+  // Inside a category, each kind of work weighs what the subject (else the school) set.
+  const grades = Array.from(subjectMap.entries()).map(([subject_id, list]) =>
+    calculateSubjectGrade(subject_id, list, w, weightsFor(componentConfig, subject_id)),
+  );
   return {
     grades,
     attributes: attributes.map((a) => ({ id: a.id, attribute_name: a.attribute_name, rating: a.rating })),

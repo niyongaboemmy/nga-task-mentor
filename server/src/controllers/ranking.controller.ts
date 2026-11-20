@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { loadWeightingForRequest, rankingSubjectMark } from "../services/marksWeighting";
 import { Op } from "sequelize";
 import { z } from "zod";
 import { User } from "../models";
@@ -162,7 +163,9 @@ export const getRanking = async (req: Request, res: Response) => {
       const pending = sources
         ? collectPending(sources, me, courseIds.map(String), new Date())
         : [];
+      const weighting = courseIds.length ? await loadWeightingForRequest(req, courseIds) : null;
       const view = buildStudentView({
+        subjectMark: weighting ? rankingSubjectMark(weighting) : undefined,
         meKey: studentKey(me.mis_user_id, me.user_id),
         subjects: available,
         marks,
@@ -223,7 +226,9 @@ export const getRanking = async (req: Request, res: Response) => {
       });
     }
 
+    const weighting = courseIds.length ? await loadWeightingForRequest(req, courseIds) : null;
     const view = buildStaffView({
+      subjectMark: weighting ? rankingSubjectMark(weighting) : undefined,
       subjects: available,
       marks,
       roster,

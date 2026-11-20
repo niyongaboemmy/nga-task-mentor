@@ -1,4 +1,5 @@
 import { tk } from "../tenancy/keys";
+import { loadWeightingForRequest, rankingSubjectMark } from "../services/marksWeighting";
 import { dropInactiveKeyed } from "../utils/activeUsers";
 import { Request, Response } from "express";
 import { Op, fn, col } from "sequelize";
@@ -117,7 +118,9 @@ async function loadAdminData(req: Request, fresh: boolean): Promise<AdminData> {
   // Active students only: an inactive student's marks stay in their own
   // records but they are not ranked or listed (ACTIVE_USERS_CONTRACTS.md).
   const marks = sources ? await dropInactiveKeyed(collectMarks(sources), (m) => m.key) : [];
-  const ranked = rankStudents(marks, ids.map(String), "all");
+  // Weighted like the report card for subjects that map their work this term.
+  const weighting = ids.length ? await loadWeightingForRequest(req, ids) : null;
+  const ranked = rankStudents(marks, ids.map(String), "all", weighting ? rankingSubjectMark(weighting) : undefined);
 
   const rosterKeys = new Set(knownMisIds.map((id) => `m${id}`));
   const offRoster = ranked.map((r) => r.key).filter((k) => !rosterKeys.has(k));

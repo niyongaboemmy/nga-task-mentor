@@ -36,7 +36,17 @@ export interface AssessmentScore {
   raw_score: number;
   /** Maximum possible score for this assessment */
   max_score: number;
+  /** What kind of work it is inside its category: quiz, assignment, class_work, homework, midterm... */
+  component?: string;
 }
+
+/**
+ * How much each kind of work weighs inside a category, e.g. FA = class work 30,
+ * homework 20, quizzes 20, midterm 30. Relative numbers: they're scaled over
+ * the kinds that have marks. Absent = every assessment in the category
+ * counts the same (the plain average).
+ */
+export type ComponentWeights = Partial<Record<string, Record<string, number>>>;
 
 export interface CategoryResult {
   /** Score scaled to the category weight (e.g. max 15 for CW) */
@@ -45,6 +55,13 @@ export interface CategoryResult {
   weight: number;
   /** Average percentage across all assessments in this category */
   avg_percentage: number;
+  /**
+   * With component weights: each kind of work's average and its share of the
+   * category (weights scaled over the kinds with marks, so they add up to 100).
+   */
+  components?: Array<{ component: string; weight: number; share: number; avg_percentage: number; count: number }>;
+  /** Kinds of work with marks here but no weight: they don't count in this category. */
+  unweighted?: string[];
   /** Individual assessment details */
   assessments: Array<{
     assessment_id: number;
@@ -101,10 +118,48 @@ export function averagePercentage(scores: Array<{ raw_score: number; max_score: 
  * Given a list of assessment scores for a single subject,
  * compute per-category results and the total scaled score.
  */
+/**
+ * A category's percentage. Without component weights: the plain average of
+ * its assessments. With them: each kind of work is averaged first, and the
+ * kinds are combined by their weights, scaled over the kinds that have marks
+ * (a kind with no marks yet is left out, as a category with no marks is).
+ * A kind with marks but no weight is reported and left out; if no kind with
+ * marks has a weight, the plain average is used rather than nothing.
+ */
+export function categoryPercentage(
+  items: Array<{ raw_score: number; max_score: number; component?: string }>,
+  componentWeights?: Record<string, number>,
+): { avg: number; components?: CategoryResult["components"]; unweighted?: string[] } {
+  if (!componentWeights || Object.keys(componentWeights).length === 0) return { avg: averagePercentage(items) };
+  const byComponent = new Map<string, typeof items>();
+  for (const it of items) {
+    const c = it.component ?? "other";
+    byComponent.set(c, [...(byComponent.get(c) ?? []), it]);
+  }
+  const rows = [...byComponent.entries()].map(([component, list]) => ({
+    component,
+    weight: Math.max(0, Number(componentWeights[component] ?? 0) || 0),
+    avg_percentage: averagePercentage(list),
+    count: list.length,
+  }));
+  const unweighted = rows.filter((r) => r.weight === 0).map((r) => r.component);
+  const total = rows.reduce((a, r) => a + r.weight, 0);
+  if (total <= 0) return { avg: averagePercentage(items), unweighted };
+  const avg = rows.reduce((a, r) => a + (r.avg_percentage * r.weight) / total, 0);
+  return {
+    avg: parseFloat(avg.toFixed(4)),
+    components: rows
+      .sort((a, b) => b.weight - a.weight || a.component.localeCompare(b.component))
+      .map((r) => ({ ...r, share: parseFloat(((r.weight / total) * 100).toFixed(2)) })),
+    ...(unweighted.length ? { unweighted } : {}),
+  };
+}
+
 export function calculateSubjectGrade(
   subject_id: number,
   scores: AssessmentScore[],
   weights: CategoryWeights = CATEGORY_WEIGHTS,
+  componentWeights?: ComponentWeights,
 ): SubjectGrade {
   const grouped: Partial<Record<AssessmentCategory, AssessmentScore[]>> = {};
 
@@ -120,7 +175,7 @@ export function calculateSubjectGrade(
   for (const cat of Object.keys(grouped) as AssessmentCategory[]) {
     const items = grouped[cat]!.filter((s) => s.max_score > 0);
     if (items.length === 0) continue; // nothing markable in this category: not assessed
-    const avg = averagePercentage(items);
+    const { avg, components, unweighted } = categoryPercentage(items, componentWeights?.[cat]);
     const scaled = scaleToCategory(avg, cat, weights);
     points += scaled;
     weight_covered += weights[cat] ?? 0;
@@ -129,6 +184,8 @@ export function calculateSubjectGrade(
       scaled_score: scaled,
       weight: weights[cat],
       avg_percentage: avg,
+      ...(components ? { components } : {}),
+      ...(unweighted?.length ? { unweighted } : {}),
       assessments: items.map((s) => ({
         assessment_id: s.assessment_id,
         assessment_type: s.assessment_type,

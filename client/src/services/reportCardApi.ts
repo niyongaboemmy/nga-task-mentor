@@ -2,6 +2,15 @@ import axios from "../utils/axiosConfig";
 import type { AiAnswer } from "./myAiApi";
 
 /** CW/HW/MD are formative (FA), EOT the comprehensive assessment (CA), IA the Term 3 integrated assessment. */
+/** Category -> kind of work -> weight, e.g. { FA: { class_work: 30, homework: 20 } }. */
+export type ComponentWeights = Partial<Record<string, Record<string, number>>>;
+export interface ComponentWeightsResponse {
+  components: Array<{ key: string; label: string }>;
+  default: ComponentWeights;
+  subject: ComponentWeights | null;
+  effective: ComponentWeights;
+}
+
 /** Normal builder: CW/HW/MD/EOT. TVET builder: FA/CA/IA. */
 export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT" | "IA" | "FA" | "CA";
 
@@ -624,6 +633,28 @@ export class ReportCardApiService {
     academic_year: string;
   }): Promise<SubjectMappingResponse> {
     const response = await axios.get("/report-cards/subject-mapping", { params });
+    return response.data;
+  }
+
+  /** Kinds of work inside each category: the school's weights, the subject's own, and what applies. */
+  static async getComponentWeights(subjectId?: number): Promise<{ success: boolean; data: ComponentWeightsResponse }> {
+    const response = await axios.get("/report-cards/component-weights", { params: subjectId ? { subject_id: subjectId } : {} });
+    return response.data;
+  }
+
+  /** The school's default weights for every category (approvers). */
+  static async saveDefaultComponentWeights(weights: ComponentWeights): Promise<{ success: boolean; data: { default: ComponentWeights } }> {
+    const response = await axios.put("/report-cards/component-weights", { weights });
+    return response.data;
+  }
+
+  /** A subject's own weights for one category; null goes back to the school's. */
+  static async saveSubjectComponentWeights(
+    subjectId: number,
+    category: AssessmentCategory,
+    weights: Record<string, number> | null,
+  ): Promise<{ success: boolean; data: { subject: ComponentWeights | null; effective: ComponentWeights } }> {
+    const response = await axios.put(`/report-cards/component-weights/subjects/${subjectId}`, { category, weights });
     return response.data;
   }
 

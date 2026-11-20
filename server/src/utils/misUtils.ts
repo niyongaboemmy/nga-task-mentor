@@ -307,11 +307,34 @@ export const resolveAcademicYearId = async (
  * Returns nulls if unavailable — callers should treat that as "don't filter"
  * rather than fail, since MIS may be briefly unreachable.
  */
-export const resolveCurrentAcademicPeriodNames = async (
+export const resolveCurrentAcademicPeriodNames = (
+  req: Request,
+): Promise<{ term: string | null; academicYear: string | null }> => {
+  // Once per request: a report asks from several places (weighting, recorded marks...).
+  const memo = req as Request & { __periodNames?: Promise<{ term: string | null; academicYear: string | null }> };
+  if (!memo.__periodNames) memo.__periodNames = fetchCurrentAcademicPeriodNames(req);
+  return memo.__periodNames;
+};
+
+const fetchCurrentAcademicPeriodNames = async (
   req: Request,
 ): Promise<{ term: string | null; academicYear: string | null }> => {
   const token = getMisToken(req);
   if (!token) return { term: null, academicYear: null };
+
+  // The MIS token usually carries both (as getCurrentTermId reads the term id): no call then.
+  try {
+    const decoded: any = jwt.decode(token);
+    const terms = decoded?.currentAcademicTerms;
+    const yearName = decoded?.currentAcademicYear?.name;
+    if (Array.isArray(terms) && terms.length > 0 && yearName) {
+      const active =
+        terms.find((t: any) => Number(t.is_current) === 1 || Number(t.status) === 1 || t.status === "ACTIVE") ?? terms[0];
+      if (active?.name) return { term: String(active.name), academicYear: String(yearName) };
+    }
+  } catch {
+    /* fall through to MIS */
+  }
 
   try {
     const response = await axios.get(

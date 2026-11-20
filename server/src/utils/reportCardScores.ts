@@ -91,7 +91,7 @@ export function resolveMark(
 export async function loadStudentMarks(
   identity: StudentIdentity,
   items: Array<{ assessment_type: string; assessment_id: number }>,
-): Promise<{ scores: Map<ScoreKey, RawScore>; statuses: Map<ScoreKey, MarkResolution>; valid: Set<ScoreKey> }> {
+): Promise<{ scores: Map<ScoreKey, RawScore>; statuses: Map<ScoreKey, MarkResolution>; valid: Set<ScoreKey>; components: Map<ScoreKey, string> }> {
   const ids = (type: string) => [...new Set(items.filter((i) => i.assessment_type === type).map((i) => i.assessment_id))];
   // A deleted quiz still mapped on a card no longer counts.
   const quizIds = ids("quiz").length
@@ -129,7 +129,7 @@ export async function loadStudentMarks(
           raw: true,
         })
       : [],
-    manualIds.length ? ManualAssessment.findAll({ where: { id: { [Op.in]: manualIds } }, attributes: ["id", "max_score"], raw: true }) : [],
+    manualIds.length ? ManualAssessment.findAll({ where: { id: { [Op.in]: manualIds } }, attributes: ["id", "max_score", "assessment_type"], raw: true }) : [],
     manualIds.length && identity.manualIds.length
       ? ManualAssessmentScore.findAll({
           where: { student_id: { [Op.in]: identity.manualIds }, manual_assessment_id: { [Op.in]: manualIds } },
@@ -182,5 +182,15 @@ export async function loadStudentMarks(
     ...assignmentIds.map((id) => `assignment:${id}` as ScoreKey),
     ...(manualAssessments as any[]).map((m) => `manual:${Number(m.id)}` as ScoreKey),
   ]);
-  return { scores: out, statuses, valid };
+  // What kind of work each assessment is (its component inside a report card
+  // category): quiz, assignment, or the manual mark's own type.
+  const components = new Map<ScoreKey, string>([
+    ...quizIds.map((id) => [`quiz:${id}` as ScoreKey, "quiz"] as [ScoreKey, string]),
+    ...assignmentIds.map((id) => [`assignment:${id}` as ScoreKey, "assignment"] as [ScoreKey, string]),
+    ...(manualAssessments as any[]).map((m) => [`manual:${Number(m.id)}` as ScoreKey, componentOfManual(m.assessment_type)] as [ScoreKey, string]),
+  ]);
+  return { scores: out, statuses, valid, components };
 }
+
+/** A manual mark's component: its type (class_work, homework, midterm...), or "manual" when it has none. */
+export const componentOfManual = (type: string | null | undefined) => (type && String(type).trim() ? String(type) : "manual");

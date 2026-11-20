@@ -15,6 +15,9 @@ import {
   generateAnnualPdf,
   listReportCardStudents,
   getAdminSummary,
+  getComponentWeightsHandler,
+  putDefaultComponentWeights,
+  putSubjectComponentWeights,
 } from "../controllers/reportCard.controller";
 import { protect, authorizePermission, authorizeCapability } from "../middleware/auth";
 import { draftReportComment } from "../controllers/reportCommentAi.controller";
@@ -73,6 +76,16 @@ router.post(
   validate(subjectMappingSaveSchema),
   saveSubjectMapping,
 );
+
+// Kinds of work inside a category (FA = class work 30, homework 20...): the
+// school's default (approvers) and each subject's own (who maps that subject).
+router.get(
+  "/component-weights",
+  authorizePermission("REPORT_CARDS_CREATE", "REPORT_CARDS_EDIT", "REPORT_CARDS_VIEW_ALL", "REPORT_CARDS_APPROVE"),
+  getComponentWeightsHandler,
+);
+router.put("/component-weights", authorizePermission("REPORT_CARDS_APPROVE", "USERS_EDIT"), putDefaultComponentWeights);
+router.put("/component-weights/subjects/:id(\\d+)", authorizePermission("REPORT_CARDS_CREATE", "REPORT_CARDS_EDIT"), putSubjectComponentWeights);
 
 // ── Attributes (class teacher / admin) ────────────────────────────────────────
 // Access control v2 (enforce): the class-teacher comment is its own

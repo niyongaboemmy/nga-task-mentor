@@ -11,6 +11,7 @@ import { sampleNormalDocument, sampleTvetDocument } from "../components/ReportCa
 import SchoolProfileCard from "../components/ReportCard/templates/SchoolProfileCard";
 import ModuleWeightsEditor from "../components/ReportCard/templates/ModuleWeightsEditor";
 import FormativeDefaultPanel from "../components/ReportCard/templates/FormativeDefaultPanel";
+import SchoolComponentWeightsPanel from "../components/ReportCard/templates/SchoolComponentWeightsPanel";
 import { describeKinds } from "../components/ReportCard/templates/formativeText";
 import { NORMAL_STRUCTURE, TVET_STRUCTURE, refreshReportCardStructure } from "../hooks/useReportCardStructure";
 import type { ReportCardBuilderKind, ReportCardDocument } from "../services/reportCardApi";
@@ -397,6 +398,9 @@ export default function ReportCardTemplatesPage() {
           </section>
 
           {builder === "tvet" && <FormativeDefaultPanel refreshKey={formativeKey} />}
+
+          {/* Kinds of work inside each category, before they merge (school default) */}
+          <SchoolComponentWeightsPanel key={builder} structure={builder === "tvet" ? TVET_STRUCTURE : NORMAL_STRUCTURE} />
 
           {/* 2. The school's details, kept in MIS (per tenant) */}
           <SchoolProfileCard template={opts} onDraft={setSchoolDraft} refreshKey={schoolKey} />

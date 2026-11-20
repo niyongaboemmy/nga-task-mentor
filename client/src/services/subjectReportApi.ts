@@ -74,7 +74,10 @@ interface RawStudentGrade {
   summary: {
     total_points_earned: number;
     total_max_points: number;
+    /** Weighted like the report card when the subject maps its work this term; else the points total. */
     total_percentage: number;
+    points_percentage?: number;
+    weighting?: "report_card" | "points";
     assignment_percentage: number;
     quiz_percentage: number;
     assessment_percentage?: number;
@@ -87,6 +90,8 @@ export interface SubjectGradesPayload {
   assignments: RawAssessmentMeta[];
   quizzes: RawAssessmentMeta[];
   assessments?: RawAssessmentMeta[];
+  /** How "overall" is worked out for this term. */
+  weighting?: { mapped: boolean; builder: string; term: string | null; academic_year: string | null };
 }
 
 // ─── Derived report ──────────────────────────────────────────────────────────
@@ -146,6 +151,8 @@ export interface SubjectReport {
   bandCounts: Record<BandKey, number>;
   /** Assessments with a date, oldest first — the trend line's input. */
   timeline: AssessmentStat[];
+  /** "report_card": overall marks weighted like the report card (mapped work, kinds of work, categories); "points": all marks added up. */
+  weighting: "report_card" | "points";
 }
 
 /** "Midterm 1", or the free-text title when the teacher left the type blank. */
@@ -332,6 +339,7 @@ export const buildSubjectReport = (
     timeline: assessments
       .filter((a) => a.date && a.averagePct !== null)
       .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "")),
+    weighting: payload.weighting?.mapped ? "report_card" : "points",
   };
 };
 

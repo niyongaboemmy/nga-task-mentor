@@ -132,6 +132,34 @@ export interface OverviewInput {
   users: LocalUserRow[];
   /** Also return every student's summary (students.all) — the admin directory. */
   include_all_students?: boolean;
+  /**
+   * Teacher-recorded marks (class work, homework, midterms...) that count to
+   * the final grade, by MIS student id. Used only with subjectMark.
+   */
+  manualScores?: ManualScoreRow[];
+  /**
+   * A student's subject mark the report card's way (mapped categories, kinds
+   * of work, builder weights), or null when the subject maps nothing this
+   * term; then the plain mean of the online work is used, as before.
+   */
+  subjectMark?: (subjectId: number, items: ScoreItem[]) => number | null;
+}
+
+export interface ManualScoreRow {
+  subject_id: number;
+  assessment_id: number;
+  /** class_work, homework, midterm... */
+  component: string;
+  mis_user_id: number;
+  pct: number;
+}
+
+/** One marked piece of work for one student. */
+export interface ScoreItem {
+  type: "assignment" | "quiz" | "manual";
+  id: number;
+  component: string;
+  pct: number;
 }
 
 // ─── Output ───────────────────────────────────────────────────────────────────
@@ -434,14 +462,14 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
   // Event streams for the weekly trend.
   const submittedEvents: Date[] = [];
   const gradedEvents: Array<{ at: Date; pct: number }> = [];
-  // student -> subject -> item percentages
-  const studentScores = new Map<string, Map<number, number[]>>();
+  // student -> subject -> marked items
+  const studentScores = new Map<string, Map<number, ScoreItem[]>>();
   const localOfKey = new Map<string, number>();
 
-  const recordScore = (key: string, subjectId: number, pct: number) => {
-    const bySubject = studentScores.get(key) ?? new Map<number, number[]>();
+  const recordScore = (key: string, subjectId: number, item: ScoreItem) => {
+    const bySubject = studentScores.get(key) ?? new Map<number, ScoreItem[]>();
     const list = bySubject.get(subjectId) ?? [];
-    list.push(pct);
+    list.push(item);
     bySubject.set(subjectId, list);
     studentScores.set(key, bySubject);
   };
@@ -505,9 +533,39 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
       continue;
     }
     for (const [key, pct] of acc.scores) {
-      recordScore(key, s.subject_id, pct);
+      recordScore(key, s.subject_id, { type: s.kind, id: s.id, component: s.kind, pct });
       allItemScores.push(pct);
     }
+  }
+
+  // A student's mark per subject: the report card's way when the subject maps
+  // its work (teacher-recorded marks included), else the mean of online work.
+  const manualByKey = new Map<string, Map<number, ScoreItem[]>>();
+  if (input.subjectMark) {
+    for (const m of input.manualScores ?? []) {
+      if (!subjectById.has(m.subject_id)) continue;
+      const key = `mis:${m.mis_user_id}`;
+      const bySubject = manualByKey.get(key) ?? new Map<number, ScoreItem[]>();
+      const list = bySubject.get(m.subject_id) ?? [];
+      list.push({ type: "manual", id: m.assessment_id, component: m.component, pct: clampPct(m.pct) });
+      bySubject.set(m.subject_id, list);
+      manualByKey.set(key, bySubject);
+    }
+  }
+  /** student -> subject -> { mark, items counted } */
+  const subjectMarks = new Map<string, Map<number, { avg: number; count: number }>>();
+  for (const key of new Set([...studentScores.keys(), ...manualByKey.keys()])) {
+    const online = studentScores.get(key) ?? new Map<number, ScoreItem[]>();
+    const manual = manualByKey.get(key) ?? new Map<number, ScoreItem[]>();
+    const out = new Map<number, { avg: number; count: number }>();
+    for (const sid of new Set([...online.keys(), ...manual.keys()])) {
+      const xs = online.get(sid) ?? [];
+      const ms = manual.get(sid) ?? [];
+      const weighted = input.subjectMark ? input.subjectMark(sid, [...xs, ...ms]) : null;
+      if (weighted != null) out.set(sid, { avg: weighted, count: xs.length + ms.length });
+      else if (xs.length) out.set(sid, { avg: mean(xs.map((x) => x.pct))!, count: xs.length });
+    }
+    if (out.size) subjectMarks.set(key, out);
   }
 
   // Missing work: roster students with nothing turned in for a closed, live assessment.
@@ -530,16 +588,16 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
   }
 
   // ── Students ──
-  const allStudentKeys = new Set<string>([...studentScores.keys(), ...missingByStudent.keys()]);
+  const allStudentKeys = new Set<string>([...subjectMarks.keys(), ...missingByStudent.keys()]);
   for (const r of rosterBySubject.values()) for (const misId of r.keys()) allStudentKeys.add(`mis:${misId}`);
 
   const studentSummaries: StudentSummary[] = [];
   const atRiskBySubject = new Map<number, number>();
   for (const key of allStudentKeys) {
-    const bySubject = studentScores.get(key) ?? new Map<number, number[]>();
-    const subjectAverages = [...bySubject.values()].map((xs) => mean(xs)!);
+    const bySubject = subjectMarks.get(key) ?? new Map<number, { avg: number; count: number }>();
+    const subjectAverages = [...bySubject.values()].map((m) => m.avg);
     const avg = subjectAverages.length ? round1(mean(subjectAverages)!) : null;
-    const graded = [...bySubject.values()].reduce((n, xs) => n + xs.length, 0);
+    const graded = [...bySubject.values()].reduce((n, m) => n + m.count, 0);
     const missing = missingByStudent.get(key) ?? 0;
 
     const misId = key.startsWith("mis:") ? Number(key.slice(4)) : null;
@@ -561,7 +619,7 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
     }
     const reasons: string[] = [];
     if (avg != null && avg < PASS_MARK) reasons.push(`Average ${avg}%`);
-    const failingSubjects = [...bySubject.entries()].filter(([, xs]) => mean(xs)! < PASS_MARK);
+    const failingSubjects = [...bySubject.entries()].filter(([, m]) => m.avg < PASS_MARK);
     if (failingSubjects.length > 0 && (avg == null || avg >= PASS_MARK)) {
       reasons.push(
         `Below ${PASS_MARK}% in ${failingSubjects
@@ -588,8 +646,8 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
       // Count the student against a subject only where the problem is: failing
       // there, or missing work there (not merely enrolled in it).
       for (const sid of subjectIds) {
-        const xs = bySubject.get(sid);
-        const failingHere = xs ? mean(xs)! < PASS_MARK : false;
+        const m = bySubject.get(sid);
+        const failingHere = m ? m.avg < PASS_MARK : false;
         const missingHere = missingByStudentSubject.get(`${key}|${sid}`) ?? 0;
         if (failingHere || (missing >= 2 && missingHere > 0)) {
           atRiskBySubject.set(sid, (atRiskBySubject.get(sid) ?? 0) + 1);
@@ -617,9 +675,9 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
 
     // Per-student subject averages -> class average.
     const studentAverages: number[] = [];
-    for (const bySubject of studentScores.values()) {
-      const xs = bySubject.get(subject.id);
-      if (xs?.length) studentAverages.push(mean(xs)!);
+    for (const bySubject of subjectMarks.values()) {
+      const m = bySubject.get(subject.id);
+      if (m) studentAverages.push(m.avg);
     }
     const closedLive = live.filter((a) => a.summary.is_closed);
     const expectedClosed = roster ? closedLive.length * roster.size : 0;

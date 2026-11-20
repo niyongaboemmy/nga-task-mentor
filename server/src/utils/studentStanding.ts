@@ -27,6 +27,19 @@ export interface StandingMember {
   key: string;
   /** course id → per-kind tallies; a subject the member has no marks in is absent. */
   scores: Record<string, SubjectScores>;
+  /**
+   * course id → the subject score weighted like the report card (subjects
+   * that map their work this term only). Used for "all work"; absent otherwise.
+   */
+  weighted?: Record<string, number>;
+}
+
+/** One marked item, for StandingInput.subjectMark. */
+export interface StandingItem {
+  type: "assignment" | "quiz" | "manual";
+  id: number;
+  component: string;
+  pct: number;
 }
 
 export interface StandingSubject {
@@ -78,6 +91,8 @@ export interface StandingInput {
   }>;
   /** Recorded marks, already resolved per student (see buildManualAssessmentRow). */
   recorded: Array<{
+    id?: number;
+    assessment_type?: string | null;
     course_id: number | string;
     counts_to_final: boolean;
     max_score: number;
@@ -86,6 +101,8 @@ export interface StandingInput {
   }>;
   /** Injected for tests; defaults to Math.random. */
   random?: () => number;
+  /** The report card's weighted subject score, or null when the subject maps nothing. */
+  subjectMark?: (courseId: string, items: StandingItem[]) => number | null;
 }
 
 /**
@@ -128,8 +145,15 @@ export const buildStandingPayload = (input: StandingInput): StandingPayload => {
   // they are added explicitly.
   interface Member extends Identity {
     scores: Record<string, SubjectScores>;
+    items: Map<string, StandingItem[]>;
     isTarget: boolean;
   }
+  const keep = (m: Member, courseId: string, item: StandingItem) => {
+    if (!input.subjectMark) return;
+    const list = m.items.get(courseId) ?? [];
+    list.push(item);
+    m.items.set(courseId, list);
+  };
   const byMis = new Map<number, Member>();
   const byLocal = new Map<number, Member>();
   const register = (identity: Identity, isTarget = false): Member => {
@@ -140,7 +164,7 @@ export const buildStandingPayload = (input: StandingInput): StandingPayload => {
       existing.isTarget ||= isTarget;
       return existing;
     }
-    const member: Member = { ...identity, scores: {}, isTarget };
+    const member: Member = { ...identity, scores: {}, items: new Map(), isTarget };
     if (member.mis_user_id !== null) byMis.set(member.mis_user_id, member);
     if (member.user_id !== null) byLocal.set(member.user_id, member);
     return member;
@@ -192,7 +216,7 @@ export const buildStandingPayload = (input: StandingInput): StandingPayload => {
     if (!memberIds.has(m)) memberIds.set(m, memberIds.size);
     return memberIds.get(m)!;
   };
-  const assignmentMarks = new Map<string, { member: Member; courseId: string; pct: number }>();
+  const assignmentMarks = new Map<string, { member: Member; courseId: string; pct: number; id: number }>();
   for (const sub of input.submissions) {
     if (sub.status === "draft") continue;
     const assignment = assignmentById.get(sub.assignment_id);
@@ -204,15 +228,16 @@ export const buildStandingPayload = (input: StandingInput): StandingPayload => {
     if (pct === null) continue;
     const key = `${assignment.id}:${idOf(member)}`;
     const prev = assignmentMarks.get(key);
-    if (!prev || pct > prev.pct) assignmentMarks.set(key, { member, courseId, pct });
+    if (!prev || pct > prev.pct) assignmentMarks.set(key, { member, courseId, pct, id: assignment.id });
   }
-  for (const { member, courseId, pct } of assignmentMarks.values()) {
+  for (const { member, courseId, pct, id } of assignmentMarks.values()) {
     add(member.scores, courseId, "assignment", pct);
+    keep(member, courseId, { type: "assignment", id, component: "assignment", pct });
   }
 
   // Quizzes — best completed attempt (callers pass completed attempts only).
   const quizById = new Map(input.quizzes.map((q) => [q.id, q]));
-  const attempts = new Map<string, { member: Member; courseId: string; subs: typeof input.quizSubmissions }>();
+  const attempts = new Map<string, { member: Member; courseId: string; id: number; subs: typeof input.quizSubmissions }>();
   for (const sub of input.quizSubmissions) {
     const quiz = quizById.get(sub.quiz_id);
     if (!quiz) continue;
@@ -220,14 +245,16 @@ export const buildStandingPayload = (input: StandingInput): StandingPayload => {
     const member = memberOf(sub, courseId);
     if (!member) continue;
     const key = `${quiz.id}:${idOf(member)}`;
-    const entry = attempts.get(key) ?? { member, courseId, subs: [] };
+    const entry = attempts.get(key) ?? { member, courseId, id: quiz.id, subs: [] };
     entry.subs.push(sub);
     attempts.set(key, entry);
   }
-  for (const { member, courseId, subs } of attempts.values()) {
+  for (const { member, courseId, id, subs } of attempts.values()) {
     const best = bestBySubmissionScore(subs);
     const pct = best ? Number(best.percentage) : NaN;
-    if (!isNaN(pct)) add(member.scores, courseId, "quiz", Math.round(pct * 100) / 100);
+    if (isNaN(pct)) continue;
+    add(member.scores, courseId, "quiz", Math.round(pct * 100) / 100);
+    keep(member, courseId, { type: "quiz", id, component: "quiz", pct });
   }
 
   // Recorded marks.
@@ -236,7 +263,12 @@ export const buildStandingPayload = (input: StandingInput): StandingPayload => {
     const courseId = String(assessment.course_id);
     for (const member of rosterByCourse.get(courseId) ?? []) {
       const pct = assessment.percentageFor(member);
-      if (pct !== null) add(member.scores, courseId, "recorded", pct);
+      if (pct === null) continue;
+      add(member.scores, courseId, "recorded", pct);
+      if (assessment.id != null) {
+        const t = assessment.assessment_type && String(assessment.assessment_type).trim() ? String(assessment.assessment_type) : "manual";
+        keep(member, courseId, { type: "manual", id: assessment.id, component: t, pct });
+      }
     }
   }
 
@@ -246,10 +278,20 @@ export const buildStandingPayload = (input: StandingInput): StandingPayload => {
   everyone.add(target);
 
   const shuffled = shuffle([...everyone], random);
-  const members: StandingMember[] = shuffled.map((m, i) => ({
-    key: m.isTarget ? "me" : `s${i + 1}`,
-    scores: m.scores,
-  }));
+  const members: StandingMember[] = shuffled.map((m, i) => {
+    const weighted: Record<string, number> = {};
+    if (input.subjectMark) {
+      for (const [courseId, items] of m.items) {
+        const w = input.subjectMark(courseId, items);
+        if (w != null) weighted[courseId] = Math.round(w * 10) / 10;
+      }
+    }
+    return {
+      key: m.isTarget ? "me" : `s${i + 1}`,
+      scores: m.scores,
+      ...(Object.keys(weighted).length ? { weighted } : {}),
+    };
+  });
 
   return { me: "me", subjects, members };
 };

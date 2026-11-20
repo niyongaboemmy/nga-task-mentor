@@ -57,12 +57,15 @@ const listeners = new Set<(s: BuilderStructure) => void>();
 
 function load(): Promise<BuilderStructure> {
   if (!cache) {
-    cache = ReportCardWorkflowApi.structure()
+    const p: Promise<BuilderStructure> = ReportCardWorkflowApi.structure()
       .then((r) => r.data.structure)
       .catch(() => {
-        cache = null; // retry next time; meanwhile the Normal structure
+        // Retry next time; meanwhile the Normal structure. Only if nothing
+        // replaced it meanwhile: a late failure mustn't wipe a refreshed value.
+        if (cache === p) cache = null;
         return NORMAL_STRUCTURE;
       });
+    cache = p;
   }
   return cache;
 }

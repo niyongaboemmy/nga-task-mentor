@@ -386,7 +386,7 @@ export default function CourseReportsPage() {
               value={report.classAverage}
               suffix="%"
               progress={report.classAverage}
-              caption={report.medianPct === null ? "No marks yet · active students only" : `Median ${report.medianPct}% · marked students only`}
+              caption={`${report.weighting === "report_card" ? "Weighted like the report card · " : ""}${report.medianPct === null ? "No marks yet · active students only" : `Median ${report.medianPct}% · marked students only`}`}
             />
             <KpiCard
               icon={<CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}

@@ -39,7 +39,10 @@ export interface SubjectRow {
   code: string;
   totalMaxPoints: number;
   totalPointsEarned: number;
+  /** Weighted like the report card when the subject maps its work this term; else the points total. */
   percentage: number;
+  pointsPercentage?: number;
+  weighting?: "report_card" | "points";
   status: "Passing" | "Failing" | "No Grade";
   items: SubjectItem[];
   markedCount: number;

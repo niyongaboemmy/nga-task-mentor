@@ -238,7 +238,9 @@ describe("GET /api/dashboard/admin/subjects", () => {
       published: 1,
       submissions: 1,
       participation: 50,
-      avg_score: 75,
+      // Jane 75 (online work) and Omar 40 (the mapped midterm he sat): recorded
+      // marks count in a mapped subject, as on the students report and the card.
+      avg_score: 57.5,
       report_card: { mapped: true, mapped_items: 1 },
     });
     expect(b).toMatchObject({ teacher_list: [], students: 0, report_card: { mapped: false } });

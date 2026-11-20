@@ -9,7 +9,7 @@ import { SubjectAssessmentMapping } from "../models/SubjectAssessmentMapping.mod
 import { ManualAssessment } from "../models/ManualAssessment.model";
 import { combineAnnualSubjectGrades } from "../services/reportCardGrader.service";
 import type { SubjectGrade } from "../services/reportCardGrader.service";
-import { loadStudentScores, resolveCardStudent } from "../utils/reportCardScores";
+import { componentOfManual, loadStudentScores, resolveCardStudent } from "../utils/reportCardScores";
 import {
   buildProvisionalCard,
   suggestedCategory,
@@ -40,6 +40,14 @@ import {
 import { isEditable, isFrozen, legacyStatusToActions } from "../services/reportCardWorkflow";
 import { getReportCardScheme } from "../services/tenantSettings";
 import { builderStructure, effectiveCategory, gradingOf } from "../services/reportCardBuilders";
+import {
+  COMPONENT_KEYS,
+  COMPONENT_LABEL,
+  getComponentWeights,
+  setDefaultComponentWeights,
+  setSubjectComponentWeights,
+  weightsFor,
+} from "../services/componentWeights";
 import { runTransition } from "./reportCardWorkflow.controller";
 import type {
   BuilderSavePayload,
@@ -778,8 +786,9 @@ export const getReportCardPreview = async (req: Request, res: Response) => {
       idsOf("assignment").length
         ? Assignment.findAll({ where: { id: { [Op.in]: idsOf("assignment") }, ...COUNTED_MARKS }, attributes: ["id", "title"], raw: true })
         : [],
-      idsOf("manual").length ? ManualAssessment.findAll({ where: { id: { [Op.in]: idsOf("manual") } }, attributes: ["id", "title"], raw: true }) : [],
+      idsOf("manual").length ? ManualAssessment.findAll({ where: { id: { [Op.in]: idsOf("manual") } }, attributes: ["id", "title", "assessment_type"], raw: true }) : [],
     ]);
+    const manualKind = new Map((manuals as any[]).map((m) => [m.id, componentOfManual(m.assessment_type)]));
     const titles = new Map<string, string>();
     for (const q of quizzes as any[]) titles.set(`quiz:${q.id}`, q.title);
     for (const a of assignments as any[]) titles.set(`assignment:${a.id}`, a.title);
@@ -807,12 +816,14 @@ export const getReportCardPreview = async (req: Request, res: Response) => {
               assessment_id: r.assessment_id,
               category: effectiveCategory(grading.builder, r.category) as AssessmentCategory,
               title: titles.get(`${r.assessment_type}:${r.assessment_id}`) ?? `${r.assessment_type} #${r.assessment_id}`,
+              component: r.assessment_type === "manual" ? manualKind.get(r.assessment_id) ?? "manual" : r.assessment_type,
             }))
             .filter((r) => r.category != null),
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-    const card = buildProvisionalCard(inputs, scores, grading.weights);
+    const componentConfig = await getComponentWeights();
+    const card = buildProvisionalCard(inputs, scores, grading.weights, (id) => weightsFor(componentConfig, id));
 
     const attributes = reportCard
       ? await ReportCardAttribute.findAll({ where: { report_card_id: reportCard.id }, attributes: ["id", "attribute_name", "rating"] })
@@ -1215,5 +1226,54 @@ export const verifyReportCard = async (req: Request, res: Response) => {
     });
   } catch (error) {
     sendControllerError(res, error, "verifyReportCard");
+  }
+};
+
+// ─── Component weights (kinds of work inside a category) ─────────────────────
+
+/** GET /report-cards/component-weights?subject_id= : the school's weights, the subject's own, and what applies. */
+export const getComponentWeightsHandler = async (req: Request, res: Response) => {
+  try {
+    const config = await getComponentWeights();
+    const subjectId = Number(req.query.subject_id);
+    const has = Number.isInteger(subjectId) && subjectId > 0;
+    res.status(200).json({
+      success: true,
+      data: {
+        components: COMPONENT_KEYS.map((key) => ({ key, label: COMPONENT_LABEL[key] })),
+        default: config.default,
+        subject: has ? (config.subjects[String(subjectId)] ?? null) : null,
+        effective: has ? weightsFor(config, subjectId) : config.default,
+      },
+    });
+  } catch (error) {
+    sendControllerError(res, error, "getComponentWeights");
+  }
+};
+
+/** PUT /report-cards/component-weights { weights }: the school's default weights (all categories). */
+export const putDefaultComponentWeights = async (req: Request, res: Response) => {
+  try {
+    const config = await setDefaultComponentWeights(req.body?.weights ?? {}, (req as any).user?.id ?? null);
+    res.status(200).json({ success: true, data: { default: config.default } });
+  } catch (error: any) {
+    if (error?.status) return res.status(error.status).json({ success: false, message: error.message });
+    sendControllerError(res, error, "putDefaultComponentWeights");
+  }
+};
+
+/** PUT /report-cards/component-weights/subjects/:id { category, weights | null }: a subject's own weights for one category. */
+export const putSubjectComponentWeights = async (req: Request, res: Response) => {
+  try {
+    const subjectId = Number(req.params.id);
+    if (!Number.isInteger(subjectId) || subjectId <= 0) return res.status(400).json({ success: false, message: "Unknown subject." });
+    const mayMap = await scopedAllow(req, { caps: ["REPORT_CARDS_CREATE", "REPORT_CARDS_EDIT"], target: { subjectId }, legacy: true });
+    if (!mayMap) return denyResponse(req, res, "Not authorized to set weights for this subject");
+    const category = String(req.body?.category ?? "");
+    const config = await setSubjectComponentWeights(subjectId, category, req.body?.weights ?? null, (req as any).user?.id ?? null);
+    res.status(200).json({ success: true, data: { subject: config.subjects[String(subjectId)] ?? null, effective: weightsFor(config, subjectId) } });
+  } catch (error: any) {
+    if (error?.status) return res.status(error.status).json({ success: false, message: error.message });
+    sendControllerError(res, error, "putSubjectComponentWeights");
   }
 };
