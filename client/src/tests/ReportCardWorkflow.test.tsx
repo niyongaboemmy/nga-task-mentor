@@ -426,6 +426,41 @@ describe("report card document view", () => {
     expect(d).toHaveTextContent("17th of 18 in the class");
   });
 
+  it("guides staff on a draft: lists unassessed subjects and the marks that aren't mapped", () => {
+    const d0 = doc("draft");
+    d0.groups[0].subjects.push({
+      subject_id: 2, name: "Citizenship I", group: "Core modules", teacher: null, categories: { CW: null, HW: null, MD: null, EOT: null },
+      total: null, grade: null, remark: null, passed: null, class_average: null, missing_marks: 0, mapped: false,
+    });
+    const onOpen = vi.fn();
+    render(
+      <ReportCardDocumentView
+        doc={d0}
+        onOpen={onOpen}
+        unmapped={{
+          1: [{ kind: "manual", id: 7, title: "Practical test", subject_id: 1, at: null, recorded: 14, student_mark: { raw: 8, max: 10 }, url: "/grades/subjects/1", map_url: "/grades/subjects/1" }],
+        }}
+      />,
+    );
+    expect(screen.getByTestId("mapping-guide")).toHaveTextContent("1 assessment with marks isn't mapped (1 subject)");
+    expect(screen.getByTestId("mapping-guide")).toHaveTextContent("1 subject also has nothing mapped");
+    expect(screen.getByTestId("module-2")).toHaveTextContent("Not assessed");
+    expect(screen.getByTestId("unmapped-chip-1")).toHaveTextContent("1 not mapped");
+    fireEvent.click(screen.getByTestId("module-1"));
+    const panel = screen.getByTestId("unmapped-1");
+    expect(panel).toHaveTextContent("Practical test");
+    expect(panel).toHaveTextContent("8 / 10");
+    fireEvent.click(within(panel).getByTestId("map-1"));
+    expect(onOpen).toHaveBeenCalledWith("/grades/subjects/1");
+    fireEvent.click(screen.getByTestId("module-2"));
+    expect(screen.getByTestId("unmapped-2")).toHaveTextContent("No assessments mapped for this subject");
+  });
+
+  it("shows no guidance to students (no unmapped data)", () => {
+    render(<ReportCardDocumentView doc={doc("draft")} />);
+    expect(screen.queryByTestId("mapping-guide")).toBeNull();
+  });
+
   it("watermarks a draft as provisional", () => {
     render(<ReportCardDocumentView doc={doc("draft")} />);
     expect(screen.getByTestId("report-card-document")).toHaveTextContent("PROVISIONAL");
