@@ -44,7 +44,9 @@ describe("TVET template (RTB / CAMIS)", () => {
     // SPEWI302 (weight 80): 124.1 + 129.6 + 224.2 = 477.9 of 560 = 85.34%, competent.
     const row = screen.getByTestId("tvet-row-6");
     for (const t of ["SPEWI302", "80", "124.1", "129.6", "74.7", "75.9", "73.6", "224.2", "477.9", "85.34%", "C"]) expect(within(row).getByText(t)).toBeInTheDocument();
-    expect(within(screen.getByTestId("tvet-row-1")).getAllByText("N/A")).toHaveLength(3); // no IA for complementary modules
+    // No IA mark is "–", like FA and CA: IA can be given in any term, so it's never "N/A".
+    expect(within(screen.getByTestId("tvet-row-1")).queryByText("N/A")).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("tvet-row-1")).getAllByText("–").length).toBeGreaterThanOrEqual(3);
     expect(screen.getByTestId("behaviour-row")).toHaveTextContent("35/40");
     expect(screen.getByTestId("summary-position")).toHaveTextContent("2 out of 10");
     expect(screen.getByTestId("summary-conduct")).toHaveTextContent("35/40");
@@ -63,6 +65,15 @@ describe("TVET template (RTB / CAMIS)", () => {
     expect(detail).toHaveTextContent("477.9/560");
     expect(detail).toHaveTextContent("pass line 70%");
     expect(detail).toHaveTextContent("Competent");
+  });
+
+  it("prints an integrated assessment given in Term 2, not only on Term 3", () => {
+    const doc = sampleTvetDocument(false);
+    const s = doc.groups[0].subjects.find((x) => x.code === "SPEWI302")!;
+    s.tvet!.terms[0] = { fa: 59.2, ia: 72, ca: 70.4, to: 201.6, max: 240, pct: 84 };
+    render(<ReportCardDocumentView doc={doc} />);
+    const row = screen.getByTestId("tvet-row-6");
+    for (const t of ["59.2", "72", "70.4", "201.6", "84%"]) expect(within(row).getByText(t)).toBeInTheDocument();
   });
 
   it("prints a termly card with one term, no year, and Competent / NYC per module", () => {
