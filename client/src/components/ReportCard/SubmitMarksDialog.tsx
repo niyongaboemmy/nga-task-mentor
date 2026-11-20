@@ -179,12 +179,12 @@ export default function SubmitMarksDialog({
       ) : (
         <div className="space-y-4">
           {returned && status === "open" && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-200">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-200">
               <strong>Returned:</strong> {returned}
             </div>
           )}
           {locked > 0 && (
-            <div className="flex items-center gap-2 rounded-xl border border-gray-200 p-3 text-sm text-text-secondary-light dark:border-white/10 dark:text-text-secondary-dark">
+            <div className="flex items-center gap-2 rounded-2xl border border-gray-200 p-3 text-sm text-text-secondary-light dark:border-panel-line dark:text-text-secondary-dark">
               <Lock className="h-4 w-4" /> {locked} card{locked === 1 ? " is" : "s are"} already reviewed or approved and won't change.
             </div>
           )}
@@ -197,7 +197,7 @@ export default function SubmitMarksDialog({
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="Why reopen? (optional)"
-                  className="mt-2 w-full max-w-sm rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-800"
+                  className="mt-2 w-full max-w-sm rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm dark:border-panel-line dark:bg-panel-dark"
                 />
               )}
             </div>
@@ -225,7 +225,7 @@ export default function SubmitMarksDialog({
                   </Button>
                 </div>
               </div>
-              <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200 dark:divide-white/5 dark:border-white/10">
+              <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-200 dark:divide-white/5 dark:border-panel-line">
                 {byStudent.map((s) => (
                   <li key={s.name + s.items[0].report_card_id} className="p-3">
                     <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{s.name}</p>
@@ -242,7 +242,7 @@ export default function SubmitMarksDialog({
                             value={choice[key(m)] ?? "pending"}
                             onChange={(e) => setChoice((c) => ({ ...c, [key(m)]: e.target.value as Choice }))}
                             aria-label={`${s.name}: ${m.title}`}
-                            className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-slate-800"
+                            className="rounded-xl border border-gray-200 bg-white px-2 py-1 text-xs dark:border-panel-line dark:bg-panel-dark"
                           >
                             <option value="pending">I'll record it</option>
                             <option value="absent">Absent (counts 0)</option>

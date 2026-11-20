@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { ArrowRight, CalendarDays, Check, ClipboardCheck, Clock, RefreshCw, Search, Settings2, Users } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, ClipboardCheck, ClipboardList, Clock, Eye, FileCheck2, RefreshCw, Search, Send, Settings2, ShieldCheck, Users } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import { Button } from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
@@ -39,6 +39,19 @@ const STAGES = [
   { key: "publish", title: "Ready to publish", cta: "Publish", hint: "Students see cards once published." },
   { key: "done", title: "Published", cta: "View cards", hint: "Every card is out." },
 ] as const;
+
+const STAGE_ICON = [ClipboardList, FileCheck2, ShieldCheck, Send, Eye];
+
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+
+/** What is left at this stage, in one short line under the action. */
+function stageHint(st: number, r: CycleRow): string {
+  if (st === 0) return `${plural(r.subjects_total - r.subjects_submitted, "subject")} to submit`;
+  if (st === 1) return `${plural(r.counts.not_started + r.counts.draft, "card")} to review`;
+  if (st === 2) return `${plural(r.counts.reviewed, "card")} to approve`;
+  if (st === 3) return `${plural(r.counts.approved, "card")} to publish`;
+  return `All ${r.students} published`;
+}
 
 function stageOf(r: CycleRow): number {
   if (r.subjects_total > 0 && r.subjects_submitted < r.subjects_total) return 0;
@@ -154,7 +167,7 @@ export default function ReportCardsPage() {
             {can?.approve && (
               <Link
                 to="/report-cards/settings"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-text-primary-light hover:bg-gray-50 dark:border-white/10 dark:text-text-primary-dark dark:hover:bg-white/5"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-1.5 text-sm font-medium text-text-primary-light hover:bg-gray-50 dark:border-panel-line dark:text-text-primary-dark dark:hover:bg-panel-raised"
               >
                 <Settings2 className="h-4 w-4" /> Card settings
               </Link>
@@ -164,7 +177,7 @@ export default function ReportCardsPage() {
       />
 
       {/* School pipeline: how many classes sit at each stage, and what to do next */}
-      <section className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900" data-testid="school-pipeline">
+      <section className="rounded-3xl border border-gray-200 bg-white p-4 dark:border-panel-line dark:bg-panel-dark" data-testid="school-pipeline">
         {rows == null ? (
           <div className="space-y-3">
             <Skeleton className="h-5 w-64" />
@@ -210,10 +223,10 @@ export default function ReportCardsPage() {
                       onClick={() => setFilter(active ? "all" : `stage-${i}`)}
                       aria-pressed={active}
                       title={st.hint}
-                      className={`flex w-full flex-col items-start rounded-xl border px-3 py-2 text-left transition-colors ${
+                      className={`flex w-full flex-col items-start rounded-2xl border px-3 py-2 text-left transition-colors ${
                         active
                           ? "border-blue-500 bg-blue-50 dark:border-blue-400/60 dark:bg-blue-500/10"
-                          : "border-gray-200 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5"
+                          : "border-gray-200 hover:bg-gray-50 dark:border-panel-line dark:hover:bg-panel-raised"
                       }`}
                     >
                       <span className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
@@ -250,7 +263,7 @@ export default function ReportCardsPage() {
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                 filter === f
                   ? "border-blue-600 bg-blue-600 text-white"
-                  : "border-gray-200 text-text-secondary-light hover:bg-gray-50 dark:border-white/10 dark:text-text-secondary-dark dark:hover:bg-white/5"
+                  : "border-gray-200 text-text-secondary-light hover:bg-gray-50 dark:border-panel-line dark:text-text-secondary-dark dark:hover:bg-panel-raised"
               }`}
             >
               {label}
@@ -270,7 +283,7 @@ export default function ReportCardsPage() {
               onChange={(e) => setQ(e.target.value)}
               placeholder="Find a class"
               aria-label="Find a class"
-              className="w-48 rounded-lg border border-gray-200 bg-white py-1.5 pl-8 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-white/10 dark:bg-gray-900"
+              className="w-48 rounded-xl border border-gray-200 bg-white py-1.5 pl-8 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-panel-line dark:bg-panel-dark"
             />
           </label>
         </div>
@@ -290,7 +303,7 @@ export default function ReportCardsPage() {
       ) : rows == null ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }, (_, i) => (
-            <Skeleton key={i} className="h-36 w-full rounded-2xl" />
+            <Skeleton key={i} className="h-36 w-full rounded-3xl" />
           ))}
         </div>
       ) : shown.length === 0 ? (
@@ -306,18 +319,19 @@ export default function ReportCardsPage() {
             const marksDue = st === 0 ? due(r.cycle?.marks_due_at) : null;
             const reviewDue = st > 0 && st < 3 ? due(r.cycle?.review_due_at) : null;
             const deadline = marksDue ? { label: "Marks due", ...marksDue } : reviewDue ? { label: "Review due", ...reviewDue } : null;
-            const n = st === 2 ? r.counts.reviewed : st === 3 ? r.counts.approved : 0;
-            const url = `/report-cards/${r.class_group_id}?${query}${st === 2 ? "&view=reviewed" : st === 3 ? "&view=approved" : ""}`;
+            const url = `/report-cards/${r.class_group_id}?${query}`;
+            const ctaUrl = `${url}${st === 0 ? "&focus=subjects" : st === 2 ? "&view=reviewed" : st === 3 ? "&view=approved" : ""}`;
+            const StageIcon = STAGE_ICON[st];
             const subjPct = r.subjects_total ? Math.round((r.subjects_submitted / r.subjects_total) * 100) : 0;
             return (
               <div
                 key={r.class_group_id}
                 data-testid={`class-${r.class_group_id}`}
-                className="group relative flex flex-col rounded-2xl border border-gray-200 bg-white p-4 transition-colors hover:border-blue-300 dark:border-white/10 dark:bg-gray-900 dark:hover:border-blue-500/40"
+                className="group relative flex flex-col rounded-3xl border border-gray-200 bg-white p-4 transition-colors hover:border-blue-300 dark:border-panel-line dark:bg-panel-dark dark:hover:border-blue-500/40"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <Link to={url} className="block truncate text-sm font-semibold text-text-primary-light after:absolute after:inset-0 after:rounded-2xl focus:outline-none dark:text-text-primary-dark">
+                    <Link to={url} className="block truncate text-sm font-semibold text-text-primary-light after:absolute after:inset-0 after:rounded-3xl focus:outline-none dark:text-text-primary-dark">
                       {r.name}
                     </Link>
                     <p className="truncate text-xs text-text-secondary-light dark:text-text-secondary-dark">
@@ -384,18 +398,28 @@ export default function ReportCardsPage() {
                   </div>
                 </dl>
 
-                <span
-                  className={`relative mt-4 inline-flex items-center justify-between rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                <Link
+                  to={ctaUrl}
+                  data-testid={`cta-${r.class_group_id}`}
+                  className={`relative z-10 mt-4 flex items-center gap-3 rounded-2xl px-2.5 py-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 ${
                     st < 4
-                      ? "bg-blue-600 text-white group-hover:bg-blue-700"
-                      : "border border-gray-200 text-blue-700 group-hover:bg-blue-50 dark:border-white/10 dark:text-blue-300 dark:group-hover:bg-blue-500/10"
+                      ? "bg-blue-50 text-blue-800 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/20"
+                      : "border border-gray-200 text-text-primary-light hover:bg-gray-50 dark:border-panel-line dark:text-text-primary-dark dark:hover:bg-panel-raised"
                   }`}
-                  aria-hidden="true"
                 >
-                  {stage.cta}
-                  {n ? ` ${n}` : ""}
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                </span>
+                  <span
+                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl ${
+                      st < 4 ? "bg-blue-600 text-white" : "bg-gray-100 text-blue-700 dark:bg-white/10 dark:text-blue-300"
+                    }`}
+                  >
+                    <StageIcon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1 leading-tight">
+                    <span className="block text-sm font-semibold">{stage.cta}</span>
+                    <span className="block truncate text-[11px] opacity-75">{stageHint(st, r)}</span>
+                  </span>
+                  <ArrowRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+                </Link>
               </div>
             );
           })}
@@ -427,7 +451,7 @@ export function ProgressBar({
   className?: string;
 }) {
   return (
-    <div className={`flex w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/5 ${className}`} role="img" aria-label="Card progress">
+    <div className={`flex w-full overflow-hidden rounded-full bg-gray-100 dark:bg-panel-raised ${className}`} role="img" aria-label="Card progress">
       {ORDER.map((k) => {
         const n = counts[k] ?? 0;
         if (!n || !total) return null;
@@ -486,7 +510,7 @@ export function CycleDatesModal({
       setBusy(false);
     }
   };
-  const input = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-800";
+  const input = "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm dark:border-panel-line dark:bg-panel-dark";
   return (
     <Modal
       isOpen={open}

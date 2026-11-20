@@ -250,6 +250,23 @@ export default function ReportCardWorkbenchPage() {
     setFlashSubjects(true);
     window.setTimeout(() => setFlashSubjects(false), 1600);
   };
+  // Arriving from the report cards list with ?focus=subjects ("Collect marks"):
+  // land on the subjects sign-off once the data is in, then drop the param.
+  const focusSubjects = params.get("focus") === "subjects";
+  useEffect(() => {
+    if (!data || !focusSubjects) return;
+    // Not cleared on cleanup: dropping the param re-runs this effect.
+    window.setTimeout(goToSubjects, 150);
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p);
+        n.delete("focus");
+        return n;
+      },
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, focusSubjects]);
   const flowSteps = useMemo<FlowStep[]>(() => {
     if (!data) return [];
     const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
@@ -418,9 +435,9 @@ export default function ReportCardWorkbenchPage() {
         />
       ) : !data ? (
         <div className="space-y-3" aria-busy="true">
-          <Skeleton className="h-20 w-full rounded-2xl" />
-          <Skeleton className="h-16 w-full rounded-2xl" />
-          <Skeleton className="h-80 w-full rounded-2xl" />
+          <Skeleton className="h-20 w-full rounded-3xl" />
+          <Skeleton className="h-16 w-full rounded-3xl" />
+          <Skeleton className="h-80 w-full rounded-3xl" />
         </div>
       ) : (
         <>
@@ -428,7 +445,7 @@ export default function ReportCardWorkbenchPage() {
           <ApprovalFlow steps={flowSteps} />
 
           <section className="grid items-start gap-3 lg:grid-cols-[1fr_1.2fr]">
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
+            <div className="rounded-3xl border border-gray-200 bg-white p-4 dark:border-panel-line dark:bg-panel-dark">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                   {data.counts.published}/{total} published
@@ -445,7 +462,7 @@ export default function ReportCardWorkbenchPage() {
                     key={k}
                     type="button"
                     onClick={() => setView(k)}
-                    className="rounded-xl border border-gray-200 px-3 py-2 text-left hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5"
+                    className="rounded-2xl border border-gray-200 px-3 py-2 text-left hover:bg-gray-50 dark:border-panel-line dark:hover:bg-panel-raised"
                   >
                     <dt className="flex items-center gap-1.5 text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
                       <span className={`h-1.5 w-1.5 rounded-full ${statusMeta(k).dot}`} /> {statusMeta(k).label}
@@ -461,7 +478,7 @@ export default function ReportCardWorkbenchPage() {
                 {!data.roster_complete && <span className="text-amber-700 dark:text-amber-300">Roster may be incomplete (MIS)</span>}
               </div>
             </div>
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
+            <div className="rounded-3xl border border-gray-200 bg-white p-4 dark:border-panel-line dark:bg-panel-dark">
               <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">What still needs doing</p>
               {data.blockers.length === 0 ? (
                 <p className="mt-2 flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
@@ -476,7 +493,7 @@ export default function ReportCardWorkbenchPage() {
                       <button
                         onClick={fix.go}
                         data-testid={`blocker-${b.code}`}
-                        className="group flex w-full items-start gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-gray-50 dark:hover:bg-white/5"
+                        className="group flex w-full items-start gap-2 rounded-xl px-2 py-1 text-left text-sm hover:bg-gray-50 dark:hover:bg-panel-raised"
                       >
                         <AlertTriangle
                           className={`mt-0.5 h-4 w-4 flex-shrink-0 ${["SUBJECT_EMPTY", "NO_ATTENDANCE"].includes(b.code) ? "text-gray-400" : "text-amber-600"}`}
@@ -500,8 +517,8 @@ export default function ReportCardWorkbenchPage() {
           <section
             ref={subjectsRef}
             data-testid="subjects-section"
-            className={`scroll-mt-4 rounded-2xl border bg-white p-4 transition-colors duration-500 dark:bg-gray-900 ${
-              flashSubjects ? "border-blue-500 ring-2 ring-blue-500/30" : "border-gray-200 dark:border-white/10"
+            className={`scroll-mt-4 rounded-3xl border bg-white p-4 transition-colors duration-500 dark:bg-panel-dark ${
+              flashSubjects ? "border-blue-500 ring-2 ring-blue-500/30" : "border-gray-200 dark:border-panel-line"
             }`}
           >
             <div className="flex items-center justify-between gap-2">
@@ -523,7 +540,7 @@ export default function ReportCardWorkbenchPage() {
                     ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-200"
                     : unmapped
                       ? "border-dashed border-gray-300 text-text-secondary-light dark:border-white/15 dark:text-text-secondary-dark"
-                      : "border-gray-200 text-text-primary-light dark:border-white/10 dark:text-text-primary-dark";
+                      : "border-gray-200 text-text-primary-light dark:border-panel-line dark:text-text-primary-dark";
                 const status = submitted
                   ? `Submitted${s.signoff.submitted_by ? ` by ${s.signoff.submitted_by}` : ""}`
                   : unmapped
@@ -551,7 +568,7 @@ export default function ReportCardWorkbenchPage() {
                     </span>
                   </>
                 );
-                const cls = `flex max-w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs transition-colors ${tone}`;
+                const cls = `flex max-w-full items-center gap-2 rounded-2xl border px-3 py-2 text-left text-xs transition-colors ${tone}`;
                 const title = s.signoff.returned_reason ? `Returned: ${s.signoff.returned_reason}` : s.teachers.join(", ") || undefined;
                 if (unmapped) {
                   return s.i_teach ? (
@@ -560,7 +577,7 @@ export default function ReportCardWorkbenchPage() {
                       to={`/grades/subjects/${s.subject_id}`}
                       data-testid={`subject-${s.subject_id}`}
                       title="Map this subject's assessments to CW / HW / MD / EOT"
-                      className={`${cls} hover:bg-gray-50 dark:hover:bg-white/5`}
+                      className={`${cls} hover:bg-gray-50 dark:hover:bg-panel-raised`}
                     >
                       {body}
                     </Link>
@@ -577,7 +594,7 @@ export default function ReportCardWorkbenchPage() {
                     onClick={() => setSignoff(s)}
                     data-testid={`subject-${s.subject_id}`}
                     title={title}
-                    className={`${cls} hover:brightness-[0.98] hover:bg-gray-50 dark:hover:bg-white/5`}
+                    className={`${cls} hover:brightness-[0.98] hover:bg-gray-50 dark:hover:bg-panel-raised`}
                   >
                     {body}
                   </button>
@@ -617,7 +634,7 @@ export default function ReportCardWorkbenchPage() {
                   className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                     view === v
                       ? "border-blue-600 bg-blue-600 text-white"
-                      : "border-gray-200 text-text-secondary-light hover:bg-gray-50 dark:border-white/10 dark:text-text-secondary-dark dark:hover:bg-white/5"
+                      : "border-gray-200 text-text-secondary-light hover:bg-gray-50 dark:border-panel-line dark:text-text-secondary-dark dark:hover:bg-panel-raised"
                   }`}
                 >
                   {label} <span className="opacity-70">{n}</span>
@@ -627,7 +644,7 @@ export default function ReportCardWorkbenchPage() {
           </div>
 
           {/* How to read the marks */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-xs text-text-secondary-light dark:border-white/10 dark:bg-gray-900 dark:text-text-secondary-dark">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-gray-200 bg-white px-4 py-3 text-xs text-text-secondary-light dark:border-panel-line dark:bg-panel-dark dark:text-text-secondary-dark">
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2" data-testid="marks-legend">
               <span>
                 <strong className="text-text-primary-light dark:text-text-primary-dark">73%</strong> mark out of 100, over the work assessed so far
@@ -670,11 +687,11 @@ export default function ReportCardWorkbenchPage() {
           {shown.length === 0 ? (
             <EmptyState title="No students in this view" description="Pick another filter above." />
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900">
+            <div className="overflow-x-auto rounded-3xl border border-gray-200 bg-white dark:border-panel-line dark:bg-panel-dark">
               <table className="min-w-full text-sm" data-testid="workbench-matrix">
-                <thead className="bg-gray-50 text-xs text-text-secondary-light dark:bg-gray-800 dark:text-text-secondary-dark">
+                <thead className="bg-gray-50 text-xs text-text-secondary-light dark:bg-panel-raised dark:text-text-secondary-dark">
                   <tr>
-                    <th className="sticky left-0 z-10 bg-gray-50 px-3 py-2 text-left dark:bg-gray-800">
+                    <th className="sticky left-0 z-10 bg-gray-50 px-3 py-2 text-left dark:bg-panel-raised">
                       <input
                         type="checkbox"
                         checked={allShownPicked}
@@ -713,13 +730,13 @@ export default function ReportCardWorkbenchPage() {
                   {shown.map((s) => (
                     <tr
                       key={s.card.id}
-                      className={`group ${picked.has(s.card.id) ? "bg-blue-50 dark:bg-blue-950" : "bg-white hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800"}`}
+                      className={`group ${picked.has(s.card.id) ? "bg-blue-50 dark:bg-[#0e1626]" : "bg-white hover:bg-gray-50 dark:bg-panel-dark dark:hover:bg-panel-raised"}`}
                     >
                       <td
                         className={`sticky left-0 z-10 px-3 py-2 ${
                           picked.has(s.card.id)
-                            ? "bg-blue-50 dark:bg-blue-950"
-                            : "bg-white group-hover:bg-gray-50 dark:bg-gray-900 dark:group-hover:bg-gray-800"
+                            ? "bg-blue-50 dark:bg-[#0e1626]"
+                            : "bg-white group-hover:bg-gray-50 dark:bg-panel-dark dark:group-hover:bg-panel-raised"
                         }`}
                       >
                         <label className="flex items-center gap-2">
@@ -785,12 +802,12 @@ export default function ReportCardWorkbenchPage() {
                       </td>
                       <td className="whitespace-nowrap px-2 py-2 text-right">
                         <Tooltip label="Preview card">
-                          <button onClick={() => setPreview(s)} className="rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-white/10" aria-label={`Preview ${s.name}`}>
+                          <button onClick={() => setPreview(s)} className="rounded-xl p-1.5 hover:bg-gray-100 dark:hover:bg-white/10" aria-label={`Preview ${s.name}`}>
                             <Eye className="h-4 w-4" />
                           </button>
                         </Tooltip>
                         <Tooltip label="History">
-                          <button onClick={() => setDrawer(s)} className="rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-white/10" aria-label={`History of ${s.name}`}>
+                          <button onClick={() => setDrawer(s)} className="rounded-xl p-1.5 hover:bg-gray-100 dark:hover:bg-white/10" aria-label={`History of ${s.name}`}>
                             <History className="h-4 w-4" />
                           </button>
                         </Tooltip>
@@ -814,7 +831,7 @@ export default function ReportCardWorkbenchPage() {
 
       {/* Bulk bar */}
       {selected.length > 0 && data && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-white/10 dark:bg-gray-900/95">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-panel-line dark:bg-panel-dark">
           <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
               {selected.length} selected
@@ -880,7 +897,7 @@ export default function ReportCardWorkbenchPage() {
           maxLength={500}
           autoFocus
           placeholder="e.g. Physics EOT marks were entered for the wrong class"
-          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-800"
+          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm dark:border-panel-line dark:bg-panel-dark"
         />
         {reasonFor === "reopen" && (
           <p className="mt-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
@@ -927,7 +944,7 @@ export default function ReportCardWorkbenchPage() {
             type="datetime-local"
             value={scheduleAt}
             onChange={(e) => setScheduleAt(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-800"
+            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm dark:border-panel-line dark:bg-panel-dark"
           />
         </label>
       </Modal>
@@ -1115,7 +1132,7 @@ function CardHistoryDrawer({
                   <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                     The issued card still shows the approved figures. Reopen it to draft to issue the new ones.
                   </p>
-                  <ul className="mt-2 divide-y divide-gray-100 rounded-xl border border-gray-200 dark:divide-white/5 dark:border-white/10">
+                  <ul className="mt-2 divide-y divide-gray-100 rounded-2xl border border-gray-200 dark:divide-white/5 dark:border-panel-line">
                     {diff.changes.map((c) => (
                       <li key={c.subject_id} className="flex items-center justify-between px-3 py-2 text-sm">
                         <span className="text-text-primary-light dark:text-text-primary-dark">{c.name}</span>
@@ -1137,7 +1154,7 @@ function CardHistoryDrawer({
             ) : (
               <ol className="mt-2 space-y-2">
                 {history.transitions.map((t) => (
-                  <li key={t.id} className="rounded-xl border border-gray-200 px-3 py-2 text-sm dark:border-white/10">
+                  <li key={t.id} className="rounded-2xl border border-gray-200 px-3 py-2 text-sm dark:border-panel-line">
                     <p className="text-text-primary-light dark:text-text-primary-dark">
                       <strong>{ACTION_LABEL[t.action as WorkflowAction] ?? t.action}</strong>{" "}
                       <span className="text-text-secondary-light dark:text-text-secondary-dark">
@@ -1160,7 +1177,7 @@ function CardHistoryDrawer({
               <h3 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Issued versions</h3>
               <ul className="mt-2 space-y-1.5">
                 {history.versions.map((v) => (
-                  <li key={v.version} className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2 text-xs dark:border-white/10">
+                  <li key={v.version} className="flex items-center justify-between rounded-2xl border border-gray-200 px-3 py-2 text-xs dark:border-panel-line">
                     <span className="text-text-primary-light dark:text-text-primary-dark">
                       v{v.version} · {new Date(v.approved_at).toLocaleDateString()}
                       {v.backfilled ? " · recorded after the fact" : ""}

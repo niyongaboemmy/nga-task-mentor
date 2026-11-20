@@ -34,6 +34,13 @@ module.exports = {
           light: "#ffffff",
           dark: "#334155",
         },
+        // Report-card screens: one near-black panel on the black app frame,
+        // with soft raised tiles and hairlines instead of mixed grays/hexes.
+        panel: {
+          dark: "#0b0d12",
+          raised: "#12151c",
+          line: "rgba(255,255,255,0.07)",
+        },
         text: {
           primary: {
             light: "#1e293b",
