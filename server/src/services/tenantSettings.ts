@@ -1,6 +1,7 @@
 import { AppSetting } from "../models";
 import { tk } from "../tenancy/keys";
 import { currentTenantOrNull } from "../vendor/nga-tenancy";
+import { BUILDER_KINDS, type ReportCardBuilderKind } from "./reportCardBuilders";
 
 /**
  * Per-school settings kept in each tenant database's app_settings (TM-12).
@@ -155,13 +156,49 @@ export async function getBranding(): Promise<Branding> {
 // category weights, the pass mark, the behaviour attributes, how subjects are
 // grouped (core/specific modules), what the card shows, and the signatures.
 
+/** The Normal builder's weighted categories (the TVET builder's FA/CA/IA count equally). */
 export type SchemeCategory = "CW" | "HW" | "MD" | "EOT";
 /** RTB module categories (TVET curricula group modules this way). */
 export type ModuleCategory = "specific" | "general" | "complementary";
 export const MODULE_CATEGORIES: ModuleCategory[] = ["specific", "general", "complementary"];
 
+/**
+ * TVET template options: the CAMIS header fields MIS doesn't hold, and the
+ * module weights (learning hours) when MIS has none or the school differs.
+ */
+export interface TvetTemplateOptions {
+  district: string;
+  sector: string;
+  school_email: string;
+  school_phone: string;
+  headmaster_name: string;
+  /** Blank = "TVET Certificate <level> in <trade>" from MIS. */
+  qualification_title: string;
+  /** Weight of a module MIS gives no learning hours for. */
+  default_module_weight: number;
+  /** Subject id -> weight, overriding MIS. */
+  module_weights: Record<string, number>;
+  show_attendance: boolean;
+  show_attributes: boolean;
+}
+
+export const DEFAULT_TVET_OPTIONS: Readonly<TvetTemplateOptions> = Object.freeze({
+  district: "",
+  sector: "",
+  school_email: "",
+  school_phone: "",
+  headmaster_name: "",
+  qualification_title: "",
+  default_module_weight: 100,
+  module_weights: {},
+  show_attendance: false,
+  show_attributes: false,
+});
+
 export interface ReportCardScheme {
-  /** Category weights out of 100 (must sum to 100). */
+  /** Which builder structure (and card template) the school uses. */
+  builder: ReportCardBuilderKind;
+  /** Normal builder category weights: CW+HW+MD+EOT sum to 100. */
   category_weights: Record<SchemeCategory, number>;
   /** A subject total at or above this passes. */
   pass_mark: number;
@@ -186,6 +223,8 @@ export interface ReportCardScheme {
   head_title: string;
   /** The approver must be a different person from the reviewer. */
   require_distinct_approver: boolean;
+  /** TVET template options (kept while the school uses Normal, so switching back loses nothing). */
+  tvet: TvetTemplateOptions;
 }
 
 export const REPORT_CARD_SCHEME_KEY = "report_card.scheme";
@@ -202,6 +241,7 @@ export const NGA_ATTRIBUTES: readonly string[] = Object.freeze([
 ]);
 
 export const DEFAULT_REPORT_CARD_SCHEME: Readonly<ReportCardScheme> = Object.freeze({
+  builder: "normal" as ReportCardBuilderKind,
   category_weights: { CW: 15, HW: 10, MD: 25, EOT: 50 },
   pass_mark: 50,
   attributes: [...NGA_ATTRIBUTES],
@@ -214,7 +254,53 @@ export const DEFAULT_REPORT_CARD_SCHEME: Readonly<ReportCardScheme> = Object.fre
   competence_thresholds: { specific: 70, general: 50, complementary: 50 },
   head_title: "Principal",
   require_distinct_approver: false,
+  tvet: DEFAULT_TVET_OPTIONS,
 });
+
+/** Valid TVET options (missing fields take the default), or an error message. */
+export function normalizeTvetOptions(raw: unknown): TvetTemplateOptions | string {
+  const d = DEFAULT_TVET_OPTIONS;
+  const r = (raw && typeof raw === "object" ? raw : {}) as Partial<TvetTemplateOptions>;
+  const text = (v: unknown, max: number, label: string): string | { error: string } => {
+    const t = typeof v === "string" ? v.trim() : "";
+    return t.length > max ? { error: `${label} is at most ${max} characters.` } : t;
+  };
+  const fields: Array<[keyof TvetTemplateOptions, number, string]> = [
+    ["district", 60, "The district"],
+    ["sector", 80, "The sector"],
+    ["school_email", 120, "The school email"],
+    ["school_phone", 40, "The school phone"],
+    ["headmaster_name", 80, "The headmaster's name"],
+    ["qualification_title", 120, "The qualification title"],
+  ];
+  const out: Partial<TvetTemplateOptions> = {};
+  for (const [k, max, label] of fields) {
+    const v = text(r[k], max, label);
+    if (typeof v !== "string") return v.error;
+    (out as any)[k] = v;
+  }
+  const dw = r.default_module_weight == null ? d.default_module_weight : Number(r.default_module_weight);
+  if (!Number.isFinite(dw) || dw <= 0 || dw > 1000) return "The default module weight must be between 1 and 1000.";
+  const weights: Record<string, number> = {};
+  const rawWeights = r.module_weights && typeof r.module_weights === "object" ? r.module_weights : {};
+  const entries = Object.entries(rawWeights);
+  if (entries.length > 300) return "Set at most 300 module weights.";
+  for (const [id, v] of entries) {
+    if (!/^\d+$/.test(id)) continue;
+    if (v == null || (v as unknown) === "") continue;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0 || n > 1000) return "Module weights must be between 1 and 1000.";
+    weights[id] = Math.round(n * 100) / 100;
+  }
+  const bool = (v: unknown, dflt: boolean) => (typeof v === "boolean" ? v : dflt);
+  return {
+    ...(out as TvetTemplateOptions),
+    default_module_weight: dw,
+    module_weights: weights,
+    show_attendance: bool(r.show_attendance, d.show_attendance),
+    show_attributes: bool(r.show_attributes, d.show_attributes),
+  };
+}
 
 const schemeCache = new Map<string, { at: number; scheme: ReportCardScheme }>();
 
@@ -228,6 +314,12 @@ export function normalizeScheme(raw: unknown): ReportCardScheme | string {
     if (!Number.isFinite(w) || w < 0 || w > 100) return `Weight for ${k} must be between 0 and 100.`;
     weights[k] = w;
   }
+  // Only the Normal categories are stored (an old IA weight is dropped).
+  const category_weights = { CW: weights.CW, HW: weights.HW, MD: weights.MD, EOT: weights.EOT };
+  const builder = r.builder == null ? d.builder : r.builder;
+  if (!BUILDER_KINDS.includes(builder as ReportCardBuilderKind)) return `Unknown report card builder "${String(builder)}".`;
+  const tvet = normalizeTvetOptions(r.tvet);
+  if (typeof tvet === "string") return tvet;
   const sum = weights.CW + weights.HW + weights.MD + weights.EOT;
   if (Math.abs(sum - 100) > 0.001) return `Category weights must add up to 100 (they add up to ${sum}).`;
   const pass = r.pass_mark == null ? d.pass_mark : Number(r.pass_mark);
@@ -259,7 +351,8 @@ export function normalizeScheme(raw: unknown): ReportCardScheme | string {
   }
   const head = String(r.head_title ?? d.head_title).trim().slice(0, 60) || d.head_title;
   return {
-    category_weights: weights,
+    builder: builder as ReportCardBuilderKind,
+    category_weights,
     pass_mark: pass,
     attributes,
     subject_groups,
@@ -271,6 +364,7 @@ export function normalizeScheme(raw: unknown): ReportCardScheme | string {
     competence_thresholds: thresholds,
     head_title: head,
     require_distinct_approver: bool(r.require_distinct_approver, d.require_distinct_approver),
+    tvet,
   };
 }
 
@@ -286,8 +380,22 @@ export async function getReportCardScheme(): Promise<ReportCardScheme> {
   return scheme;
 }
 
+/**
+ * Saves the scheme. A partial body updates only the fields it carries (the
+ * settings page doesn't send the builder; the templates page sends only the
+ * builder and its options), so neither page undoes the other's choices.
+ */
 export async function setReportCardScheme(raw: unknown, by: number | null): Promise<ReportCardScheme> {
-  const parsed = normalizeScheme(raw);
+  const stored = await readSetting(REPORT_CARD_SCHEME_KEY);
+  const current = normalizeScheme(stored ?? {});
+  const base = typeof current === "string" ? {} : current;
+  const body = (raw && typeof raw === "object" ? raw : {}) as Partial<ReportCardScheme>;
+  const merged = {
+    ...base,
+    ...body,
+    ...(body.tvet ? { tvet: { ...(base as Partial<ReportCardScheme>).tvet, ...body.tvet } } : {}),
+  };
+  const parsed = normalizeScheme(merged);
   if (typeof parsed === "string") throw new Error(parsed);
   await AppSetting.upsert({
     key: REPORT_CARD_SCHEME_KEY,

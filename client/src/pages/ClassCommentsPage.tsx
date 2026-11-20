@@ -54,6 +54,7 @@ export default function ClassCommentsPage() {
                 excused: rc.attendance.excused ?? 0,
                 sick: rc.attendance.sick ?? 0,
                 comment: rc.class_teacher_comment ?? "",
+                behaviour: rc.behaviour_mark ?? null,
                 attributes: Object.fromEntries(card.data.attributes.map((a) => [a.attribute_name, a.rating as AttributeRating])),
               };
               totals[s.student_id] = (card.data.document?.groups ?? []).flatMap((g) =>

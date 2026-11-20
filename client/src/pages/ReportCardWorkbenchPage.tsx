@@ -653,8 +653,11 @@ export default function ReportCardWorkbenchPage() {
                 <span className="h-[3px] w-9 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
                   <span className="block h-full w-1/2 rounded-full bg-blue-500/80" />
                 </span>
-                share of the term assessed (CW {data.scheme.category_weights?.CW ?? 15} · HW {data.scheme.category_weights?.HW ?? 10} · MD{" "}
-                {data.scheme.category_weights?.MD ?? 25} · EOT {data.scheme.category_weights?.EOT ?? 50})
+                share of the term assessed (
+                {data.scheme.builder === "tvet"
+                  ? "TVET: FA and CA, each out of the module weight; IA adds on Term 3"
+                  : `CW ${data.scheme.category_weights?.CW ?? 15} · HW ${data.scheme.category_weights?.HW ?? 10} · MD ${data.scheme.category_weights?.MD ?? 25} · EOT ${data.scheme.category_weights?.EOT ?? 50}`}
+                )
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-amber-100 px-1 text-[9px] font-bold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
@@ -768,6 +771,7 @@ export default function ReportCardWorkbenchPage() {
                             moduleCode={sub.code}
                             threshold={sub.threshold}
                             weights={data.scheme.category_weights}
+                            categories={data.scheme.structure?.categories}
                           />
                         </td>
                       ))}

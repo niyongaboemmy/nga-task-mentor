@@ -14,6 +14,7 @@ import { toast } from "react-toastify";
 import { useAuth } from "../../contexts/AuthContext";
 import ReportCardPreview from "./ReportCardPreview";
 import AnnualReportCardPreview from "./AnnualReportCardPreview";
+import { useReportCardStructure } from "../../hooks/useReportCardStructure";
 import {
   ReportCardApiService,
   scoreToLetterGrade,
@@ -31,12 +32,14 @@ import {
 // switching it remounts the page, so there's no local term/year picker here
 // to drift out of sync with the rest of the profile.
 
-const CATEGORY_ORDER: AssessmentCategory[] = ["CW", "HW", "MD", "EOT"];
 const CATEGORY_META: Record<AssessmentCategory, { label: string; color: string }> = {
   CW:  { label: "CW",  color: "bg-blue-500" },
   HW:  { label: "HW",  color: "bg-gray-400" },
   MD:  { label: "MD",  color: "bg-blue-700" },
   EOT: { label: "EOT", color: "bg-orange-500" },
+  FA:  { label: "FA",  color: "bg-blue-600" },
+  CA:  { label: "CA",  color: "bg-orange-500" },
+  IA:  { label: "IA",  color: "bg-blue-900" },
 };
 
 export interface StudentReportCardDashboardProps {
@@ -48,6 +51,8 @@ export default function StudentReportCardDashboard({
   studentId,
   studentName,
 }: StudentReportCardDashboardProps) {
+  // The school's builder decides which categories a subject breaks into.
+  const { categories: categoryOrder } = useReportCardStructure();
   const { user } = useAuth();
   const academicYear: string = user?.currentAcademicYear?.name ?? "";
   const term: string = user?.currentAcademicTerm?.name ?? "";
@@ -245,7 +250,7 @@ export default function StudentReportCardDashboard({
                       </div>
 
                       <div className="space-y-1.5">
-                        {CATEGORY_ORDER.map((cat) => {
+                        {categoryOrder.map((cat) => {
                           const res = grade.categories[cat];
                           const pct = res ? Math.round((res.scaled_score / res.weight) * 100) : 0;
                           return (

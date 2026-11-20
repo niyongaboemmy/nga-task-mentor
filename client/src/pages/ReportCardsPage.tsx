@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { ArrowRight, CalendarDays, Check, ClipboardCheck, ClipboardList, Clock, Eye, FileCheck2, RefreshCw, Search, Send, Settings2, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, ClipboardCheck, ClipboardList, Clock, Eye, FileCheck2, RefreshCw, Search, Send, Settings2, ShieldCheck, Users, LayoutTemplate } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import { Button } from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
@@ -170,6 +170,15 @@ export default function ReportCardsPage() {
                 className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-1.5 text-sm font-medium text-text-primary-light hover:bg-gray-50 dark:border-panel-line dark:text-text-primary-dark dark:hover:bg-panel-raised"
               >
                 <Settings2 className="h-4 w-4" /> Card settings
+              </Link>
+            )}
+            {can?.approve && (
+              <Link
+                to="/report-cards/templates"
+                data-testid="templates-link"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-1.5 text-sm font-medium text-text-primary-light hover:bg-gray-50 dark:border-panel-line dark:text-text-primary-dark dark:hover:bg-panel-raised"
+              >
+                <LayoutTemplate className="h-4 w-4" /> Templates
               </Link>
             )}
           </>

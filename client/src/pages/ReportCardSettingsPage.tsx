@@ -12,6 +12,7 @@ import {
   X,
   AlertCircle,
   RotateCcw,
+  LayoutTemplate,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -282,6 +283,7 @@ export default function ReportCardSettingsPage() {
   const [subjects, setSubjects] = useState<SubjectOption[] | null>(null);
   const [subjectsState, setSubjectsState] = useState<"loading" | "ready" | "failed">("loading");
   const [manualIds, setManualIds] = useState<Record<number, string>>({});
+  const [builder, setBuilder] = useState<"normal" | "tvet">("normal");
 
   useEffect(() => {
     let live = true;
@@ -292,6 +294,7 @@ export default function ReportCardSettingsPage() {
         if (!live) return;
         const rows = toBandRows(res.data.bands ?? []);
         const f = toForm(res.data.scheme);
+        setBuilder(res.data.scheme.builder === "tvet" ? "tvet" : "normal");
         setBands(rows);
         savedBands.current = JSON.stringify(rows.map(({ min, letter, remark }) => [min, letter, remark]));
         setForm(f);
@@ -421,6 +424,29 @@ export default function ReportCardSettingsPage() {
         </div>
       ) : (
         <>
+          {/* 0. The builder / template (managed on its own page) */}
+          <section
+            data-testid="settings-builder"
+            className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-500/30 dark:bg-blue-500/5 sm:flex-row sm:items-center md:p-5"
+          >
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+              <LayoutTemplate className="h-5 w-5" aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+                Report card builder: {builder === "tvet" ? "TVET (RTB / CAMIS)" : "Normal"}
+              </p>
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                {builder === "tvet"
+                  ? "Teachers map marks into FA, CA and IA, each out of the module weight. The category weights below apply only to the Normal builder."
+                  : "Teachers map marks into CW, HW, MD and EOT with the weights below."}
+              </p>
+            </div>
+            <Link to="/report-cards/templates" className={GHOST_BTN} data-testid="manage-templates">
+              Builders and templates →
+            </Link>
+          </section>
+
           {/* 1. Grading scale */}
           <Section
             id="rc-bands"
@@ -494,8 +520,12 @@ export default function ReportCardSettingsPage() {
           {/* 2. Weights + pass mark */}
           <Section
             id="rc-weights"
-            title="Category weights and pass mark"
-            hint="How much each kind of assessment counts towards a subject total. The four must add up to 100."
+            title={builder === "tvet" ? "Normal builder weights and pass mark" : "Category weights and pass mark"}
+            hint={
+              builder === "tvet"
+                ? "Your school uses the TVET builder, so these weights wait here for the Normal builder. The pass mark applies to both."
+                : "How much each kind of assessment counts towards a subject total. The four must add up to 100."
+            }
           >
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {CATEGORIES.map((c) => (

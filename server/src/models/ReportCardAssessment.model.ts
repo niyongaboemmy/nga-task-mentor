@@ -9,7 +9,8 @@ import {
 import { ReportCard } from "./ReportCard.model";
 
 export type AssessmentType = "quiz" | "assignment" | "manual";
-export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT";
+/** Normal builder: CW/HW/MD/EOT. TVET builder: FA (formative), CA (comprehensive), IA (integrated). See services/reportCardBuilders.ts. */
+export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT" | "IA" | "FA" | "CA";
 /** auto = the recorded mark; absent = 0; exempt = left out (resolved at subject sign-off). */
 export type CardMarkStatus = "auto" | "absent" | "exempt";
 
@@ -31,7 +32,7 @@ export type ReportCardAssessmentCreationAttributes = Omit<
 >;
 
 const VALID_ASSESSMENT_TYPES: AssessmentType[] = ["quiz", "assignment", "manual"];
-const VALID_CATEGORIES: AssessmentCategory[] = ["CW", "HW", "MD", "EOT"];
+const VALID_CATEGORIES: AssessmentCategory[] = ["CW", "HW", "MD", "EOT", "IA", "FA", "CA"];
 
 @Table({
   tableName: "report_card_assessments",
@@ -87,7 +88,7 @@ export class ReportCardAssessment extends Model<
   public assessment_id!: number;
 
   @Column({
-    type: DataType.ENUM("CW", "HW", "MD", "EOT"),
+    type: DataType.ENUM("CW", "HW", "MD", "EOT", "IA", "FA", "CA"),
     allowNull: false,
     validate: {
       notNull: { msg: "Category is required" },

@@ -74,6 +74,7 @@ const ReportCardsPage = lazyPage(() => import("../pages/ReportCardsPage"));
 const ReportCardWorkbenchPage = lazyPage(() => import("../pages/ReportCardWorkbenchPage"));
 const ClassCommentsPage = lazyPage(() => import("../pages/ClassCommentsPage"));
 const ReportCardSettingsPage = lazyPage(() => import("../pages/ReportCardSettingsPage"));
+const ReportCardTemplatesPage = lazyPage(() => import("../pages/ReportCardTemplatesPage"));
 const SchoolReportsPage = lazyPage(() => import("../pages/SchoolReportsPage"));
 const BloomsTaxonomyManagementPage = lazyPage(() => import("../components/Quizzes/BloomsTaxonomyManagementPage"));
 const QuestionBankPage = lazyPage(() => import("../pages/QuestionBankPage"));
@@ -490,6 +491,12 @@ export const appRoutes: AppRoute[] = [
   {
     path: "/report-cards/settings",
     element: <ReportCardSettingsPage />,
+    permissions: ["REPORT_CARDS_APPROVE"],
+  },
+  // Builders (Normal / TVET) and their card templates.
+  {
+    path: "/report-cards/templates",
+    element: <ReportCardTemplatesPage />,
     permissions: ["REPORT_CARDS_APPROVE"],
   },
   {

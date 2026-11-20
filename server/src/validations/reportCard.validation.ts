@@ -4,7 +4,7 @@ const assessmentItemSchema = z.object({
   subject_id: z.number().int().positive("subject_id must be a positive integer"),
   assessment_type: z.enum(["quiz", "assignment", "manual"] as const),
   assessment_id: z.number().int().positive("assessment_id must be a positive integer"),
-  category: z.enum(["CW", "HW", "MD", "EOT"] as const),
+  category: z.enum(["CW", "HW", "MD", "EOT", "IA", "FA", "CA"] as const),
 });
 
 // assessments can be empty — allows initializing a report card record before
@@ -22,7 +22,7 @@ export const builderSaveSchema = z.object({
 const subjectMappingItemSchema = z.object({
   assessment_type: z.enum(["quiz", "assignment", "manual"] as const),
   assessment_id: z.number().int().positive("assessment_id must be a positive integer"),
-  category: z.enum(["CW", "HW", "MD", "EOT"] as const),
+  category: z.enum(["CW", "HW", "MD", "EOT", "IA", "FA", "CA"] as const),
 });
 
 export const subjectMappingSaveSchema = z.object({
@@ -51,6 +51,8 @@ export const attributesSaveSchema = z.object({
   attendance_excused: z.number().int().min(0, "attendance_excused cannot be negative").max(400).optional(),
   attendance_sick: z.number().int().min(0, "attendance_sick cannot be negative").max(400).optional(),
   attendance_source: z.enum(["manual", "imported"] as const).optional(),
+  /** Behaviour out of 40 (RTB/CAMIS card); null clears it, omitted = unchanged. */
+  behaviour_mark: z.number().min(0, "Behaviour can't be negative").max(40, "Behaviour is out of 40").nullable().optional(),
   attributes: z.array(attributeItemSchema).min(1, "At least one attribute is required").max(16),
 });
 

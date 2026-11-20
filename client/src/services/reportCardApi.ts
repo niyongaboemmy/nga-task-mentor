@@ -1,7 +1,25 @@
 import axios from "../utils/axiosConfig";
 import type { AiAnswer } from "./myAiApi";
 
-export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT";
+/** CW/HW/MD are formative (FA), EOT the comprehensive assessment (CA), IA the Term 3 integrated assessment. */
+/** Normal builder: CW/HW/MD/EOT. TVET builder: FA/CA/IA. */
+export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT" | "IA" | "FA" | "CA";
+
+/** The report card builder a school chose (server services/reportCardBuilders.ts). */
+export type ReportCardBuilderKind = "normal" | "tvet";
+export interface BuilderCategory {
+  key: AssessmentCategory;
+  label: string;
+  short: string;
+  weight: number;
+  hint: string;
+}
+export interface BuilderStructure {
+  key: ReportCardBuilderKind;
+  label: string;
+  description: string;
+  categories: BuilderCategory[];
+}
 export type AssessmentType = "quiz" | "assignment" | "manual";
 export type AttributeRating = "Excellent" | "Very good" | "Good";
 /** draft -> reviewed -> approved -> published; only a draft can be edited. */
@@ -38,6 +56,8 @@ export interface AttributesSavePayload {
   attendance_late?: number;
   attendance_excused?: number;
   attendance_sick?: number;
+  /** Behaviour out of 40; null clears it. */
+  behaviour_mark?: number | null;
   attendance_source?: "manual" | "imported";
   attributes: AttributeItem[];
 }
@@ -185,6 +205,8 @@ export interface ReportCardMeta {
   returned_reason?: string | null;
   class_teacher_comment: string | null;
   head_teacher_comment?: string | null;
+  /** Behaviour out of 40 (null = not given). */
+  behaviour_mark?: number | null;
   attendance: {
     present: number;
     absent: number;
@@ -200,12 +222,31 @@ export interface ReportCardMeta {
  * The rendered card (server services/reportCardDocument.ts): a snapshot for
  * approved/published cards, a live render for drafts.
  */
+/** One module in one term on the TVET card, in marks out of the module weight. */
+export interface TvetTermCell {
+  fa: number | null;
+  ia: number | null;
+  ca: number | null;
+  to: number | null;
+  max: number | null;
+  pct: number | null;
+}
+
+export interface TvetTotals {
+  fa: number | null;
+  ia: number | null;
+  ca: number | null;
+  to: number | null;
+  max: number | null;
+  pct: number | null;
+}
+
 export interface DocumentSubject {
   subject_id: number;
   name: string;
   group: string | null;
   teacher: string | null;
-  categories: Record<AssessmentCategory, number | null>;
+  categories: Partial<Record<AssessmentCategory, number | null>>;
   total: number | null;
   grade: string | null;
   remark: string | null;
@@ -226,6 +267,16 @@ export interface DocumentSubject {
   rank_of?: number | null;
   /** False when the card maps no assessment for it yet. */
   mapped?: boolean;
+  /** Module weight = learning hours (credits x 10). */
+  weight?: number | null;
+  rqf_level?: string | null;
+  /** TVET builder: the module in CAMIS columns, aligned with ReportCardDocument.tvet.terms. */
+  tvet?: {
+    weight: number;
+    weight_source: "school" | "mis" | "default";
+    terms: Array<TvetTermCell | null>;
+    annual: { at: number | null; max: number | null; pct: number | null; competent: boolean | null } | null;
+  };
 }
 
 /** RTB module categories. */
@@ -255,7 +306,7 @@ export interface ReportCardDocument {
     program_name: string | null;
   };
   scheme: {
-    category_weights: Record<AssessmentCategory, number>;
+    category_weights: Partial<Record<AssessmentCategory, number>>;
     pass_mark: number;
     bands: GradeBand[];
     show_position: boolean;
@@ -286,6 +337,30 @@ export interface ReportCardDocument {
   comments: { class_teacher: string | null; head_teacher: string | null };
   next_term_begins_on: string | null;
   grades: SubjectGrade[];
+  /** Behaviour (conduct) out of 40 (outside every total). */
+  behaviour?: { mark: number | null; max: number };
+  /** The builder (template) the card was made with; absent on old snapshots = normal. */
+  builder?: ReportCardBuilderKind;
+  qualification?: { rqf_level: string | null; trade: string | null; title: string | null; sector: string | null };
+  /** TVET builder: the CAMIS layout's terms, year, school block and deliberation. */
+  tvet?: {
+    final: boolean;
+    terms: Array<{
+      term: string;
+      current: boolean;
+      totals: TvetTotals;
+      position: number | null;
+      position_of: number | null;
+      conduct: number | null;
+      comment: string | null;
+    }>;
+    annual: { total: number | null; max: number | null; pct: number | null; position: number | null; position_of: number | null; conduct: number | null } | null;
+    school: { district: string; email: string; phone: string; headmaster: string };
+    conditions: string[];
+    decision: string | null;
+    show_attendance: boolean;
+    show_attributes: boolean;
+  };
 }
 
 /** A counted assessment with marks that isn't mapped to the card (so it counts nowhere). */
@@ -633,7 +708,7 @@ export class ReportCardApiService {
 
   static async getStudentReportCard(
     studentId: number,
-    params?: { term?: string; academic_year?: string },
+    params?: { term?: string; academic_year?: string; /** "1": include the staff mapping guidance (unmapped marks). */ guide?: "1" },
   ): Promise<ReportCardResponse> {
     await loadGradingBands(); // letters below use the school's own scale
     const response = await axios.get(`/report-cards/student/${studentId}`, { params });

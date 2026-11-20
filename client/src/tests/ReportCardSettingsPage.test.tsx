@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import ReportCardSettingsPage, { validateBands, validateScheme } from "../pages/ReportCardSettingsPage";
-import { ReportCardWorkflowApi, NGA_BANDS } from "../services/reportCardWorkflowApi";
+import { ReportCardWorkflowApi, NGA_BANDS, type ReportCardScheme } from "../services/reportCardWorkflowApi";
 import { CourseApiService } from "../services/courseApi";
 import type { Course } from "../types/course.types";
 
@@ -64,7 +64,7 @@ describe("ReportCardSettingsPage", () => {
       success: true,
       data: { scheme: structuredClone(SCHEME), bands: structuredClone(BANDS) },
     });
-    vi.mocked(ReportCardWorkflowApi.saveScheme).mockImplementation(async (scheme) => ({ success: true, data: { scheme } }));
+    vi.mocked(ReportCardWorkflowApi.saveScheme).mockImplementation(async (scheme) => ({ success: true, data: { scheme: scheme as ReportCardScheme } }));
     vi.mocked(ReportCardWorkflowApi.saveBands).mockImplementation(async (bands) => ({ success: true, bands }));
     vi.mocked(CourseApiService.getCourses).mockResolvedValue({ success: true, count: 3, data: COURSES as unknown as Course[] });
   });

@@ -126,10 +126,14 @@ export interface StudentInitialData {
   attendance?: "present" | "absent" | "late";
   attributes: Partial<Record<string, AttributeRating>>;
   comment: string;
+  /** Behaviour out of 40 (RTB/CAMIS card); null = not given. */
+  behaviour?: number | null;
 }
 
 interface StudentFormState {
   attendance: AttendanceCounts;
+  /** Behaviour out of 40, as typed ("" = none). */
+  behaviour: string;
   attributes: Partial<Record<string, AttributeRating>>;
   comment: string;
   saved: boolean;
@@ -177,6 +181,7 @@ function rowFromInitial(pre: StudentInitialData | undefined): StudentFormState {
     },
     attributes: pre?.attributes ?? {},
     comment: pre?.comment ?? "",
+    behaviour: pre?.behaviour == null ? "" : String(pre.behaviour),
     saved: false,
     saving: false,
     dirty: false,
@@ -271,6 +276,45 @@ function RadioPill({
 }
 
 /** One day-count box. */
+export const BEHAVIOUR_MAX = 40;
+/** "" -> null; otherwise a number within 0..40 (2 decimals), or undefined when invalid. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function parseBehaviour(v: string): number | null | undefined {
+  const t = v.trim();
+  if (!t) return null;
+  const n = Number(t);
+  if (!Number.isFinite(n) || n < 0 || n > BEHAVIOUR_MAX) return undefined;
+  return Math.round(n * 100) / 100;
+}
+
+/** Behaviour mark out of 40 (CAMIS "Behavior" row). */
+function BehaviourInput({ student, value, disabled, onChange, wide = false }: { student: StudentRow; value: string; disabled: boolean; onChange: (v: string) => void; wide?: boolean }) {
+  const invalid = parseBehaviour(value) === undefined;
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="number"
+        inputMode="decimal"
+        min={0}
+        max={BEHAVIOUR_MAX}
+        step={0.5}
+        value={value}
+        disabled={disabled}
+        placeholder="–"
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        aria-label={`${student.name}: behaviour out of ${BEHAVIOUR_MAX}`}
+        aria-invalid={invalid || undefined}
+        data-testid={`behaviour-${student.id}`}
+        className={`${wide ? "w-full" : "w-14"} rounded-xl border bg-white px-2 py-1.5 text-center text-sm tabular-nums text-text-primary-light focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:opacity-50 dark:bg-white/[0.04] dark:text-text-primary-dark ${
+          invalid ? "border-red-400 dark:border-red-500/60" : "border-slate-200 dark:border-white/10"
+        }`}
+      />
+      <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">/{BEHAVIOUR_MAX}</span>
+    </div>
+  );
+}
+
 function CountInput({
   student,
   field,
@@ -321,6 +365,7 @@ function AttendanceSummary({ counts }: { counts: AttendanceCounts }) {
 
 interface RowHandlers {
   onCountChange: (studentId: number, key: AttendanceKey, value: number) => void;
+  onBehaviourChange: (studentId: number, value: string) => void;
   onAttributeChange: (studentId: number, attr: string, rating: AttributeRating) => void;
   onCommentChange: (studentId: number, comment: string) => void;
   onDraft?: (student: StudentRow) => void;
@@ -429,6 +474,15 @@ function MobileStudentCard({
                       />
                     </label>
                   ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[11px] uppercase tracking-wider font-semibold text-text-secondary-light dark:text-text-secondary-dark/60 mb-2">
+                  Behaviour (out of {BEHAVIOUR_MAX})
+                </p>
+                <div className="max-w-[9rem]">
+                  <BehaviourInput student={student} value={state.behaviour} disabled={locked} onChange={(v) => handlers.onBehaviourChange(student.id, v)} wide />
                 </div>
               </div>
 
@@ -565,6 +619,9 @@ function StudentTableRow({
       ))}
       <td className="px-2 py-3" data-testid={`attendance-total-${student.id}`}>
         <AttendanceSummary counts={state.attendance} />
+      </td>
+      <td className="px-2 py-3">
+        <BehaviourInput student={student} value={state.behaviour} disabled={locked} onChange={(v) => handlers.onBehaviourChange(student.id, v)} />
       </td>
 
       {attributes.map((attr) => (
@@ -767,6 +824,7 @@ export default function GeneralAttributesForm({
     onAttributeChange: (studentId, attr, rating) =>
       patchRow(studentId, (r) => ({ attributes: { ...r.attributes, [attr]: rating }, saved: false, dirty: true })),
     onCommentChange: (studentId, comment) => patchRow(studentId, () => ({ comment, saved: false, dirty: true })),
+    onBehaviourChange: (studentId, behaviour) => patchRow(studentId, () => ({ behaviour, saved: false, dirty: true })),
     onDraft: (s) => void draftComment(s),
   };
 
@@ -849,6 +907,14 @@ export default function GeneralAttributesForm({
       .filter((a) => state.attributes[a])
       .map((a) => ({ attribute_name: a, rating: state.attributes[a]! }));
 
+    const behaviour = parseBehaviour(state.behaviour);
+    if (behaviour === undefined) {
+      const message = `Behaviour must be between 0 and ${BEHAVIOUR_MAX}.`;
+      patchRow(student.id, () => ({ error: message }));
+      if (notify) toast.error(`${student.name}: ${message}`);
+      return null;
+    }
+
     if (rated.length === 0) {
       const message = "Please rate at least one attribute.";
       patchRow(student.id, () => ({ error: message }));
@@ -869,6 +935,7 @@ export default function GeneralAttributesForm({
         attendance_excused: state.attendance.excused,
         attendance_late: state.attendance.late,
         attendance_sick: state.attendance.sick,
+        behaviour_mark: behaviour,
         attributes: rated,
       });
 
@@ -1227,7 +1294,7 @@ export default function GeneralAttributesForm({
                     >
                       Attendance
                     </th>
-                    <th colSpan={attributes.length + 1} className="px-3 pt-3" />
+                    <th colSpan={attributes.length + 2} className="px-3 pt-3" />
                   </tr>
                   <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.03]">
                     <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider whitespace-nowrap">
@@ -1252,6 +1319,12 @@ export default function GeneralAttributesForm({
                     ))}
                     <th className="px-2 py-3 text-left text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider whitespace-nowrap">
                       Total
+                    </th>
+                    <th
+                      className="px-2 py-3 text-left text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider whitespace-nowrap"
+                      title="Behaviour out of 40, printed first on the card and outside every total"
+                    >
+                      Behaviour
                     </th>
                     {attributes.map((attr) => (
                       <th

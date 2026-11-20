@@ -6,6 +6,7 @@ import GeneralAttributesForm, {
   attendancePct,
   attendanceTotal,
   dominantAttendance,
+  parseBehaviour,
   type StudentRow,
 } from "../components/ReportCard/GeneralAttributesForm";
 import * as reportCardApi from "../services/reportCardApi";
@@ -246,6 +247,7 @@ describe("GeneralAttributesForm", () => {
     fireEvent.change(within(r).getByLabelText("Excused days for Alice Mutoni"), { target: { value: "1" } });
     fireEvent.change(within(r).getByLabelText("Late days for Alice Mutoni"), { target: { value: "4" } });
     fireEvent.change(within(r).getByLabelText("Sick days for Alice Mutoni"), { target: { value: "3" } });
+    fireEvent.change(within(r).getByLabelText("Alice Mutoni: behaviour out of 40"), { target: { value: "36.5" } });
 
     const excellentRadios = screen.getAllByRole("radio", { name: /Excellent/i });
     await user.click(excellentRadios[0]);
@@ -268,11 +270,12 @@ describe("GeneralAttributesForm", () => {
         attendance_excused: 1,
         attendance_late: 4,
         attendance_sick: 3,
+        behaviour_mark: 36.5,
         attributes: expect.arrayContaining([expect.objectContaining({ attribute_name: "Punctuality", rating: "Excellent" })]),
       }),
     );
     expect(reportCardApi.ReportCardApiService.saveAttributes).toHaveBeenCalledWith(
-      expect.objectContaining({ student_id: 2, attendance_present: 0, attendance_absent: 0, attendance_sick: 0 }),
+      expect.objectContaining({ student_id: 2, attendance_present: 0, attendance_absent: 0, attendance_sick: 0, behaviour_mark: null }),
     );
 
     await waitFor(() => expect(onAllSaved).toHaveBeenCalled());
@@ -450,5 +453,16 @@ describe("attendance helpers", () => {
     expect(dominantAttendance(c(50, 2, 0, 3))).toBe("present");
     expect(dominantAttendance(c(5, 10, 5, 0, 5))).toBe("absent");
     expect(dominantAttendance(c(5, 1, 0, 20))).toBe("late");
+  });
+});
+
+describe("behaviour mark (RTB/CAMIS, out of 40)", () => {
+  it("accepts blank (none) and 0..40, refuses anything else", () => {
+    expect(parseBehaviour("")).toBeNull();
+    expect(parseBehaviour(" 36.5 ")).toBe(36.5);
+    expect(parseBehaviour("40")).toBe(40);
+    expect(parseBehaviour("41")).toBeUndefined();
+    expect(parseBehaviour("-1")).toBeUndefined();
+    expect(parseBehaviour("abc")).toBeUndefined();
   });
 });

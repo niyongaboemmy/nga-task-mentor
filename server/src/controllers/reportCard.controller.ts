@@ -39,6 +39,7 @@ import {
 } from "../services/reportCardSnapshot.service";
 import { isEditable, isFrozen, legacyStatusToActions } from "../services/reportCardWorkflow";
 import { getReportCardScheme } from "../services/tenantSettings";
+import { builderStructure, effectiveCategory, gradingOf } from "../services/reportCardBuilders";
 import { runTransition } from "./reportCardWorkflow.controller";
 import type {
   BuilderSavePayload,
@@ -143,6 +144,7 @@ function readShape(card: ReportCard, doc: ReportCardDocument, rawMappings: Repor
       returned_reason: card.returned_reason,
       class_teacher_comment: card.class_teacher_comment ?? null,
       head_teacher_comment: card.head_teacher_comment ?? null,
+      behaviour_mark: card.behaviour_mark ?? null,
       attendance: {
         present: doc.attendance.present,
         absent: doc.attendance.absent,
@@ -436,6 +438,7 @@ export const saveAttributes = async (req: Request, res: Response) => {
       attendance_excused: body.attendance_excused ?? reportCard.attendance_excused,
       attendance_sick: body.attendance_sick ?? reportCard.attendance_sick,
       ...(attendanceTouched && body.attendance_source !== "imported" ? { attendance_source: "manual" as const } : {}),
+      ...(body.behaviour_mark !== undefined ? { behaviour_mark: body.behaviour_mark == null ? null : Math.round(body.behaviour_mark * 100) / 100 } : {}),
       ...(mayHeadComment && body.head_teacher_comment !== undefined ? { head_teacher_comment: body.head_teacher_comment ?? null } : {}),
     });
 
@@ -551,21 +554,19 @@ export const getSubjectOverview = async (req: Request, res: Response) => {
       subjectId,
     });
     const reportCards = await ReportCard.findAll({ where: { student_id: { [Op.in]: ids }, term, academic_year } });
-    const weights = (await getReportCardScheme()).category_weights;
+    const grading = gradingOf(await getReportCardScheme());
 
-    const categoryTotals: Record<string, { sum: number; count: number }> = {
-      CW: { sum: 0, count: 0 },
-      HW: { sum: 0, count: 0 },
-      MD: { sum: 0, count: 0 },
-      EOT: { sum: 0, count: 0 },
-    };
+    // The school's builder decides the categories (Normal CW/HW/MD/EOT, TVET FA/CA/IA).
+    const categoryTotals: Record<string, { sum: number; count: number }> = Object.fromEntries(
+      builderStructure(grading.builder).categories.map((c) => [c.key, { sum: 0, count: 0 }]),
+    );
     let classSum = 0;
     let classCount = 0;
 
     const studentResults = [];
     for (const reportCard of reportCards) {
       const frozen = isFrozen(reportCard.status) ? await frozenDocument(req, reportCard) : null;
-      const grades: SubjectGrade[] = frozen ? frozen.grades : (await computeCardGrades(reportCard, weights)).grades;
+      const grades: SubjectGrade[] = frozen ? frozen.grades : (await computeCardGrades(reportCard, grading)).grades;
       const subjectGrade = grades.find((g) => g.subject_id === subjectId);
       if (subjectGrade) {
         classSum += subjectGrade.total_score;
@@ -678,7 +679,9 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
     }
     const doc = await documentFor(req, reportCard, { staff: canViewAll });
     const rawMappings = canViewAll ? await ReportCardAssessment.findAll({ where: { report_card_id: reportCard.id } }) : [];
-    const unmapped = canViewAll ? await unmappedFor(req, reportCard, doc, rawMappings).catch(() => ({})) : undefined;
+    // The mapping guidance is for the card preview (?guide=1), not bulk readers like the comments page.
+    const wantsGuide = String(req.query.guide ?? "") === "1";
+    const unmapped = canViewAll && wantsGuide ? await unmappedFor(req, reportCard, doc, rawMappings).catch(() => ({})) : undefined;
     res.status(200).json({ success: true, data: { ...readShape(reportCard, doc, rawMappings), ...(unmapped ? { unmapped } : {}) } });
   } catch (error) {
     sendControllerError(res, error, "getStudentReportCard");
@@ -789,6 +792,7 @@ export const getReportCardPreview = async (req: Request, res: Response) => {
       for (const id of missingNames) names.set(id, resolved[id] ?? `Subject #${id}`);
     }
 
+    const grading = gradingOf(await getReportCardScheme());
     const inputs: PreviewSubjectInput[] = subjectIds
       .map((id) => {
         const c = chosen.get(id)!;
@@ -801,13 +805,14 @@ export const getReportCardPreview = async (req: Request, res: Response) => {
             .map((r) => ({
               assessment_type: r.assessment_type as ItemKind,
               assessment_id: r.assessment_id,
-              category: r.category as AssessmentCategory,
+              category: effectiveCategory(grading.builder, r.category) as AssessmentCategory,
               title: titles.get(`${r.assessment_type}:${r.assessment_id}`) ?? `${r.assessment_type} #${r.assessment_id}`,
-            })),
+            }))
+            .filter((r) => r.category != null),
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-    const card = buildProvisionalCard(inputs, scores, (await getReportCardScheme()).category_weights);
+    const card = buildProvisionalCard(inputs, scores, grading.weights);
 
     const attributes = reportCard
       ? await ReportCardAttribute.findAll({ where: { report_card_id: reportCard.id }, attributes: ["id", "attribute_name", "rating"] })
@@ -1097,15 +1102,13 @@ export const getAdminSummary = async (req: Request, res: Response) => {
       await filterCardStudents(req, [...new Set(periodCards.map((rc) => rc.student_id))], ["REPORT_CARDS_VIEW_ALL"], { minDepth: "summary" }),
     );
     const reportCards = periodCards.filter((rc) => inScope.has(rc.student_id));
-    const weights = (await getReportCardScheme()).category_weights;
+    const grading = gradingOf(await getReportCardScheme());
 
     const statusCounts = { draft: 0, reviewed: 0, approved: 0, published: 0 };
-    const categoryTotals: Record<string, { sum: number; count: number }> = {
-      CW: { sum: 0, count: 0 },
-      HW: { sum: 0, count: 0 },
-      MD: { sum: 0, count: 0 },
-      EOT: { sum: 0, count: 0 },
-    };
+    // The school's builder decides the categories (Normal CW/HW/MD/EOT, TVET FA/CA/IA).
+    const categoryTotals: Record<string, { sum: number; count: number }> = Object.fromEntries(
+      builderStructure(grading.builder).categories.map((c) => [c.key, { sum: 0, count: 0 }]),
+    );
     const subjectTotals = new Map<number, { sum: number; count: number }>();
     let overallSum = 0;
     let overallCount = 0;
@@ -1113,7 +1116,7 @@ export const getAdminSummary = async (req: Request, res: Response) => {
     for (const reportCard of reportCards) {
       statusCounts[reportCard.status as keyof typeof statusCounts] += 1;
       const frozen = isFrozen(reportCard.status) ? await frozenDocument(req, reportCard) : null;
-      const grades = frozen ? frozen.grades : (await computeCardGrades(reportCard, weights)).grades;
+      const grades = frozen ? frozen.grades : (await computeCardGrades(reportCard, grading)).grades;
       for (const grade of grades) {
         overallSum += grade.total_score;
         overallCount += 1;

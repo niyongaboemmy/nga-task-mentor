@@ -1,12 +1,13 @@
 import { Loader2, Puzzle } from "lucide-react";
 import Tooltip from "../ui/Tooltip";
 import type { AssessmentCategory } from "../../services/reportCardApi";
-import { CATEGORIES, CATEGORY_ORDER } from "./categoryMeta";
+import { CATEGORIES, weightLabel } from "./categoryMeta";
+import { toBuilderCategory, useReportCardStructure } from "../../hooks/useReportCardStructure";
 import Select from "../ui/Select";
 
 // ─── Reusable "map this assessment to a report-card category" control ────────
-// A single assessment can be mapped into one of CW/HW/MD/EOT (or left
-// unmapped). This is deliberately a plain <Select> rather than a floating
+// A single assessment can be mapped into one of the school's builder
+// categories (Normal: CW/HW/MD/EOT, TVET: FA/CA/IA) or left unmapped. This is deliberately a plain <Select> rather than a floating
 // popover/menu: it renders correctly inside scrolling containers (a table
 // body with overflow-x-auto, a list, a card) with no clipping or z-index
 // work, and the browser's native dropdown needs no extra a11y wiring.
@@ -37,7 +38,10 @@ export default function AssessmentMappingControl({
   className = "",
   lockedReason = null,
 }: AssessmentMappingControlProps) {
-  const meta = category ? CATEGORIES[category] : null;
+  const { builder, structure } = useReportCardStructure();
+  // A mapping made under the other builder shows where it counts now.
+  const shown = category ? toBuilderCategory(builder, category) : null;
+  const meta = shown ? CATEGORIES[shown] : null;
 
   if (lockedReason) {
     return (
@@ -58,7 +62,7 @@ export default function AssessmentMappingControl({
   return (
     <div className={`group relative inline-flex items-center ${className}`}>
       <Select size="sm" variant="bare"
-        value={category ?? ""}
+        value={shown ?? ""}
         disabled={disabled || saving}
         onChange={(e) => onChange((e.target.value || null) as AssessmentCategory | null)}
         aria-label="Report card category"
@@ -71,9 +75,9 @@ export default function AssessmentMappingControl({
         <option value="">
           Unmapped
         </option>
-        {CATEGORY_ORDER.map((cat) => (
-          <option key={cat} value={cat}>
-            {CATEGORIES[cat].label} ({CATEGORIES[cat].weight}%)
+        {structure.categories.map((c) => (
+          <option key={c.key} value={c.key}>
+            {c.label} ({weightLabel(builder, c.weight)})
           </option>
         ))}
       </Select>

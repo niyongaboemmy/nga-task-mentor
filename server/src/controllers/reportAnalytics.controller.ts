@@ -8,6 +8,7 @@ import { frozenDocument } from "../services/reportCardSnapshot.service";
 import { isFrozen } from "../services/reportCardWorkflow";
 import { loadSchoolDirectory } from "../services/schoolDirectory";
 import { getGradingBands, getReportCardScheme } from "../services/tenantSettings";
+import { gradingOf } from "../services/reportCardBuilders";
 import { computeSchoolAnalytics, normalizeGender, type AnalyticsRow } from "../services/reportAnalytics.service";
 import { getMisToken, resolveAcademicYearId, resolveCurrentAcademicPeriodNames } from "../utils/misUtils";
 import { filterCardStudents } from "../utils/reportCardAccess";
@@ -113,7 +114,7 @@ export const getSchoolReports = async (req: Request, res: Response) => {
           continue;
         }
         drafts++;
-        const g = await computeCardGrades(c, scheme.category_weights);
+        const g = await computeCardGrades(c, gradingOf(scheme));
         subjects = Object.fromEntries(g.grades.map((x) => [x.subject_id, x.total_score]));
       }
       const totals = Object.values(subjects);

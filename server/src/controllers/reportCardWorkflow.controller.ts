@@ -29,6 +29,7 @@ import {
   computeCardGrades,
   resolveSubjectNames,
   resolveSubjectInfo,
+  listSubjectInfo,
   categoryFromCode,
   displayCode,
   type CardGrades,
@@ -38,6 +39,7 @@ import { activeSnapshot, frozenDocument, supersedeSnapshots, verificationBase, w
 import { renderClassReportCardsPdf } from "../services/reportCardDocumentPdf";
 import { loadSchoolDirectory, type SchoolDirectory } from "../services/schoolDirectory";
 import { getReportCardScheme, setReportCardScheme, getGradingBands } from "../services/tenantSettings";
+import { builderStructure, gradingOf } from "../services/reportCardBuilders";
 import { getMisToken, resolveAcademicYearId, resolveAcademicTermIdByName } from "../utils/misUtils";
 import {
   actorName,
@@ -203,7 +205,7 @@ export async function runTransition(req: Request, body: TransitionPayload): Prom
       }
       let readiness: ReadinessFacts | null = null;
       if (action === "review") {
-        const g = await computeCardGrades(card, scheme.category_weights);
+        const g = await computeCardGrades(card, gradingOf(scheme));
         gradesOf.set(card.id!, g);
         const cg = card.class_group_id ?? directory?.students.find((s) => s.mis_user_id === card.student_id)?.class_group_id ?? null;
         const cycle = cg != null ? await ReportCycle.findOne({ where: { class_group_id: cg, term: card.term, academic_year: card.academic_year } }) : null;
@@ -485,6 +487,40 @@ export const putScheme = async (req: Request, res: Response) => {
   }
 };
 
+/** GET /report-cards/structure: the school's builder, its categories and the template options teachers see. */
+export const getStructure = async (_req: Request, res: Response) => {
+  try {
+    const scheme = await getReportCardScheme();
+    res.status(200).json({
+      success: true,
+      data: {
+        builder: scheme.builder,
+        structure: builderStructure(scheme.builder, scheme.category_weights),
+        competence_thresholds: scheme.competence_thresholds,
+        pass_mark: scheme.pass_mark,
+      },
+    });
+  } catch (error) {
+    sendControllerError(res, error, "getStructure");
+  }
+};
+
+/** GET /report-cards/templates/modules: every MIS module with its code, category and learning hours. */
+export const getTemplateModules = async (req: Request, res: Response) => {
+  try {
+    const [modules, scheme] = await Promise.all([listSubjectInfo(req), getReportCardScheme()]);
+    res.status(200).json({
+      success: true,
+      data: {
+        modules: modules.map((m) => ({ ...m, override: scheme.tvet.module_weights[String(m.id)] ?? null })),
+        default_module_weight: scheme.tvet.default_module_weight,
+      },
+    });
+  } catch (error) {
+    sendControllerError(res, error, "getTemplateModules");
+  }
+};
+
 // ─── Workbench ───────────────────────────────────────────────────────────────
 
 /** Which workflow actions the caller holds at all (UI hints; each card is re-checked). */
@@ -555,7 +591,7 @@ export const getWorkbench = async (req: Request, res: Response) => {
     const classSubjects = directory.class_group_subjects.get(classGroupId) ?? [];
     await syncSubjectMappings(cards, classSubjects, term, year);
     const computed = new Map<number, CardGrades>();
-    for (const c of cards) computed.set(c.id!, await computeCardGrades(c, scheme.category_weights));
+    for (const c of cards) computed.set(c.id!, await computeCardGrades(c, gradingOf(scheme)));
     const subjectIds = new Set<number>(classSubjects);
     for (const g of computed.values()) g.mappedSubjects.forEach((id) => subjectIds.add(id));
     const subjectInfo = await resolveSubjectInfo(req, [...subjectIds]);
@@ -569,6 +605,7 @@ export const getWorkbench = async (req: Request, res: Response) => {
       return categoryFromCode(subjectInfo[sid]?.code);
     };
     const thresholdOf = (sid: number) => scheme.competence_thresholds[categoryOf(sid) ?? "specific"] ?? scheme.pass_mark;
+    const structure = builderStructure(scheme.builder, scheme.category_weights);
 
     const signoffs = await ReportCycleSubjectSignoff.findAll({ where: { cycle_id: cycle.id } });
     const signoffBy = new Map(signoffs.map((s) => [s.subject_id, s]));
@@ -632,7 +669,7 @@ export const getWorkbench = async (req: Request, res: Response) => {
           missing: number;
           covered: number | null;
           points: number | null;
-          categories: Record<"CW" | "HW" | "MD" | "EOT", number | null> | null;
+          categories: Record<string, number | null> | null;
           competent: boolean | null;
           missing_items: Array<{ assessment_type: string; assessment_id: number; category: string; title: string; href: string | null }>;
         }
@@ -642,15 +679,11 @@ export const getWorkbench = async (req: Request, res: Response) => {
         totals[sid] = {
           total: grade ? grade.total_score : null,
           missing: g.missingBySubject.get(sid) ?? 0,
-          covered: grade ? grade.weight_covered : null,
+          // Share of the term assessed: Normal = weight of the categories with marks; TVET = FA and CA (IA is Term 3's extra).
+          covered: grade ? (structure.key === "tvet" ? Math.min(100, Math.round(grade.weight_covered / 2)) : grade.weight_covered) : null,
           points: grade ? Math.round(grade.points * 100) / 100 : null,
           categories: grade
-            ? {
-                CW: grade.categories.CW?.scaled_score ?? null,
-                HW: grade.categories.HW?.scaled_score ?? null,
-                MD: grade.categories.MD?.scaled_score ?? null,
-                EOT: grade.categories.EOT?.scaled_score ?? null,
-              }
+            ? Object.fromEntries(structure.categories.map((c) => [c.key, grade.categories[c.key]?.scaled_score ?? null]))
             : null,
           competent: grade ? grade.total_score >= thresholdOf(sid) : null,
           missing_items: (g.missingItems.get(sid) ?? []).map((m) => {
@@ -732,6 +765,8 @@ export const getWorkbench = async (req: Request, res: Response) => {
           require_distinct_approver: scheme.require_distinct_approver,
           category_weights: scheme.category_weights,
           competence_thresholds: scheme.competence_thresholds,
+          builder: scheme.builder,
+          structure: builderStructure(scheme.builder, scheme.category_weights),
         },
         subjects,
         students,

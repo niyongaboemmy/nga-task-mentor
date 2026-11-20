@@ -11,13 +11,21 @@ import { cachedGradingBands, GradeBand, letterFor } from "./tenantSettings";
  *   EOT → 50
  */
 
-export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT";
+/**
+ * Normal builder: CW/HW/MD/EOT. TVET builder: FA (formative), CA
+ * (comprehensive) and IA (integrated, Term 3). See reportCardBuilders.ts.
+ */
+export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT" | "IA" | "FA" | "CA";
 
 export const CATEGORY_WEIGHTS: Record<AssessmentCategory, number> = {
   CW: 15,
   HW: 10,
   MD: 25,
   EOT: 50,
+  // TVET builder: equal-weight components (each shown out of the module weight).
+  IA: 100,
+  FA: 100,
+  CA: 100,
 };
 
 export interface AssessmentScore {
