@@ -9,7 +9,9 @@ import TermYearSelect from "../components/ReportCard/TermYearSelect";
 import { useTermYearSelector } from "../hooks/useTermYearSelector";
 import { ReportCardWorkflowApi, apiMessage, type SchoolReports } from "../services/reportCardWorkflowApi";
 import { downloadCsv, csvSlug } from "../utils/csvExport";
-import BroadsheetTab from "../components/SchoolReports/BroadsheetTab";
+import BroadsheetTab, { type BroadsheetExport } from "../components/SchoolReports/BroadsheetTab";
+import { filtersFromParams, writeFilters } from "../components/SchoolReports/broadsheetFilters";
+import { useSearchParams } from "react-router-dom";
 import PerformanceTab from "../components/SchoolReports/PerformanceTab";
 import GenderTab from "../components/SchoolReports/GenderTab";
 import TrendsTab from "../components/SchoolReports/TrendsTab";
@@ -26,6 +28,8 @@ import { secondaryBtn } from "../components/SchoolReports/format";
 // to CSV (Excel-safe) and prints / saves as PDF with the app chrome hidden.
 
 type TabId = "broadsheet" | "performance" | "gender" | "trends" | "at-risk";
+
+const labelCls = "mb-1 text-[11px] font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark";
 
 // Paper: only the report area prints, landscape, with background colours kept
 // so the bars survive.
@@ -90,12 +94,30 @@ export default function SchoolReportsPage() {
   // A new period has its own classes.
   useEffect(() => {
     setClassOptions([]);
+    setProgramme(null);
   }, [term, academicYear]);
 
-  const className = classId == null ? "All classes" : (classOptions.find((c) => c.id === classId)?.name ?? "Class");
+  // Programme: narrows the class picker and, for the whole programme, the
+  // broadsheet and at-risk lists (their class filter, kept in the URL).
+  const [, setParams] = useSearchParams();
+  const [programme, setProgramme] = useState<string | null>(null);
+  const programmes = useMemo(
+    () => [...new Set(classOptions.map((c) => c.program_name).filter((p): p is string => !!p))].sort(),
+    [classOptions],
+  );
+  const visibleClasses = programme ? classOptions.filter((c) => c.program_name === programme) : classOptions;
+  const pickProgramme = (p: string | null) => {
+    setProgramme(p);
+    const names = p ? classOptions.filter((c) => c.program_name === p).map((c) => c.name) : [];
+    if (classId != null && p && !names.includes(classOptions.find((c) => c.id === classId)?.name ?? "")) setClassId(null);
+    setParams((prev) => writeFilters(prev, { ...filtersFromParams(prev), classes: names }), { replace: true });
+  };
+
+  const className =
+    classId != null ? (classOptions.find((c) => c.id === classId)?.name ?? "Class") : programme ? `${programme} (all classes)` : "All classes";
 
   const exportTab = useCallback(
-    (tab: TabId) => {
+    (tab: TabId, view?: BroadsheetExport) => {
       if (!data) return;
       const builders: Record<TabId, (d: SchoolReports) => (string | number | null | undefined)[][]> = {
         broadsheet: broadsheetRows,
@@ -105,7 +127,9 @@ export default function SchoolReportsPage() {
         "at-risk": atRiskRows,
       };
       try {
-        downloadCsv(`${csvSlug(`${tab} ${className} ${data.term} ${data.academic_year}`)}.csv`, builders[tab](data));
+        // The broadsheet exports what is on screen (filters, hidden subjects, order).
+        const source = view ? { ...data, broadsheet: { ...data.broadsheet, ...view } } : data;
+        downloadCsv(`${csvSlug(`${tab} ${className} ${data.term} ${data.academic_year}${view ? " filtered" : ""}`)}.csv`, builders[tab](source));
         toast.success("CSV exported");
       } catch {
         toast.error("Couldn't export the CSV");
@@ -145,16 +169,16 @@ export default function SchoolReportsPage() {
       );
     }
     if (!data) return <ReportsSkeleton />;
-    const onExport = () => exportTab(active as TabId);
+    const onExport = (view?: BroadsheetExport) => exportTab(active as TabId, view);
     switch (active as TabId) {
       case "performance":
-        return <PerformanceTab data={data} onExport={onExport} />;
+        return <PerformanceTab data={data} onExport={() => onExport()} />;
       case "gender":
-        return <GenderTab data={data} onExport={onExport} />;
+        return <GenderTab data={data} onExport={() => onExport()} />;
       case "trends":
-        return <TrendsTab data={data} onExport={onExport} />;
+        return <TrendsTab data={data} onExport={() => onExport()} />;
       case "at-risk":
-        return <AtRiskTab data={data} onExport={onExport} />;
+        return <AtRiskTab data={data} onExport={() => onExport()} />;
       default:
         return <BroadsheetTab data={data} onExport={onExport} />;
     }
@@ -183,40 +207,78 @@ export default function SchoolReportsPage() {
           }
         />
 
-        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-border-light bg-card-light p-3 dark:border-border-dark/40 dark:bg-card-dark/30">
-          <TermYearSelect
-            years={period.years}
-            terms={period.terms}
-            academicYear={academicYear}
-            term={term}
-            onAcademicYearChange={period.setAcademicYear}
-            onTermChange={period.setTerm}
-            disabled={period.loading}
-          />
-          <Select
-            value={classId == null ? "all" : String(classId)}
-            onChange={(e) => setClassId(e.target.value === "all" ? null : Number(e.target.value))}
-            aria-label="Class"
-            className="min-w-[180px]"
-            size="sm"
-            disabled={classOptions.length === 0}
-          >
-            <option value="all">All classes</option>
-            {classOptions.map((c) => (
-              <option key={c.id} value={String(c.id)}>
-                {c.program_name ? `${c.name} · ${c.program_name}` : c.name}
-              </option>
-            ))}
-          </Select>
-          <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-text-primary-light dark:text-text-primary-dark">
-            <input
-              type="checkbox"
-              checked={includeDrafts}
-              onChange={(e) => setIncludeDrafts(e.target.checked)}
-              className="h-4 w-4 rounded border-border-light text-blue-600 focus:ring-blue-500 dark:border-border-dark"
-            />
-            Include drafts (provisional)
-          </label>
+        <div className="mt-4 rounded-2xl border border-border-light bg-card-light p-3 dark:border-border-dark/40 dark:bg-card-dark/30 sm:p-4" data-testid="school-report-filters">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-0">
+              <p className={labelCls}>Period</p>
+              <TermYearSelect
+                years={period.years}
+                terms={period.terms}
+                academicYear={academicYear}
+                term={term}
+                onAcademicYearChange={period.setAcademicYear}
+                onTermChange={period.setTerm}
+                disabled={period.loading}
+              />
+            </div>
+            {programmes.length > 1 && (
+              <div>
+                <p className={labelCls}>Programme</p>
+                <Select value={programme ?? "all"} onChange={(e) => pickProgramme(e.target.value === "all" ? null : e.target.value)} aria-label="Programme" className="min-w-[180px]">
+                  <option value="all">All programmes</option>
+                  {programmes.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
+            <div>
+              <p className={labelCls}>Class</p>
+              <Select
+                value={classId == null ? "all" : String(classId)}
+                onChange={(e) => setClassId(e.target.value === "all" ? null : Number(e.target.value))}
+                aria-label="Class"
+                className="min-w-[220px]"
+                disabled={classOptions.length === 0}
+              >
+                <option value="all">{programme ? `All ${programme} classes` : "All classes"}</option>
+                {visibleClasses.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.program_name && !programme ? `${c.name} · ${c.program_name}` : c.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <label className="inline-flex w-full cursor-pointer sm:ml-auto sm:w-auto select-none items-center gap-2.5 rounded-xl border border-border-light px-3 py-2 text-sm text-text-primary-light hover:border-blue-400 dark:border-border-dark/50 dark:text-text-primary-dark">
+              <input type="checkbox" checked={includeDrafts} onChange={(e) => setIncludeDrafts(e.target.checked)} className="peer sr-only" />
+              <span
+                aria-hidden
+                className="relative h-5 w-9 shrink-0 rounded-full bg-gray-300 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-transform peer-checked:bg-blue-600 peer-checked:after:translate-x-4 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500/40 dark:bg-white/20"
+              />
+              <span>
+                Include drafts (provisional)
+                <span className="block text-[11px] text-text-secondary-light dark:text-text-secondary-dark">Live numbers before cards are approved</span>
+              </span>
+            </label>
+          </div>
+          {(programme || classId != null) && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border-light pt-3 text-xs dark:border-border-dark/40">
+              <span className="text-text-secondary-light dark:text-text-secondary-dark">Looking at</span>
+              <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 font-semibold text-blue-800 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200">{className}</span>
+              <button
+                type="button"
+                className="font-semibold text-blue-700 hover:underline dark:text-blue-300"
+                onClick={() => {
+                  setClassId(null);
+                  pickProgramme(null);
+                }}
+              >
+                Whole school
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
