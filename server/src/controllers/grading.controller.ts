@@ -16,6 +16,7 @@ import axios from "axios";
 import { getMisToken, resolveAcademicTermId } from "../utils/misUtils";
 import { isPassed } from "../utils/quizStudentView";
 import { canGradeQuiz, GRADE_DENIED_MESSAGE } from "../utils/gradingAccess";
+import { namesFromMis } from "../utils/names";
 
 // @desc    Get pending submissions for grading
 // @route   GET /api/quiz-submissions/pending
@@ -877,8 +878,8 @@ export const getQuizStudents = async (req: Request, res: Response) => {
             const [localUser] = await User.findOrCreate({
               where: { mis_user_id: s.mis_user_id },
               defaults: {
-                first_name: s.first_name,
-                last_name: s.last_name,
+                // A student without a last name must not break the whole roster.
+                ...namesFromMis({ first_name: s.first_name, last_name: s.last_name }, s.email),
                 email:
                   s.email || `mis-${s.mis_user_id}@placeholder.local`,
                 password: "MIS_AUTH",
