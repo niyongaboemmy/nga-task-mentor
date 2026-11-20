@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { autoMapNewToFormative, withinSeconds } from "../services/formativeAutoMap";
 import { isPersonalAiUnavailableError, personalAiErrorBody, personalAiFrom } from "../services/myAiGateway";
 import { sendHandoff } from "../services/aiHandoff";
 import { aiHelpInput, boolInput } from "../tmcode/ai/learning";
@@ -721,10 +722,14 @@ export const createQuiz = async (req: Request, res: Response) => {
       ],
     });
 
+    // TVET schools: new work counts as FA (formative) until a teacher maps it elsewhere.
+    const autoMapped = await withinSeconds(autoMapNewToFormative(req, { kind: "quiz", id: quiz.id, subject_id: courseId, academic_term_id: quiz.academic_term_id ?? null }), 3);
+
     res.status(201).json({
       success: true,
       message: "Quiz created successfully",
       data: createdQuiz,
+      report_card_category: autoMapped ? "FA" : null,
     });
   } catch (error) {
     await transaction.rollback();

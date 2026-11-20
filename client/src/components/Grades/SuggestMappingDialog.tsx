@@ -55,7 +55,7 @@ export default function SuggestMappingDialog({
           <Sparkles className="h-4 w-4 text-blue-600" aria-hidden /> Map {subjectName}'s work
         </span>
       }
-      subtitle={`Suggested from each assessment's type, in the ${structure.label} builder. Change any, or skip it.`}
+      subtitle={structure.key === "tvet" ? "TVET: everything starts in FA. Move the comprehensive (CA) and integrated (IA) ones." : `Suggested from each assessment's type, in the ${structure.label} builder. Change any, or skip it.`}
       footer={
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark" aria-live="polite">
@@ -101,7 +101,7 @@ export default function SuggestMappingDialog({
               <option value="">Skip</option>
               {structure.categories.map((c) => (
                 <option key={c.key} value={c.key}>
-                  {c.label} ({structure.key === "tvet" ? "/ weight" : `${c.weight}%`})
+                  {structure.key === "tvet" ? `${c.short} · ${c.label}` : `${c.label} (${c.weight}%)`}
                 </option>
               ))}
             </Select>

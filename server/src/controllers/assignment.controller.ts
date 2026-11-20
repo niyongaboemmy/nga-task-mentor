@@ -1,4 +1,5 @@
 import { filterActiveMisRows } from "../utils/activeUsers";
+import { autoMapNewToFormative, withinSeconds } from "../services/formativeAutoMap";
 import { aiHelpInput, boolInput } from "../tmcode/ai/learning";
 import { syncProjectsForSubmission } from "../tmcode/projects/status";
 import { Request, Response } from "express";
@@ -662,10 +663,23 @@ export const createAssignment = async (req: Request, res: Response) => {
     void syncAssignment(assignment.id);
     if (assignment.ai_mode !== "off") trackAiModeChange(req, "assignment", assignment, null, assignment.ai_mode);
 
+    // TVET schools: new work counts as FA (formative) until a teacher maps it elsewhere.
+    const autoMapped = await withinSeconds(
+      autoMapNewToFormative(req, {
+        kind: "assignment",
+        id: assignment.id,
+        subject_id: Number(assignment.course_id),
+        academic_term_id: assignment.academic_term_id ?? null,
+        part_of: (assignment as any).marks_scope === "part_of",
+      }),
+      3,
+    );
+
     res.status(201).json({
       success: true,
       message: "Assignment created successfully",
       data: assignment,
+      report_card_category: autoMapped ? "FA" : null,
     });
   } catch (error: any) {
     console.error("Create assignment error:", error);

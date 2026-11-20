@@ -10,6 +10,8 @@ import TemplatePreviewModal from "../components/ReportCard/templates/TemplatePre
 import { sampleNormalDocument, sampleTvetDocument } from "../components/ReportCard/templates/sampleDocuments";
 import SchoolProfileCard from "../components/ReportCard/templates/SchoolProfileCard";
 import ModuleWeightsEditor from "../components/ReportCard/templates/ModuleWeightsEditor";
+import FormativeDefaultPanel from "../components/ReportCard/templates/FormativeDefaultPanel";
+import { describeKinds } from "../components/ReportCard/templates/formativeText";
 import { NORMAL_STRUCTURE, TVET_STRUCTURE, refreshReportCardStructure } from "../hooks/useReportCardStructure";
 import type { ReportCardBuilderKind, ReportCardDocument } from "../services/reportCardApi";
 import {
@@ -149,6 +151,7 @@ export default function ReportCardTemplatesPage() {
   const [switchTo, setSwitchTo] = useState<ReportCardBuilderKind | null>(null);
   const [switching, setSwitching] = useState(false);
   const [preview, setPreview] = useState<ReportCardBuilderKind | null>(null);
+  const [formativeKey, setFormativeKey] = useState(0);
 
   const [schoolDraft, setSchoolDraft] = useState<Partial<Record<SchoolProfileField, string>>>({});
 
@@ -208,6 +211,16 @@ export default function ReportCardTemplatesPage() {
       setScheme(res.data.scheme);
       await refreshReportCardStructure(to === "tvet" ? TVET_STRUCTURE : undefined);
       toast.success(`The school now uses the ${to === "tvet" ? "TVET" : "Normal"} builder. Teachers map marks into ${to === "tvet" ? "FA, CA and IA" : "CW, HW, MD and EOT"}.`);
+      if (to === "tvet") {
+        // FA by default: this term's unmapped work goes to FA straight away.
+        try {
+          const r = await ReportCardWorkflowApi.mapFormative(false);
+          if (r.data.mapped) toast.success(`Mapped ${describeKinds(r.data.by_kind)} to FA.`);
+        } catch (e) {
+          toast.error(apiMessage(e, "Couldn't map this term's work to FA; use “Map to FA” below."));
+        }
+        setFormativeKey((k) => k + 1);
+      }
     } catch (e) {
       toast.error(apiMessage(e, "Couldn't switch the report card builder."));
     } finally {
@@ -368,6 +381,8 @@ export default function ReportCardTemplatesPage() {
             </div>
           </section>
 
+          {builder === "tvet" && <FormativeDefaultPanel refreshKey={formativeKey} />}
+
           {/* 2. The school's details, kept in MIS (per tenant) */}
           <SchoolProfileCard template={opts} onDraft={setSchoolDraft} />
 
@@ -483,7 +498,7 @@ export default function ReportCardTemplatesPage() {
         title={`Use the ${switchTo === "tvet" ? "TVET" : "Normal"} builder?`}
         description={
           switchTo === "tvet"
-            ? "Teachers will map marks into FA, CA and IA, each out of the module weight, and draft cards will use the TVET (CAMIS) template. Existing CW/HW/MD mappings count as FA and EOT as CA, nothing is deleted. Approved and published cards keep the format they were approved in."
+            ? "Teachers will map marks into FA, CA and IA, each out of the module weight, and draft cards will use the TVET (CAMIS) template. This term's unmapped quizzes, assignments and recorded marks are mapped to FA, and new ones go to FA automatically. Existing CW/HW/MD mappings count as FA and EOT as CA; nothing is deleted. Approved and published cards keep the format they were approved in."
             : "Teachers will map marks into CW, HW, MD and EOT with the school's weights, and draft cards will use the Normal template. Existing FA mappings count as MD and CA as EOT; IA mappings won't count. Approved and published cards keep the format they were approved in."
         }
         confirmLabel="Switch builder"

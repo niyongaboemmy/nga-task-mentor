@@ -789,6 +789,18 @@ export default function GradesPage() {
 
   // ── After create/edit ─────────────────────────────────────────────────────
   const handleSaved = (saved: ManualAssessment) => {
+    const isNew = !manualAssessments.some((x) => x.id === saved.id);
+    // TVET: the server maps new work to FA; show it straight away.
+    if (isNew && builder === "tvet" && term && academicYear) {
+      void ReportCardApiService.getSubjectMapping({ subject_id: saved.course_id, term, academic_year: academicYear })
+        .then((res) => {
+          setMappings((prev) => new Map(prev).set(saved.course_id, res.data.assessments ?? []));
+          if ((res.data.assessments ?? []).some((m) => m.assessment_type === "manual" && m.assessment_id === saved.id)) {
+            toast.info("Mapped to Formative Assessment (FA). Change it in the Mapping column if it's a CA or IA.");
+          }
+        })
+        .catch(() => undefined);
+    }
     setManualAssessments((prev) => {
       const idx = prev.findIndex((x) => x.id === saved.id);
       if (idx >= 0) {
