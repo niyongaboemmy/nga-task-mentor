@@ -1,4 +1,4 @@
-import { renderReportCardPdf, verificationUrl } from "../reportCardDocumentPdf";
+import { renderClassReportCardsPdf, renderReportCardPdf, verificationUrl } from "../reportCardDocumentPdf";
 import { NGA_GRADING_BANDS } from "../tenantSettings";
 import type { ReportCardDocument } from "../reportCardDocument";
 import fs from "fs";
@@ -66,5 +66,22 @@ describe("TVET (CAMIS) template", () => {
     const pdf = await renderReportCardPdf(doc(), { verificationBaseUrl: "https://tm.example" });
     save("normal.pdf", pdf);
     expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+  });
+});
+
+describe("class pack cover", () => {
+  it("renders the ranking cover for a TVET class, long names on one line", async () => {
+    const names = ["Mukamana Ange Sample", "Uwimana Claudine Marie-Josee Ingabire Sample", "Habimana Eric", "Niyonsaba Grace", "Mugisha Alpha", "Ishimwe Kevin", "Uwase Aline", "Nshuti Brian", "Keza Oceanne", "Ndizihiwe Gael"];
+    const docs = names.map((name, i) => {
+      const d = tvetDocument(false, i === 0 ? "published" : "draft");
+      d.card = { ...d.card, id: i + 1, uuid: `u${i}` };
+      d.student = { ...d.student, id: i + 1, name, registration_number: `120823-${String(i + 1).padStart(4, "0")}` };
+      d.summary = { ...d.summary, average: 95 - i * 1.3, position: i + 1, position_of: 10 };
+      d.behaviour = { mark: 36 - (i % 4), max: 40 };
+      return d;
+    });
+    const pdf = await renderClassReportCardsPdf(docs, { class_name: "SPES Year 2 A", term: "Term 1", academic_year: "2026 - 2027" }, { verificationBaseUrl: "https://tm.example" });
+    expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+    if (process.env.RC_PDF_OUT) fs.writeFileSync(path.join(process.env.RC_PDF_OUT, "class-pack.pdf"), pdf);
   });
 });
