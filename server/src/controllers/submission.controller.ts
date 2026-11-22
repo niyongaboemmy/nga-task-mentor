@@ -5,7 +5,7 @@ import { Submission, Assignment, User, Quiz, QuizSubmission } from "../models";
 import { Op } from "sequelize";
 import { isPastDate } from "../utils/dateUtils";
 import { resolveAcademicTermId, getCurrentTermId } from "../utils/misUtils";
-import { getScopedSubjects } from "../utils/scopedSubjects";
+import { getScopedSubjects, studentMayUseCourse } from "../utils/scopedSubjects";
 import { canGradeAssignment, GRADE_DENIED_MESSAGE } from "../utils/gradingAccess";
 import fs from "fs";
 import path from "path";
@@ -540,6 +540,15 @@ export const createSubmission = async (req: Request, res: Response) => {
       return res
         .status(404)
         .json({ success: false, message: "Assignment not found" });
+    }
+
+    // Only students enrolled in the subject (taught to their class) may hand
+    // in work for it -- same rule as POST /assignments/:id/submit.
+    if (!(await studentMayUseCourse(req, assignment.course_id))) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not enrolled in this subject, so you cannot submit this assignment.",
+      });
     }
 
     // Check if due date has passed

@@ -125,6 +125,26 @@ async function getLegacyScopedSubjects(
   }
 }
 
+/**
+ * May a student open or hand in work for this course (MIS subject)? Staff
+ * scopes (all / assigned) are not limited here -- their own guards apply.
+ * A student must have the subject in their MIS enrolled subjects, which MIS
+ * limits to subjects taught to the student's class (2026-11-22: students
+ * moved to another class kept a stale GENEG302 enrollment, saw its
+ * assignment on their dashboard and submitted). When MIS returns no subjects
+ * at all (unreachable, or nothing enrolled) this answers true rather than
+ * locking every student out during an outage.
+ */
+export async function studentMayUseCourse(
+  req: Request,
+  courseId: number | null | undefined,
+): Promise<boolean> {
+  if (getSubjectScope(req) !== "enrolled" || courseId == null) return true;
+  const { scope, subjects } = await getScopedSubjects(req);
+  if (scope !== "enrolled" || subjects.length === 0) return true;
+  return subjects.some((s) => s.id === Number(courseId));
+}
+
 // ─── Access control v2 ───────────────────────────────────────────────────────
 // Course ids are MIS subject ids, so the v2 subject set is read straight off
 // the snapshot: the union of where the user may manage assignments
