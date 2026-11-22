@@ -44,7 +44,13 @@ process.env.TZ = "UTC";
 console.log("Server timezone set to:", process.env.TZ);
 
 const app: Application = express();
-const server = http.createServer(app);
+// The super admin's MIS token is ~8 KB (it carries every permission) and the
+// browser sends it twice -- misToken cookie + x-mis-token header -- next to the
+// shared .amashuri.com cookies. That is >16 KB, Node's default header limit, so
+// every request answered 431 and the super admin could not sign in (2026-11-22).
+// nginx in front has large_client_header_buffers 8 32k for the same reason.
+const MAX_HEADER_SIZE = 64 * 1024;
+const server = http.createServer({ maxHeaderSize: MAX_HEADER_SIZE }, app);
 
 // Import routes
 import authRoutes from "./routes/auth";
