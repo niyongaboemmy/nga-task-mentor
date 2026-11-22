@@ -23,7 +23,7 @@ import {
   handleMisError,
   fetchEnrolledStudents,
 } from "../utils/misUtils";
-import { getScopedSubjects } from "../utils/scopedSubjects";
+import { getScopedSubjects, studentMayUseCourse } from "../utils/scopedSubjects";
 import { assignmentTmcodeSettings } from "./tmcodeAssignments.controller";
 import { canManageAssignment } from "../utils/ownership";
 import { trackAiModeChange } from "../utils/aiEvents";
@@ -410,6 +410,20 @@ export const getAssignment = async (req: Request, res: Response) => {
       return res
         .status(404)
         .json({ success: false, message: "Assignment not found" });
+    }
+
+    // Students only see work for subjects they are enrolled in; one who
+    // already handed in work keeps access to it (their history).
+    if (!(await studentMayUseCourse(req, assignment.course_id))) {
+      const own = req.user?.id
+        ? await Submission.count({ where: { assignment_id: assignment.id, student_id: req.user.id } })
+        : 0;
+      if (!own) {
+        return res.status(403).json({
+          success: false,
+          message: "This assignment is for a subject you are not enrolled in.",
+        });
+      }
     }
 
     // can_manage drives the edit / status controls on the detail page;
@@ -1327,7 +1341,14 @@ export const submitAssignment = async (req: Request, res: Response) => {
       });
     }
 
-    // 4. Skip enrollment check since course IDs come from external API
+    // 4. Only students enrolled in the subject (taught to their class) may
+    //    hand in work for it.
+    if (!(await studentMayUseCourse(req, assignment.course_id))) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not enrolled in this subject, so you cannot submit this assignment.",
+      });
+    }
 
     // 5. Allow late submissions — deadline passed submissions are accepted but marked is_late
 
