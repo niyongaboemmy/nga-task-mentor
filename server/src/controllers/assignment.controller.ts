@@ -21,6 +21,7 @@ import {
   getMisToken,
   getCurrentTermId,
   handleMisError,
+  fetchEnrolledStudents,
 } from "../utils/misUtils";
 import { getScopedSubjects } from "../utils/scopedSubjects";
 import { assignmentTmcodeSettings } from "./tmcodeAssignments.controller";
@@ -1095,48 +1096,44 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
       });
     }
 
-    // Get all students enrolled in the course (subject) from NGA MIS
-    let enrolledStudents: any[] = [];
-    try {
-      const termId = await getCurrentTermId(req);
-      const studentsResponse = await axios.get(
-        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${assignment.course_id}/terms/${termId}/students`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
+    // The subject roster for the assignment's own term. MIS puts a student on
+    // it only with an ACTIVE enrollment in a class group the subject is taught
+    // to. Admins get it from the subject roster; teachers (403 there) fall back
+    // to their own students in this subject. Inactive students are left out.
+    const termId = assignment.academic_term_id ?? (await getCurrentTermId(req));
+    const enrolledStudents: any[] = assignment.course_id
+      ? await fetchEnrolledStudents(token, assignment.course_id, termId)
+      : [];
+    const rosterMisIds = new Set(
+      enrolledStudents.map((st: any) =>
+        String(st.user_id ?? st.id ?? st.student_id ?? st.userId),
+      ),
+    );
 
-      if (studentsResponse.data.success) {
-        // Active students only: no "pending" placeholder for someone whose
-        // MIS account is inactive. Their real submissions stay listed.
-        enrolledStudents = await filterActiveMisRows(studentsResponse.data.data || []);
-      }
-    } catch (enrollmentError: any) {
-      if (enrollmentError.response?.status === 401) {
-        return handleMisError(enrollmentError, res, "MIS session expired");
-      }
-      console.warn(
-        "Could not fetch enrolled students from NGA MIS:",
-        enrollmentError.message,
-      );
-      // Continue with existing submissions only
-    }
+    // Only enrolled students' work is listed (2026-11-22: students moved to
+    // another class kept a stale enrollment, submitted, and showed up here).
+    // Kept regardless: inactive students' history, and anything we cannot
+    // place (no MIS id). An empty roster means MIS could not be read or the
+    // subject has no students -- then nothing is hidden rather than
+    // everything.
+    const onRoster = (s: any) => {
+      const st = s.student;
+      if (!rosterMisIds.size || !st?.mis_user_id) return true;
+      if (st.mis_status && st.mis_status !== "ACTIVE") return true;
+      return rosterMisIds.has(String(st.mis_user_id));
+    };
+    const listedSubmissions = existingSubmissions.filter(onRoster);
 
     // Create a set of MIS user IDs from existing submissions for quick lookup
     const existingStudentMisIds = new Set();
     existingSubmissions.forEach((s: any) => {
-      if (s.User?.mis_user_id) {
-        existingStudentMisIds.add(String(s.User.mis_user_id));
-      } else if (s.student?.mis_user_id) {
+      if (s.student?.mis_user_id) {
         existingStudentMisIds.add(String(s.student.mis_user_id));
       }
     });
 
-    // Start with all actual submissions from our database
-    let allSubmissions = [...existingSubmissions];
+    // Start with the enrolled students' submissions from our database
+    const allSubmissions: any[] = [...listedSubmissions];
 
     // Add placeholders ONLY for students from MIS who haven't submitted yet
     enrolledStudents.forEach((student: any) => {
