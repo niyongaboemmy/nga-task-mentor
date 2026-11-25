@@ -12,7 +12,6 @@ import {
   BeforeBulkCreate,
 } from "sequelize-typescript";
 import * as bcrypt from "bcryptjs";
-import * as jwt from "jsonwebtoken";
 import * as crypto from "crypto";
 import Submission from "./Submission.model";
 import Assignment from "./Assignment.model";
@@ -21,6 +20,7 @@ import QuizSubmission from "./QuizSubmission.model";
 import QuizAttempt from "./QuizAttempt.model";
 import Role from "./Role.model";
 import { tidOrPrimary } from "../tenancy/keys";
+import { signSessionToken } from "../utils/sessionToken";
 
 export type UserRole = "student" | "instructor" | "admin";
 
@@ -196,32 +196,19 @@ export class User extends Model<IUserAttributes, UserCreationAttributes> {
 
   // Instance methods
   getSignedJwtToken(termId?: number, academicYearId?: number, sid?: string | null): string {
-    if (!process.env.JWT_SECRET) {
-      throw new Error("JWT_SECRET is not defined");
-    }
     // Tenancy: every session names its school (CONTRACT.md §6). Sign-in runs
     // inside the tenant the MIS SSO token named; outside one (scripts) it is
-    // the primary tenant.
-    const payload: any = { id: this.id, role: this.role, tid: tidOrPrimary("User.getSignedJwtToken") };
-    if (termId) {
-      payload.termId = termId;
-    }
-    if (academicYearId) {
-      payload.academicYearId = academicYearId;
-    }
-    // The MIS browser session this sign-in came from (plan Appendix A.2/A.3):
-    // a back-channel logout for that sid ends this session only.
-    if (sid) {
-      payload.sid = sid;
-    }
-    const secret = process.env.JWT_SECRET;
-    const expiresIn = process.env.JWT_EXPIRE
-      ? Number(process.env.JWT_EXPIRE) || process.env.JWT_EXPIRE
-      : "30d";
-    const options: jwt.SignOptions = {
-      expiresIn: expiresIn as any,
-    };
-    return jwt.sign(payload, secret, options);
+    // the primary tenant. `sid` is the MIS browser session this sign-in came
+    // from (plan Appendix A.2/A.3): a back-channel logout for that sid ends
+    // this session only. The token shape (typ/aud) lives in signSessionToken.
+    return signSessionToken({
+      id: this.id,
+      role: this.role,
+      tid: tidOrPrimary("User.getSignedJwtToken"),
+      termId,
+      academicYearId,
+      sid,
+    });
   }
 
   // Method to check password

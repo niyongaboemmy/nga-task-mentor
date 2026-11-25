@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import { verifyDbStepUpToken, verifySessionToken } from "../utils/sessionToken";
 import { User } from "../models/User.model";
 import { Role } from "../models/Role.model";
 import { Permission } from "../models/Permission.model";
@@ -87,7 +87,10 @@ export const protect = async (
     try {
       // Verify token
       console.log("✅ Verifying token...");
-      decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+      // Sessions only (TM-ISO-1/2): a DB step-up token, or any other token
+      // typed for another purpose, is never a session -- even when it was
+      // signed with the same key in an older release.
+      decoded = verifySessionToken(token) as JwtPayload;
       console.log("✅ Token verified successfully for user ID:", decoded.id);
     } catch (error: any) {
       console.error(
@@ -293,18 +296,10 @@ export const requireDbStepUp = (
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      id: number;
-      dbAccess: boolean;
-    };
-
-    if (decoded.dbAccess !== true || decoded.id !== req.user.id) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid database access token",
-      });
-    }
-
+    // Signed with a key derived from JWT_SECRET, typed, and bound to this
+    // user AND this school (TM-ISO-1): a step-up from one school never opens
+    // the console of another, and it is never a session.
+    verifyDbStepUpToken(token, { id: Number(req.user?.id), tid: req.tenant?.tid });
     next();
   } catch (error) {
     return res.status(401).json({

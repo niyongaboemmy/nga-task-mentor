@@ -100,6 +100,23 @@ export const extractHandshakeToken = (
   return undefined;
 };
 
+/**
+ * The session shape (server/src/utils/sessionToken.ts, TM-ISO-1/2): `typ:
+ * "session"` with the Task Mentor audience, or a legacy token carrying none
+ * of the markers other tokens use. A DB step-up token (`dbAccess`) or any
+ * other typed token signed with the same key is never a socket identity.
+ */
+export const SESSION_TYP = "session";
+export const SESSION_AUDIENCE = "task-mentor";
+export const isSessionPayload = (payload: jwt.JwtPayload): boolean => {
+  if (payload.typ === SESSION_TYP) {
+    const aud = payload.aud;
+    return aud === SESSION_AUDIENCE || (Array.isArray(aud) && aud.includes(SESSION_AUDIENCE));
+  }
+  if ("dbAccess" in payload || "typ" in payload || "purpose" in payload || "aud" in payload) return false;
+  return true;
+};
+
 const toUserId = (value: unknown): number | undefined => {
   const n = typeof value === "string" ? Number(value) : value;
   return typeof n === "number" && Number.isInteger(n) && n > 0 ? n : undefined;
@@ -155,7 +172,7 @@ export const verifySocketToken = (
       algorithms: ["HS256"],
     }) as jwt.JwtPayload;
     const userId = toUserId(payload.id);
-    if (!userId) throw new SocketAuthError("Invalid token");
+    if (!userId || !isSessionPayload(payload)) throw new SocketAuthError("Invalid token");
     // A session JWT proves identity only; proctor rights require a ticket.
     return { userId, isProctor: false, tid: tenantOfClaims(payload), via: "session" };
   } catch (err) {

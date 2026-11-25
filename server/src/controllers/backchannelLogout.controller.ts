@@ -18,13 +18,18 @@ export const backchannelLogout = async (req: Request, res: Response) => {
       misBaseUrl: process.env.NGA_MIS_BASE_URL || "https://api.amashuri.com",
       clientId: process.env.SSO_CLIENT_ID || "taskmentor_app",
     });
-    // Revoke on (tid, sub): MIS user ids repeat across schools. A token minted
-    // before tenancy names tenant 1. Any status still revokes (a suspended
-    // school's sessions must end too); an unknown tenant has nothing to end.
-    if (tid === null) countFallback("payload_no_tid", "backchannelLogout");
-    const tenantId = tid ?? PRIMARY_TENANT_ID;
+    // Revoke on (tid, sub): MIS user ids repeat across schools, so a token
+    // without `tid` can't say whose sessions to end. MIS always sends one now
+    // (TM-ISO-3/8): refuse it -- revoking school 1's user with that MIS id
+    // could sign out the wrong person -- and count it for the strict-mode clock.
+    if (tid === null) {
+      countFallback("payload_no_tid", "backchannelLogout");
+      return res.status(400).json({ error: "invalid_request", error_description: "logout_token has no tid" });
+    }
+    // Any status still revokes (a suspended school's sessions must end too);
+    // an unknown tenant has nothing to end.
     const tenant =
-      (await getTenantRegistry().get(tenantId)) ?? (tenantId === PRIMARY_TENANT_ID ? primaryTenantCtx() : null);
+      (await getTenantRegistry().get(tid)) ?? (tid === PRIMARY_TENANT_ID ? primaryTenantCtx() : null);
     if (!tenant) return res.status(200).json({ success: true });
     // With `sid` (plan Appendix A.3, e.g. a school switch) only the sessions
     // built from that MIS browser session end; other devices stay signed in.

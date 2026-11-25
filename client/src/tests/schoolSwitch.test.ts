@@ -41,7 +41,7 @@ import {
   MAX_SWITCH_ATTEMPTS,
   SWITCH_WINDOW_MS,
 } from "../tenancy/schoolGuard";
-import { clearUnscopedPersonalKeys, identityFromToken, reconcileStorageIdentity, storageKey } from "../tenancy/storageKey";
+import { clearUnscopedPersonalKeys, identityFromToken, LEGACY_PERSONAL_PREFIXES, legacyKeyUid, reconcileStorageIdentity, storageKey } from "../tenancy/storageKey";
 
 const b64 = (o: object) => btoa(JSON.stringify(o)).replace(/=+$/, "");
 const token = (claims: object) => `h.${b64(claims)}.s`;
@@ -132,19 +132,52 @@ describe("storage keyed by school and person", () => {
     expect(storageKey("quiz_5_answers", null)).toBe("quiz_5_answers.anon");
   });
 
-  it("moves old unscoped drafts under the first identity, and drops them when the identity changes", () => {
+  it("WEB-ISO-3: drops old unscoped drafts on the first sign-in instead of handing them to whoever signs in first", () => {
     localStorage.setItem("quiz_5_answers", "[1]");
     localStorage.setItem("tm:marks-draft:9", "{}");
     localStorage.setItem("theme", "dark"); // not personal: kept
-    expect(reconcileStorageIdentity({ tid: 1, uid: 7 }, localStorage)).toBe("first");
-    expect(localStorage.getItem("quiz_5_answers.t1.u7")).toBe("[1]");
+    expect(reconcileStorageIdentity({ tid: 2, uid: 7 }, localStorage)).toBe("first");
     expect(localStorage.getItem("quiz_5_answers")).toBeNull();
-    expect(reconcileStorageIdentity({ tid: 1, uid: 7 }, localStorage)).toBe("same");
+    expect(localStorage.getItem("quiz_5_answers.t2.u7")).toBeNull(); // not adopted
+    expect(localStorage.getItem("tm:marks-draft:9")).toBeNull();
+    expect(localStorage.getItem("tm:marks-draft:9.t2.u7")).toBeNull();
+    expect(reconcileStorageIdentity({ tid: 2, uid: 7 }, localStorage)).toBe("same");
     localStorage.setItem("quiz_6_answers", "[2]"); // written unscoped by an old tab
-    expect(reconcileStorageIdentity({ tid: 2, uid: 7 }, localStorage)).toBe("changed");
+    localStorage.setItem("quiz_5_answers.t2.u7", "[3]");
+    expect(reconcileStorageIdentity({ tid: 1, uid: 7 }, localStorage)).toBe("changed");
     expect(localStorage.getItem("quiz_6_answers")).toBeNull();
-    expect(localStorage.getItem("quiz_5_answers.t1.u7")).toBe("[1]"); // school 1's scoped draft stays for school 1
+    expect(localStorage.getItem("quiz_5_answers.t2.u7")).toBe("[3]"); // school 2's scoped draft stays for school 2
     expect(localStorage.getItem("theme")).toBe("dark");
+  });
+
+  it("WEB-ISO-3: a legacy key that names the same user (school 1) is the only one adopted", () => {
+    expect(legacyKeyUid("tm.grading.snippets.u7")).toBe(7);
+    expect(legacyKeyUid("quiz_5_answers")).toBeNull();
+    localStorage.setItem("tm.grading.snippets.u7", "[\"mine\"]");
+    localStorage.setItem("tm.grading.snippets.u8", "[\"theirs\"]");
+    expect(reconcileStorageIdentity({ tid: 1, uid: 7 }, localStorage)).toBe("first");
+    expect(localStorage.getItem("tm.grading.snippets.u7.t1.u7")).toBe("[\"mine\"]");
+    expect(localStorage.getItem("tm.grading.snippets.u8.t1.u7")).toBeNull();
+    expect(localStorage.getItem("tm.grading.snippets.u7")).toBeNull();
+    expect(localStorage.getItem("tm.grading.snippets.u8")).toBeNull();
+    // Same uid in another school: not adopted (legacy keys predate tenancy = school 1).
+    localStorage.clear();
+    localStorage.setItem("tm.grading.snippets.u7", "[\"mine\"]");
+    expect(reconcileStorageIdentity({ tid: 2, uid: 7 }, localStorage)).toBe("first");
+    expect(localStorage.getItem("tm.grading.snippets.u7.t2.u7")).toBeNull();
+  });
+
+  it("TM-ISO-6: playground drafts, run cases, countdowns and AI generator prefs are personal keys", () => {
+    for (const k of ["tm.playground.python", "tm.grading.runCases.quiz.4.9", "countdown_2026-12-01", "tm.aiGenerator.prefs.v1"]) {
+      expect(LEGACY_PERSONAL_PREFIXES.some((p) => k.startsWith(p))).toBe(true);
+      localStorage.setItem(k, "x");
+      localStorage.setItem(storageKey(k, { tid: 2, uid: 7 }), "y");
+    }
+    clearUnscopedPersonalKeys(localStorage);
+    for (const k of ["tm.playground.python", "tm.grading.runCases.quiz.4.9", "countdown_2026-12-01", "tm.aiGenerator.prefs.v1"]) {
+      expect(localStorage.getItem(k)).toBeNull();
+      expect(localStorage.getItem(`${k}.t2.u7`)).toBe("y");
+    }
   });
 
   it("clearUnscopedPersonalKeys leaves scoped keys alone", () => {

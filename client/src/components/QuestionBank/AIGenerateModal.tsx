@@ -54,6 +54,7 @@ import {
   suggestPrompts,
   type Mix,
 } from "./ai/aiGeneratorModel";
+import { storageKey } from "../../tenancy/storageKey";
 
 type Stage = "setup" | "working" | "review" | "saved";
 type SourceTab = "resources" | "document";
@@ -66,7 +67,8 @@ interface AIGenerateModalProps {
 }
 
 // Per-viewer convenience only: the last settings used, so a teacher running the
-// generator several times doesn't redo them. Safe to lose.
+// generator several times doesn't redo them. Safe to lose. Keyed by (school,
+// person) like every other personal key (TM-ISO-6).
 const PREFS_KEY = "tm.aiGenerator.prefs.v1";
 interface Prefs {
   tab: SourceTab;
@@ -84,7 +86,7 @@ const DEFAULT_PREFS: Prefs = {
 };
 function loadPrefs(): Prefs {
   try {
-    const raw = localStorage.getItem(PREFS_KEY);
+    const raw = localStorage.getItem(storageKey(PREFS_KEY));
     return raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw) } : DEFAULT_PREFS;
   } catch {
     return DEFAULT_PREFS;
@@ -92,7 +94,7 @@ function loadPrefs(): Prefs {
 }
 function savePrefs(p: Prefs) {
   try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+    localStorage.setItem(storageKey(PREFS_KEY), JSON.stringify(p));
   } catch {
     /* storage unavailable — fine */
   }

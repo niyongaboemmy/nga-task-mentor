@@ -7,7 +7,7 @@ import { sequelize } from "../config/database";
 import { protect } from "../middleware/auth";
 import fileServer from "../utils/fileServer";
 import { getScopedSubjects } from "../utils/scopedSubjects";
-import { enterTenant, resolveTenant, sendTenantGate } from "../tenancy/request";
+import { enterTenant, headerTid, misTokenTid, requestMisToken, resolveTenant, sendTenantGate } from "../tenancy/request";
 import { parseTid, PRIMARY_TENANT_ID } from "../vendor/nga-tenancy";
 import { tidOrPrimary } from "../tenancy/keys";
 
@@ -23,9 +23,18 @@ import { tidOrPrimary } from "../tenancy/keys";
  *     can't send headers (iframes, the document viewer, the desktop app);
  *  3. for rich-text images only, a non-expiring media key (?t=&k=) bound to
  *     the tenant and path, added when the image is uploaded;
- *  4. UPLOADS_LEGACY_MEDIA_PUBLIC (default true): editor images stored before
- *     tenancy, which sit in quiz/assignment HTML without any key, stay
- *     public in their legacy location (primary tenant only).
+ *  4. UPLOADS_LEGACY_MEDIA_PUBLIC (default true, by design): editor images
+ *     stored before tenancy, which sit in quiz/assignment HTML without any
+ *     key, stay public in their legacy location. They were all school 1's,
+ *     so they are served only to an anonymous request or one whose school is
+ *     school 1 (TM-ISO-4): a request that carries any sign of another school
+ *     (its session, its MIS token, the nga_school cookie, X-NGA-Tenant or a
+ *     ?tid=/?t= hint) gets 404, never school 1's legacy media.
+ *
+ * Responses are `Cache-Control: private, no-store` with `Vary: Authorization,
+ * Cookie` (TM-ISO-7): what one person may open must not be replayed from a
+ * shared or browser cache to the next person, or the next school, on the
+ * same device.
  *
  * The tenant comes from the session or the signature; another school's files
  * are never reachable (fileServer resolves paths inside the tenant).
@@ -176,6 +185,39 @@ async function stream(subpath: string, res: Response, opts: { legacyOnly?: boole
   if (!res.headersSent) res.status(404).json({ success: false, message: "Not found" });
 }
 
+/**
+ * The schools a request hints at without a session: its MIS token (cookie or
+ * x-mis-token), the cross-app `nga_school=<tid>.<sid>` cookie, X-NGA-Tenant
+ * and ?tid= / ?t=. Unverified -- only ever used to REFUSE legacy media.
+ */
+export function hintedTids(req: Request): number[] {
+  const out: number[] = [];
+  const push = (v: unknown) => {
+    const t = parseTid(v);
+    if (t) out.push(t);
+  };
+  const mt = misTokenTid(requestMisToken(req));
+  if (mt) out.push(mt);
+  const school = (req as any).cookies?.nga_school;
+  if (typeof school === "string") {
+    let raw = school;
+    try {
+      raw = decodeURIComponent(school);
+    } catch {
+      /* malformed: use as is */
+    }
+    push(raw.split(".")[0]);
+  }
+  push(headerTid(req));
+  const q = req.query as Record<string, unknown>;
+  push(q?.tid);
+  push(q?.t);
+  return out;
+}
+
+/** Legacy (pre-tenancy) media is school 1's: anonymous or school-1 requests only. */
+export const legacyMediaAllowed = (req: Request) => hintedTids(req).every((t) => t === PRIMARY_TENANT_ID);
+
 const hasSession = (req: Request) => {
   const h = req.headers.authorization;
   if (h && /^Bearer\s+\S+/.test(h) && !/^Bearer\s+(none|null|undefined)$/i.test(h)) return true;
@@ -185,7 +227,8 @@ const hasSession = (req: Request) => {
 
 export async function serveUpload(req: Request, res: Response, next: NextFunction) {
   cors(req, res);
-  res.setHeader("Cache-Control", "private, max-age=300");
+  res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader("Vary", "Authorization, Cookie");
   const subpath = normalizeSubpath((req.params as Record<string, string>)[0]);
   if (!subpath) return res.status(400).json({ success: false, message: "Bad path" });
 
@@ -198,6 +241,7 @@ export async function serveUpload(req: Request, res: Response, next: NextFunctio
 
   if (!hasSession(req)) {
     if (legacyMediaPublic() && subpath.startsWith("editor-images/")) {
+      if (!legacyMediaAllowed(req)) return res.status(404).json({ success: false, message: "Not found" });
       const gate = await resolveTenant(PRIMARY_TENANT_ID);
       if (!gate.ok) return sendTenantGate(res, gate);
       return enterTenant(req, gate.tenant, () => stream(subpath, res, { legacyOnly: true }));

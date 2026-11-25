@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Clock } from "lucide-react";
+import { storageKey } from "../../tenancy/storageKey";
 
 interface CountdownTimerProps {
   deadline: string;
@@ -45,7 +46,7 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({
     };
 
     // Check if we have a saved timer state in localStorage
-    const savedDeadline = localStorage.getItem(`countdown_${deadline}`);
+    const savedDeadline = localStorage.getItem(storageKey(`countdown_${deadline}`));
     const savedTimeLeft = savedDeadline ? JSON.parse(savedDeadline) : null;
 
     if (savedTimeLeft && savedTimeLeft.deadline === deadline) {
@@ -63,7 +64,7 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({
 
       // Save to localStorage
       localStorage.setItem(
-        `countdown_${deadline}`,
+        storageKey(`countdown_${deadline}`),
         JSON.stringify({
           deadline,
           timeLeft: newTimeLeft,
@@ -79,7 +80,7 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({
     return () => {
       clearInterval(timer);
       // Clean up localStorage when component unmounts
-      localStorage.removeItem(`countdown_${deadline}`);
+      localStorage.removeItem(storageKey(`countdown_${deadline}`));
     };
   }, [deadline]);
 

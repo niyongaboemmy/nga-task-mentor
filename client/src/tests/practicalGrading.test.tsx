@@ -509,8 +509,9 @@ describe("PracticalGradingPage", () => {
     expect(await screen.findByTestId("run-stdout")).toHaveTextContent("Sum: 5");
     expect(screen.getByTestId("run-verdict")).toHaveTextContent("Ran");
     expect(practicals.run).toHaveBeenCalledWith(101, expect.objectContaining({ rev: 301, language: "c", entry: "main.c", tests: [expect.objectContaining({ input: "2 3", expected_output: null })] }));
-    // The inputs are kept for the next student.
-    expect(window.localStorage.getItem("tm.grading.runCases.assignment.7.0")).toContain("2 3");
+    // The inputs are kept for the next student -- keyed by (school, person) (TM-ISO-6).
+    expect(window.localStorage.getItem("tm.grading.runCases.assignment.7.0")).toBeNull();
+    expect(window.localStorage.getItem(storageKey("tm.grading.runCases.assignment.7.0"))).toContain("2 3");
   });
 
   it("runs the whole project as the runner detected it (a C Make project), and marks differing lines", async () => {
@@ -770,6 +771,7 @@ describe("NewProjectDialog — quiz practicals", () => {
 });
 
 import PracticalGradeSummary from "../components/Quizzes/PracticalGradeSummary";
+import { storageKey } from "../tenancy/storageKey";
 
 describe("PracticalGradeSummary", () => {
   const qd = { rubric: [{ criteria: "Layout", max_score: 6 }, { criteria: "Styling", max_score: 4 }] };
