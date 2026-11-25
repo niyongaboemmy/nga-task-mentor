@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { currentTenantOrNull, PRIMARY_TENANT_ID } from "../vendor/nga-tenancy";
+import { tidOrPrimary } from "../tenancy/keys";
 
 /**
  * Short-lived "live ticket" handed to the browser so it can authenticate its
@@ -65,7 +65,7 @@ export const signLiveSocketTicket = (
     typ: LIVE_TICKET_TYPE,
     id: user.id,
     proctor,
-    tid: extras.tid ?? currentTenantOrNull()?.tid ?? PRIMARY_TENANT_ID,
+    tid: extras.tid ?? tidOrPrimary("liveSocketTicket"),
   };
   if (proctor) {
     const courses = extras.courses ?? [];

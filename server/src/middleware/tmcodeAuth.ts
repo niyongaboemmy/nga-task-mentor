@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 import { TmcodeSession } from "../models";
 import { verifyTmcodeToken } from "../tmcode/token";
-import { legacyDefaultTid } from "../tenancy/config";
 import { enterTenant, resolveTenant } from "../tenancy/request";
+import { legacyTid } from "../tenancy/request";
 
 /** PROTOCOL.md error shape. */
 export const tmcodeError = (
@@ -38,7 +38,7 @@ export async function tmcodeAuth(req: Request, res: Response, next: NextFunction
     return tmcodeError(res, 403, "SESSION_SCOPE", "This token belongs to another session.");
   }
   // The session lives in the database of the tenant the token names.
-  const gate = await resolveTenant(claims.tid ?? legacyDefaultTid());
+  const gate = await resolveTenant(claims.tid ?? legacyTid("tmcode-session-token"));
   if (!gate.ok) return tmcodeError(res, gate.status, gate.code, gate.message);
   return enterTenant(req, gate.tenant, () => checkSession(req, res, next, claims));
 }

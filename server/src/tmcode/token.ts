@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
-import { currentTenantOrNull, parseTid, PRIMARY_TENANT_ID } from "../vendor/nga-tenancy";
+import { parseTid } from "../vendor/nga-tenancy";
+import { tidOrPrimary } from "../tenancy/keys";
 
 /**
  * The attempt-scoped TMCode token (PROTOCOL.md §1): HS256 with
@@ -20,7 +21,7 @@ const secret = () => `${process.env.JWT_SECRET}:tmcode`;
 
 export function signTmcodeToken(claims: TmcodeClaims, expiresAt: Date): string {
   return jwt.sign(
-    { sid: claims.sid, submission_id: claims.submission_id, tid: claims.tid ?? currentTenantOrNull()?.tid ?? PRIMARY_TENANT_ID },
+    { sid: claims.sid, submission_id: claims.submission_id, tid: claims.tid ?? tidOrPrimary("tmcode.token") },
     secret(),
     {
       algorithm: "HS256",

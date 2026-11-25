@@ -8,8 +8,8 @@ import { getRevokedAt } from "../services/sessionRevocation";
 import { issuedBeforeRevocation } from "../utils/ssoLogout";
 import { verifyTmcodeUserToken } from "../tmcode/userToken";
 import { tmcodeError } from "./tmcodeAuth";
-import { legacyDefaultTid } from "../tenancy/config";
 import { enterTenant, misTokenMismatch, resolveTenant, tidOfClaims } from "../tenancy/request";
+import { legacyTid } from "../tenancy/request";
 
 /**
  * Auth for the TMCode Projects API (PROJECTS_PLAN.md §3): either
@@ -53,7 +53,7 @@ export async function tmcodeUserAuth(req: Request, res: Response, next: NextFunc
   try {
     const claims = verifyTmcodeUserToken(token);
     userId = claims.sub;
-    tid = claims.tid ?? legacyDefaultTid();
+    tid = claims.tid ?? legacyTid("tmcode-user-token");
     iat = claims.iat;
     exp = claims.exp;
     kind = "tmcode-user";

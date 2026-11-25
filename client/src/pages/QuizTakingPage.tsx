@@ -63,6 +63,7 @@ import {
   type QuestionTimeBank,
 } from "../utils/quizTimer";
 import { useFocusMode } from "../utils/focusMode";
+import { storageKey } from "../tenancy/storageKey";
 import { formatDuration } from "../utils/quizFormValidation";
 import { releaseProctoringMedia, streamHasCamera } from "../utils/proctoringMedia";
 
@@ -250,7 +251,7 @@ const QuizTakingPage: React.FC = () => {
     left: number;
   } | null>(null);
   const [timeBank, setTimeBank] = useState<QuestionTimeBank>(() =>
-    id ? loadTimeBank(safeGet(timeBankKey(id))) : {},
+    id ? loadTimeBank(safeGet(storageKey(timeBankKey(id)))) : {},
   );
   const timeBankRef = useRef<QuestionTimeBank>(timeBank);
   const timedOutRef = useRef<Set<number>>(new Set());
@@ -262,7 +263,7 @@ const QuizTakingPage: React.FC = () => {
   const questionStartTimeRef = React.useRef<number>(Date.now());
 
   const getQuestionStartKey = useCallback(
-    (questionId: number) => `quiz_${id}_question_${questionId}_started_at`,
+    (questionId: number) => storageKey(`quiz_${id}_question_${questionId}_started_at`),
     [id],
   );
   const [explicitlySavedQuestions, setExplicitlySavedQuestions] = useState<
@@ -396,8 +397,8 @@ const QuizTakingPage: React.FC = () => {
   // Load saved answers and timer state from localStorage on component mount
   useEffect(() => {
     if (id) {
-      const quizSessionKey = `quiz_${id}_answers`;
-      const timerSessionKey = `quiz_${id}_timer`;
+      const quizSessionKey = storageKey(`quiz_${id}_answers`);
+      const timerSessionKey = storageKey(`quiz_${id}_timer`);
 
       // Load saved answers
       const savedAnswers = localStorage.getItem(quizSessionKey);
@@ -417,15 +418,15 @@ const QuizTakingPage: React.FC = () => {
 
       try {
         const flagged = JSON.parse(
-          localStorage.getItem(`quiz_${id}_flagged`) || "[]",
+          localStorage.getItem(storageKey(`quiz_${id}_flagged`)) || "[]",
         );
         if (Array.isArray(flagged)) setFlaggedQuestions(new Set(flagged.map(Number)));
       } catch {
-        localStorage.removeItem(`quiz_${id}_flagged`);
+        localStorage.removeItem(storageKey(`quiz_${id}_flagged`));
       }
 
       // Clear any stale locked indices from localStorage
-      localStorage.removeItem(`quiz_${id}_locked_indices`);
+      localStorage.removeItem(storageKey(`quiz_${id}_locked_indices`));
     }
   }, [id]);
 
@@ -618,15 +619,15 @@ const QuizTakingPage: React.FC = () => {
             if (data.sessionToken === proctoringSession.session_token) {
               // Clear localStorage and reset quiz state
               if (id) {
-                const quizSessionKey = `quiz_${id}_answers`;
-                const timerSessionKey = `quiz_${id}_timer`;
+                const quizSessionKey = storageKey(`quiz_${id}_answers`);
+                const timerSessionKey = storageKey(`quiz_${id}_timer`);
                 const questionStartPrefix = `quiz_${id}_question_`;
                 localStorage.removeItem(quizSessionKey);
                 localStorage.removeItem(timerSessionKey);
 
                 for (let i = localStorage.length - 1; i >= 0; i--) {
                   const key = localStorage.key(i);
-                  if (key && key.startsWith(questionStartPrefix)) {
+                  if (key && key.startsWith(questionStartPrefix) && key.endsWith(storageKey(""))) {
                     localStorage.removeItem(key);
                   }
                 }
@@ -775,7 +776,7 @@ const QuizTakingPage: React.FC = () => {
       setAnswers((prev) => {
         const merged = mergeAnswers(prev, serverAnswers);
         try {
-          localStorage.setItem(`quiz_${id}_answers`, JSON.stringify(merged));
+          localStorage.setItem(storageKey(`quiz_${id}_answers`), JSON.stringify(merged));
         } catch {
           // Storage full or blocked: state still holds it.
         }
@@ -1538,7 +1539,7 @@ const QuizTakingPage: React.FC = () => {
         }
 
         // Save answer to localStorage for persistence across reloads
-        const quizSessionKey = `quiz_${id}_answers`;
+        const quizSessionKey = storageKey(`quiz_${id}_answers`);
         localStorage.setItem(quizSessionKey, JSON.stringify(updated));
 
         return updated;
@@ -1593,9 +1594,11 @@ const QuizTakingPage: React.FC = () => {
   const clearLocalQuizState = useCallback(() => {
     if (!id) return;
     const prefix = `quiz_${id}_`;
+    const mine = storageKey("");
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i);
-      if (key && key.startsWith(prefix)) localStorage.removeItem(key);
+      // Only this person's copies (keys are per school + person, storageKey).
+      if (key && key.startsWith(prefix) && key.endsWith(mine)) localStorage.removeItem(key);
     }
   }, [id]);
 
@@ -2050,7 +2053,7 @@ const QuizTakingPage: React.FC = () => {
         if (next.has(questionId)) next.delete(questionId);
         else next.add(questionId);
         try {
-          localStorage.setItem(`quiz_${id}_flagged`, JSON.stringify([...next]));
+          localStorage.setItem(storageKey(`quiz_${id}_flagged`), JSON.stringify([...next]));
         } catch {
           // Storage full or blocked: state still holds it.
         }
@@ -2079,7 +2082,7 @@ const QuizTakingPage: React.FC = () => {
       setTimeBank(next);
       if (id) {
         try {
-          localStorage.setItem(timeBankKey(id), JSON.stringify(next));
+          localStorage.setItem(storageKey(timeBankKey(id)), JSON.stringify(next));
         } catch {
           // Storage blocked: the in-memory bank still applies.
         }

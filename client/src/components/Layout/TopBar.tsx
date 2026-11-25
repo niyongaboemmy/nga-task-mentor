@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import UserAvatar from "../ui/UserAvatar";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Menu, LayoutGrid, LogOut, User as UserIcon, Code2 } from "lucide-react";
+import { Menu, LayoutGrid, LogOut, User as UserIcon, Code2, ArrowLeftRight, School } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { ThemeToggle } from "../ThemeToggle";
 import SystemsMenu from "./SystemsMenu";
@@ -14,6 +14,8 @@ import { loadStudentAlerts } from "../../services/studentOverviewApi";
 import { usePermissions } from "../../hooks/usePermissions";
 import Logo from "../Logo";
 import type { System } from "../../types/user.types";
+import { useSchoolInfo } from "../../tenancy/useSchool";
+import { misSwitchSchoolUrl } from "../../tenancy/schoolGuard";
 
 interface TopBarProps {
   onOpenMobileMenu: () => void;
@@ -34,6 +36,8 @@ const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
   const [isSystemsMenuOpen, setIsSystemsMenuOpen] = React.useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  // The current school (header) and, with 2+ schools, "Switch school" (plan Appendix A.5).
+  const { school, loading: schoolLoading } = useSchoolInfo(!!user);
 
   useEffect(() => {
     if (!isUserMenuOpen) return;
@@ -78,6 +82,27 @@ const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
           size="medium"
           textClassName={bellFor === "student" ? "hidden min-[440px]:inline" : ""}
         />
+        {user && schoolLoading && (
+          <span
+            className="hidden md:inline-block h-6 w-32 rounded-full bg-gray-100 dark:bg-gray-700/60 animate-pulse"
+            aria-hidden="true"
+            data-testid="school-badge-skeleton"
+          />
+        )}
+        {user && !schoolLoading && school?.name && (
+          <span
+            className="hidden md:inline-flex items-center gap-2 min-w-0 max-w-[16rem] rounded-full border border-blue-100 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-900/20 pl-1 pr-3 py-0.5 text-sm text-blue-800 dark:text-blue-200"
+            title={school.name}
+            data-testid="school-badge"
+          >
+            {school.logoUrl ? (
+              <img src={school.logoUrl} alt="" className="h-6 w-6 rounded-full object-contain bg-white" />
+            ) : (
+              <School className="h-4 w-4 ml-1" aria-hidden="true" />
+            )}
+            <span className="truncate">{school.name}</span>
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-1.5 sm:gap-3">
@@ -145,6 +170,17 @@ const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
                 <UserIcon className="w-4 h-4" />
                 <span>Profile</span>
               </Link>
+              {school?.canSwitch && (
+                <a
+                  href={misSwitchSchoolUrl()}
+                  onClick={() => setIsUserMenuOpen(false)}
+                  className="px-4 py-2 text-sm text-text-primary-light dark:text-text-primary-dark hover:bg-surface-light dark:hover:bg-surface-dark flex items-center space-x-2"
+                  data-testid="switch-school"
+                >
+                  <ArrowLeftRight className="w-4 h-4" />
+                  <span>Switch school</span>
+                </a>
+              )}
               <div className="my-1 border-t border-border-light dark:border-gray-700/30" />
               <button
                 onClick={() => {

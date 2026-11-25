@@ -1,6 +1,7 @@
 import type { Sequelize } from "sequelize-typescript";
 import { currentTenantOrNull, TenantContextMissing } from "../vendor/nga-tenancy";
 import { dbNameFor, primaryDbName, tenancyMode } from "./config";
+import { countFallback } from "./fallbacks";
 
 /**
  * Database-per-tenant routing for the single Sequelize instance (spike S-2,
@@ -48,6 +49,7 @@ export function currentDbName(what = "database query"): string {
   if (tenant) return dbNameFor(tenant.tid);
   if (tenancyMode() === "enforce") throw new TenantContextMissing(what);
   missingContextCount++;
+  countFallback("no_context", "dbRouter");
   const now = Date.now();
   if (now - lastWarnAt > WARN_EVERY_MS) {
     lastWarnAt = now;

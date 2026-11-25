@@ -18,6 +18,8 @@ import type {
 import { switchAcademicPeriod as switchAcademicPeriodApi } from "../services/authService";
 import { emitAcademicPeriodChanged } from "../utils/academicPeriodEvents";
 import { endActivity } from "../vendor/nga-activity";
+import { isSchoolChangeError, runSchoolGuard, SSO_ENTRY_PARAM } from "../tenancy/schoolGuard";
+import { reconcileStorageIdentity } from "../tenancy/storageKey";
 
 const apiAxios = api;
 
@@ -113,6 +115,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const fullCallbackPath = (baseUrl + "/sso/callback").replace(/\/+/g, "/");
       const isAutomaticCheck = !options?.manual;
 
+      // The SSO entry URL (/login?sso=1, e.g. back from the MIS school
+      // switch): Login.tsx starts the MIS sign-in at once, so an old
+      // session must not redirect to the dashboard meanwhile.
+      if (
+        isAutomaticCheck &&
+        new URLSearchParams(window.location.search).get(SSO_ENTRY_PARAM) === "1"
+      ) {
+        setLoading(false);
+        return;
+      }
+
       // Skip automatic auth check on SSO callback page — Callback.tsx manages its own state
       if (
         isAutomaticCheck &&
@@ -185,6 +198,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
         setUser(userData);
         dispatch(loginSuccess(userData));
+        // Browser stores are per (school, person): adopt or drop legacy keys.
+        reconcileStorageIdentity();
         console.log("🎉 User authenticated successfully:", userData.email);
 
         if (userData.preferred_theme) {
@@ -268,6 +283,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           dispatch(loginSuccess(next));
         }
       } catch (error: any) {
+        // Another school now: the axios interceptor is already signing in
+        // again into it -- this is not a sign-out.
+        if (isSchoolChangeError(error)) return;
         if (error.response?.status === 401) {
           console.log("ℹ️ MIS session ended — logging out here too");
           logoutUser();
@@ -281,6 +299,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // view (e.g. after signing out of MIS in another tab), and every minute.
     let lastCheck = 0;
     const checkSoon = () => {
+      // School guard (plan §4.2): the nga_school cookie is free to read, so
+      // compare it on every trigger -- load, focus, visibility, the poll.
+      if (runSchoolGuard() === "switch") return;
       if (Date.now() - lastCheck < 5000) return; // focus + visibility fire together
       lastCheck = Date.now();
       void verifyMisSession();
@@ -369,6 +390,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       setUser(userData);
       dispatch(loginSuccess(userData));
+      reconcileStorageIdentity();
       setSessionExpired(false);
       setLoading(false);
 

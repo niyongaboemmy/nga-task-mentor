@@ -86,6 +86,7 @@ import competencyRoutes from "./routes/competency";
 import aiRoutes from "./routes/ai";
 import { startEarlyWarningSchedule } from "./services/earlyWarningPush";
 import { startMisStatusSweepSchedule } from "./services/misStatusSweep";
+import { startFallbackReporter } from "./tenancy/fallbacks";
 import { verifyReportCard } from "./controllers/reportCard.controller";
 
 import cookieParser from "cookie-parser";
@@ -379,6 +380,8 @@ const startServer = async (): Promise<void> => {
       startEarlyWarningSchedule();
       // Daily MIS account status (users.mis_status) so inactive people leave rosters.
       startMisStatusSweepSchedule();
+      // Tenant fallback counts to MIS: once now, then hourly (plan Appendix A.6).
+      startFallbackReporter();
       // Graded results of quizzes/assignments tagged with learning outcomes, to the MIS competency map.
       startCompetencyPush();
       // Everyone's NGA profile photo from the MIS, every 15 minutes.

@@ -7,6 +7,8 @@
  * exempt (left out). The server stores both (manual_assessment_scores.status).
  */
 
+import { storageKey } from "../../tenancy/storageKey";
+
 export type MarkStatus = "scored" | "absent" | "exempt";
 
 export interface MarkEntry {
@@ -96,7 +98,8 @@ export function savePayload(book: MarkBook, saved: MarkBook, max: number) {
 
 // ─── Local draft ─────────────────────────────────────────────────────────────
 
-const draftKey = (assessmentId: number) => `tm:marks-draft:${assessmentId}`;
+// Per school + person (storageKey): a shared browser never shows one teacher's draft to another.
+const draftKey = (assessmentId: number) => storageKey(`tm:marks-draft:${assessmentId}`);
 
 export interface MarksDraft {
   at: number;

@@ -2,7 +2,8 @@ import { Request, Response } from "express";
 import { LogoutTokenError, verifyLogoutTokenSubject } from "../utils/ssoLogout";
 import { primaryTenantCtx, PRIMARY_TENANT_ID, runWithTenant } from "../vendor/nga-tenancy";
 import { getTenantRegistry } from "../tenancy/registry";
-import { revokeSessionsForMisUser } from "../services/sessionRevocation";
+import { revokeSessionsForMisSid, revokeSessionsForMisUser } from "../services/sessionRevocation";
+import { countFallback } from "../tenancy/fallbacks";
 import { recheckMisStatus } from "../services/misStatusSweep";
 
 /**
@@ -13,19 +14,26 @@ import { recheckMisStatus } from "../services/misStatusSweep";
 export const backchannelLogout = async (req: Request, res: Response) => {
   res.set("Cache-Control", "no-store");
   try {
-    const { sub: misUserId, tid } = await verifyLogoutTokenSubject((req.body || {}).logout_token, {
+    const { sub: misUserId, tid, sid } = await verifyLogoutTokenSubject((req.body || {}).logout_token, {
       misBaseUrl: process.env.NGA_MIS_BASE_URL || "https://api.amashuri.com",
       clientId: process.env.SSO_CLIENT_ID || "taskmentor_app",
     });
     // Revoke on (tid, sub): MIS user ids repeat across schools. A token minted
     // before tenancy names tenant 1. Any status still revokes (a suspended
     // school's sessions must end too); an unknown tenant has nothing to end.
+    if (tid === null) countFallback("payload_no_tid", "backchannelLogout");
     const tenantId = tid ?? PRIMARY_TENANT_ID;
     const tenant =
       (await getTenantRegistry().get(tenantId)) ?? (tenantId === PRIMARY_TENANT_ID ? primaryTenantCtx() : null);
     if (!tenant) return res.status(200).json({ success: true });
-    const ended = await runWithTenant(tenant, () => revokeSessionsForMisUser(misUserId));
-    console.log(`🔒 Single sign-out: ended sessions of MIS user ${misUserId} (${ended.length} local account(s))`);
+    // With `sid` (plan Appendix A.3, e.g. a school switch) only the sessions
+    // built from that MIS browser session end; other devices stay signed in.
+    const ended = await runWithTenant(tenant, () =>
+      sid ? revokeSessionsForMisSid(misUserId, sid) : revokeSessionsForMisUser(misUserId),
+    );
+    console.log(
+      `🔒 Single sign-out: ended ${sid ? "one MIS session's" : "all"} sessions of MIS user ${misUserId} (${ended.length} local account(s))`,
+    );
     // MIS also sends this when an account is disabled: re-read its status
     // in the background (ACTIVE_USERS_CONTRACTS.md) so rosters drop it now
     // rather than at the next daily sweep. Never delays MIS's call.

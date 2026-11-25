@@ -17,6 +17,8 @@ import "../tenancy/misHttp";
 import {
   enterTenant,
   misTokenMismatch,
+  misTokenSid,
+  requestMisToken,
   resolveTenant,
   sendTenantGate,
   sendTenantMismatch,
@@ -38,6 +40,8 @@ interface JwtPayload {
   tid?: number;
   termId?: number; // Add termId to payload interface
   academicYearId?: number;
+  /** MIS browser session id this sign-in came from (plan Appendix A.2). */
+  sid?: string;
   iat: number;
   exp: number;
 }
@@ -120,7 +124,10 @@ export const protect = async (
 
       // Single sign-out: this person signed out of NGA MIS after this token
       // was issued (back-channel logout) -- the session is over everywhere.
-      if (issuedBeforeRevocation(decoded.iat, await getRevokedAt(user.id))) {
+      // A logout for one MIS session (`sid`, e.g. a school switch) only ends
+      // sessions built from it; the sid is in the token, else in the MIS token.
+      const sid = decoded.sid ?? misTokenSid(requestMisToken(req));
+      if (issuedBeforeRevocation(decoded.iat, await getRevokedAt(user.id, sid))) {
         return res.status(401).json({
           success: false,
           code: "SESSION_ENDED",
@@ -144,6 +151,7 @@ export const protect = async (
         tid: gate.tenant.tid,
         termId: decoded.termId, // Attach termId from token to req.user
         academicYearId: decoded.academicYearId,
+        sid: sid ?? undefined,
       };
 
       // Access control v2: under ACCESS_V2_MODE=enforce the MIS snapshot's

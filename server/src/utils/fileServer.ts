@@ -6,7 +6,8 @@
 // it can never collide with nga_central_mis's files in the shared storage
 // root.
 
-import { currentTenantOrNull, PRIMARY_TENANT_ID, tenantPathFor } from "../vendor/nga-tenancy";
+import { PRIMARY_TENANT_ID, tenantPathFor } from "../vendor/nga-tenancy";
+import { tidOrPrimary } from "../tenancy/keys";
 
 const FILE_SERVER_URL =
   process.env.FILE_SERVER_URL || "http://127.0.0.1:5004";
@@ -22,7 +23,7 @@ const NAMESPACE = "nga-task-mentor";
  * reach them.
  */
 function tenantId(): number {
-  return currentTenantOrNull()?.tid ?? PRIMARY_TENANT_ID;
+  return tidOrPrimary("fileServer");
 }
 
 function namespaced(remotePath: string, tid: number = tenantId()): string {

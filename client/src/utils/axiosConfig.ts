@@ -1,5 +1,6 @@
 import axios, { isAxiosError } from "axios";
 import type { AxiosResponse } from "axios";
+import { isSchoolChangeError, onSignInPage, resignInToCurrentSchool } from "../tenancy/schoolGuard";
 
 export { isAxiosError };
 
@@ -42,6 +43,14 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
+    // This session belongs to another school than the NGA session now does
+    // (401 TENANT_MISMATCH / TENANT_UNKNOWN, 409 SCHOOL_CHANGED): sign in
+    // again into the current school -- not a sign-out (plan §4.5).
+    if (isSchoolChangeError(error) && !onSignInPage()) {
+      resignInToCurrentSchool(`API answered ${error.response?.data?.code}`);
+      return Promise.reject(error);
+    }
+
     // Handle 401 Unauthorized errors (Token expired)
     if (error.response?.status === 401) {
       // Don't redirect if it's just the initial auth check

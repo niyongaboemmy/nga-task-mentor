@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
-import { currentTenantOrNull, parseTid, PRIMARY_TENANT_ID } from "../vendor/nga-tenancy";
+import { parseTid } from "../vendor/nga-tenancy";
+import { tidOrPrimary } from "../tenancy/keys";
 
 /**
  * The TMCode user token (PROJECTS_PLAN.md §1): what TMCode keeps in the OS
@@ -33,7 +34,7 @@ export interface TmcodeUserClaims {
 export function signTmcodeUserToken(
   userId: number,
   misUserId: number | null,
-  tid: number = currentTenantOrNull()?.tid ?? PRIMARY_TENANT_ID,
+  tid: number = tidOrPrimary("tmcode.userToken"),
 ): { token: string; expiresAt: Date } {
   const ttl = userTokenTtlSeconds();
   const token = jwt.sign({ mis: misUserId ?? null, tid }, secret(), {
