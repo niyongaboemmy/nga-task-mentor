@@ -63,6 +63,7 @@ export const exchange = async (req: Request, res: Response) => {
 
   let misUserId: number;
   let tid: number | null;
+  let freshHints: any = null;
   try {
     const verify = await axios.get(`${base}/auth/verify`, { headers, timeout: 10_000 });
     const data = verify.data?.data ?? {};
@@ -71,8 +72,7 @@ export const exchange = async (req: Request, res: Response) => {
     if (!Number.isInteger(misUserId) || misUserId <= 0) {
       return tmcodeError(res, 401, "MIS_TOKEN_INVALID", "Your NGA session is invalid. Sign in again.");
     }
-    noteAccessVersion(misUserId, data.access_version);
-    noteAiPolicyVersion(data.ai_policy_v);
+    freshHints = data;
   } catch (e: any) {
     const status = e?.response?.status;
     if (status === 401 || status === 403) {
@@ -85,7 +85,12 @@ export const exchange = async (req: Request, res: Response) => {
   // Tenancy: the account is created/looked up in the MIS user's own school.
   const gate = await resolveTenant(tid);
   if (!gate.ok) return tmcodeError(res, gate.status, gate.code, gate.message);
-  return enterTenant(req, gate.tenant, () => finishExchange(req, res, misToken, misUserId));
+  return enterTenant(req, gate.tenant, () => {
+    // Applied inside the school: the caches are keyed by tk() (see misBearerAuth).
+    noteAccessVersion(misUserId, freshHints?.access_version);
+    noteAiPolicyVersion(freshHints?.ai_policy_v);
+    return finishExchange(req, res, misToken, misUserId);
+  });
 };
 
 async function finishExchange(req: Request, res: Response, misToken: string, misUserId: number) {
