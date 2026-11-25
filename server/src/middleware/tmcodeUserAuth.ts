@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
+import { verifySessionToken } from "../utils/sessionToken";
 import { User } from "../models/User.model";
 import { Role } from "../models/Role.model";
 import { Permission } from "../models/Permission.model";
@@ -62,8 +62,8 @@ export async function tmcodeUserAuth(req: Request, res: Response, next: NextFunc
       return tmcodeError(res, 401, "TOKEN_EXPIRED", "Your TMCode sign-in expired. Sign in again.");
     }
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-      if (!decoded?.id || decoded.dbAccess) throw new Error("not a session token");
+      // Sessions only (TM-ISO-1/2): never a DB step-up or other typed token.
+      const decoded = verifySessionToken(token) as any;
       userId = Number(decoded.id);
       iat = Number(decoded.iat);
       exp = decoded.exp ? Number(decoded.exp) : null;

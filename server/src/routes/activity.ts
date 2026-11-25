@@ -1,6 +1,6 @@
 import express, { NextFunction, Request, Response, Router } from "express";
 import type { ActivityRelay } from "../vendor/nga-activity-relay/relay";
-import jwt from "jsonwebtoken";
+import { verifySessionToken } from "../utils/sessionToken";
 import { activityRelay } from "../activity/relay";
 import { sessionTokenOf } from "../activity/session";
 import { resolveTenant, tidOfClaims } from "../tenancy/request";
@@ -16,7 +16,8 @@ const inSessionTenant = async (req: Request, fn: () => unknown): Promise<unknown
     const token = sessionTokenOf(req);
     const secret = process.env.JWT_SECRET;
     if (token && secret) {
-      const gate = await resolveTenant(tidOfClaims(jwt.verify(token, secret) as any));
+      // Sessions only (TM-ISO-1/2): any other token is a visitor.
+      const gate = await resolveTenant(tidOfClaims(verifySessionToken(token, secret) as any));
       if (gate.ok) return runWithTenant(gate.tenant, fn);
     }
   } catch {

@@ -2,7 +2,7 @@ import { tk } from "../tenancy/keys";
 import { resolveTenant, tidOfClaims } from "../tenancy/request";
 import { runWithTenant } from "../vendor/nga-tenancy";
 import { Request } from "express";
-import jwt from "jsonwebtoken";
+import { verifySessionToken } from "../utils/sessionToken";
 import { User } from "../models/User.model";
 import { getRevokedAt } from "../services/sessionRevocation";
 import { issuedBeforeRevocation } from "../utils/ssoLogout";
@@ -45,7 +45,8 @@ export const createMisUserIdResolver =
       const token = sessionTokenOf(req);
       const secret = lookups.secret ?? process.env.JWT_SECRET;
       if (!token || !secret) return null;
-      const decoded = jwt.verify(token, secret) as { id?: unknown; iat?: number; tid?: number };
+      // Sessions only (TM-ISO-1/2): a DB step-up or other typed token is a visitor.
+      const decoded = verifySessionToken(token, secret);
       const localId = Number(decoded?.id);
       if (!Number.isInteger(localId) || localId <= 0) return null;
       // The session's own tenant database (this route has no auth middleware).

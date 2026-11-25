@@ -98,9 +98,35 @@ describe("verifySocketToken", () => {
 
   it("does not grant proctor from a proctor claim signed with the plain session key", () => {
     // Same claims as a ticket but signed with JWT_SECRET instead of the derived
-    // ticket key: it verifies only as a session token, so no proctor bit.
+    // ticket key: not a ticket, and its typ makes it no session either (TM-ISO-2).
     const forged = jwt.sign({ typ: LIVE_TICKET_TYPE, id: 9, proctor: true }, SECRET);
-    expect(verifySocketToken(forged, SECRET)).toEqual({ userId: 9, isProctor: false, tid: 1, via: "session" });
+    expect(() => verifySocketToken(forged, SECRET)).toThrow("Invalid token");
+    // Without a typ it is a legacy session: identity only, no proctor bit.
+    const legacy = jwt.sign({ id: 9, proctor: true }, SECRET);
+    expect(verifySocketToken(legacy, SECRET)).toEqual({ userId: 9, isProctor: false, tid: 1, via: "session" });
+  });
+
+  it("TM-ISO-1: a DB step-up token is never a socket identity", () => {
+    // The old shape ({id, dbAccess} with JWT_SECRET, no tid) ...
+    expect(() => verifySocketToken(jwt.sign({ id: 9, dbAccess: true }, SECRET, { expiresIn: 1200 }), SECRET)).toThrow("Invalid token");
+    // ... and the new one (derived key, typed) both fail.
+    const stepUp = jwt.sign({ id: 9, tid: 2, typ: "db-step-up" }, `${SECRET}:db-step-up`, { audience: "task-mentor:db-console" });
+    expect(() => verifySocketToken(stepUp, SECRET)).toThrow("Invalid token");
+  });
+
+  it("TM-ISO-2: accepts typ=session with the Task Mentor audience and legacy untyped sessions; refuses other typed tokens", () => {
+    const typed = jwt.sign({ id: 4, tid: 2, typ: "session" }, SECRET, { audience: "task-mentor" });
+    expect(verifySocketToken(typed, SECRET)).toEqual({ userId: 4, isProctor: false, tid: 2, via: "session" });
+    const legacy = sessionToken({ id: 4, tid: 2, role: "student" });
+    expect(verifySocketToken(legacy, SECRET)).toMatchObject({ userId: 4, tid: 2, via: "session" });
+    for (const bad of [
+      jwt.sign({ id: 4, tid: 2, typ: "session" }, SECRET), // no audience
+      jwt.sign({ id: 4, tid: 2, typ: "session" }, SECRET, { audience: "tmcode" }),
+      jwt.sign({ id: 4, tid: 2, purpose: "reset" }, SECRET),
+      jwt.sign({ id: 4, tid: 2 }, SECRET, { audience: "elsewhere" }),
+    ]) {
+      expect(() => verifySocketToken(bad, SECRET)).toThrow("Invalid token");
+    }
   });
 
   it("rejects a ticket-key token with the wrong typ", () => {

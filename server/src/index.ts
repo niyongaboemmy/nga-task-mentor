@@ -328,6 +328,10 @@ const startServer = async (): Promise<void> => {
     app.use("/api/ai", aiRoutes);
     // Public (no auth) — QR code verification
     // The QR names no school: ?tid= (printed on new cards) or the legacy default.
+    // By design (TM-ISO-5): it reads ONE school's database -- the hinted one,
+    // else school 1 -- by an unguessable uuid, and never searches the others,
+    // so a card of school 2 without ?tid is simply "not found". Once
+    // TENANCY_LEGACY_DEFAULT_TID=none, a QR without ?tid is refused instead.
     app.get("/api/public/verify/report-card/:uuid", tenantFromCallerHint, verifyReportCard);
 
     // Health check endpoint

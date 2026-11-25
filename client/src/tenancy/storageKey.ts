@@ -8,10 +8,11 @@
  * `id` claims), so no React state is needed to read it.
  *
  * Keys written before this existed carry no suffix. `reconcileStorageIdentity`
- * runs whenever a session is established: on the very first run in a browser
- * it adopts those legacy keys for the signed-in identity (an in-progress quiz
- * or marks draft survives the update); when the identity later changes it
- * removes any that are left, since they may be another person's.
+ * runs whenever a session is established and removes them: nothing in an
+ * unscoped key says whose it is, and the first person to sign in on a shared
+ * browser is not necessarily the one who wrote it (WEB-ISO-3). The one
+ * exception is a legacy key that itself names the user (`...u<uid>` at the
+ * end, written before tenancy, so school 1): it is adopted by that user.
  */
 
 export interface StorageIdentity {
@@ -22,7 +23,26 @@ export interface StorageIdentity {
 const IDENTITY_KEY = "tm.storage.identity";
 
 /** Prefixes / exact keys of personal data stored before keying existed. */
-export const LEGACY_PERSONAL_PREFIXES = ["quiz_", "tm:marks-draft:", "tm.grading.draft.", "tm.grading.openedInTmcode", "tm.grading.snippets", "tm.rank.ack"];
+export const LEGACY_PERSONAL_PREFIXES = [
+  "quiz_",
+  "tm:marks-draft:",
+  "tm.grading.draft.",
+  "tm.grading.openedInTmcode",
+  "tm.grading.snippets",
+  "tm.rank.ack",
+  // TM-ISO-6 / WEB-ISO-4: keyed by storageKey() since 2026-11-25.
+  "tm.playground.",
+  "tm.grading.runCases.",
+  "countdown_",
+  "tm.aiGenerator.prefs",
+];
+
+/** The user id an unscoped legacy key names itself (`...[._:-]u<uid>`), or null. */
+export function legacyKeyUid(key: string): number | null {
+  const m = /[._:-]u(\d+)$/.exec(key);
+  const n = m ? Number(m[1]) : NaN;
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
 
 const SCOPED_SUFFIX = /\.t\d+\.u\d+$/;
 
@@ -101,7 +121,8 @@ export function clearUnscopedPersonalKeys(store: Storage = localStorage): void {
 
 /**
  * Call when a session is (re)established. Returns what happened, for tests:
- *  - "first":   no identity recorded before; legacy keys were moved under this identity
+ *  - "first":   no identity recorded before; legacy keys were removed, except
+ *               those that name this very user (school 1), which it keeps
  *  - "same":    nothing to do
  *  - "changed": another school/person than last time; legacy keys removed
  */
@@ -117,8 +138,9 @@ export function reconcileStorageIdentity(
     if (!raw) {
       for (const k of legacyKeys(store)) {
         const v = store.getItem(k);
+        const own = identity.tid === 1 && legacyKeyUid(k) === identity.uid;
         const target = storageKey(k, identity);
-        if (v !== null && store.getItem(target) === null) store.setItem(target, v);
+        if (own && v !== null && store.getItem(target) === null) store.setItem(target, v);
         store.removeItem(k);
       }
       store.setItem(IDENTITY_KEY, tag);

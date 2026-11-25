@@ -3,7 +3,6 @@ import { noteAccessVersion } from "../access/snapshot";
 import { noteAiPolicyVersion } from "../services/aiPolicy";
 import { noteMyAiVersions } from "../services/myAiGateway";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import axios from "axios";
 import { getMisToken, handleMisError } from "../utils/misUtils";
@@ -14,7 +13,10 @@ import { Permission } from "../models/Permission.model";
 import { applyMisAvatar, misAvatarFrom, misCoverFrom } from "../services/misAvatar";
 import { upsertMisUser } from "../services/misUserSync";
 import { parseTid } from "../vendor/nga-tenancy";
-import { enterTenant, misAuthTenantConflict, misTokenSid, resolveTenant, sendTenantGate, sendTenantMismatch, tidFromMisAuth, tidOfClaims } from "../tenancy/request";
+import { enterTenant, misAuthTenantConflict, misTokenMismatch, misTokenSid, requestMisToken, resolveTenant, sendTenantGate, sendTenantMismatch, tidFromMisAuth, tidOfClaims } from "../tenancy/request";
+import { DB_STEP_UP_TTL_SECONDS, signDbStepUpToken, verifySessionToken } from "../utils/sessionToken";
+import { issuedBeforeRevocation } from "../utils/ssoLogout";
+import { getRevokedAt } from "../services/sessionRevocation";
 
 // User login - forwards to NGA Central MIS
 // Security: Protected by rate limiter and input validation at route level (see routes/auth.routes.ts)
@@ -120,14 +122,14 @@ export const confirmDbAccess = async (req: Request, res: Response) => {
     if (!process.env.JWT_SECRET) {
       return res.status(500).json({ message: "Server error" });
     }
+    const tid = req.tenant?.tid;
+    if (!tid) return res.status(401).json({ message: "Not authorized" });
 
-    const dbAccessToken = jwt.sign(
-      { id: authUser.id, dbAccess: true },
-      process.env.JWT_SECRET,
-      { expiresIn: 1200 },
-    );
+    // TM-ISO-1: typed, signed with its own derived key, bound to this user
+    // and this school -- never usable as a session (utils/sessionToken.ts).
+    const dbAccessToken = signDbStepUpToken(authUser.id, tid);
 
-    res.status(200).json({ dbAccessToken, expiresIn: 1200 });
+    res.status(200).json({ dbAccessToken, expiresIn: DB_STEP_UP_TTL_SECONDS });
   } catch (error) {
     console.error("Confirm DB access error:", error);
     res.status(500).json({ message: "Server error during confirmation" });
@@ -646,22 +648,29 @@ export const refreshToken = async (req: Request, res: Response) => {
     const token = req.cookies.tm_auth_token;
     if (!token) return res.status(401).json({ message: "No token provided" });
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      id: number;
-      tid?: number;
-      termId?: number;
-      academicYearId?: number;
-      sid?: string;
-    };
-    // The refreshed token stays in the tenant the old one named.
+    // Sessions only (TM-ISO-1/2): a step-up or otherwise typed token can't be
+    // traded for a 30-day session.
+    const decoded = verifySessionToken(token);
+    // The refreshed token stays in the tenant the old one named -- and gets
+    // the same checks `protect` makes: an MIS token of another school ends
+    // it, and so does a back-channel logout (sid, else the whole user).
     const gate = await resolveTenant(tidOfClaims(decoded));
     if (!gate.ok) return sendTenantGate(res, gate);
+    if (misTokenMismatch(req, gate.tenant.tid)) return sendTenantMismatch(res);
     return await enterTenant(req, gate.tenant, async () => {
     const user = await User.findByPk(decoded.id);
     if (!user) return res.status(401).json({ message: "Invalid token" });
 
-    // Preserve termId/academicYearId from previous token
-    console.log("🔄 Refreshing token, preserving Term ID:", decoded.termId);
+    const sid = decoded.sid ?? misTokenSid(requestMisToken(req));
+    if (issuedBeforeRevocation(decoded.iat, await getRevokedAt(user.id, sid))) {
+      return res.status(401).json({
+        success: false,
+        code: "SESSION_ENDED",
+        message: "You signed out of NGA. Please sign in again.",
+      });
+    }
+
+    // Preserve termId/academicYearId (and the MIS session) from the previous token
     const newToken = user.getSignedJwtToken(decoded.termId, decoded.academicYearId, decoded.sid);
 
     const cookieOptions = {

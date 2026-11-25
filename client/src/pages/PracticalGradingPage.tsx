@@ -944,7 +944,7 @@ const StudentWorkspace: React.FC<{
               revisionId={revisionId}
               targets={targets}
               targetsError={targetsError}
-              casesKey={`tm.grading.runCases.${type}.${activityId}.${a.question?.id ?? 0}`}
+              casesKey={storageKey(`tm.grading.runCases.${type}.${activityId}.${a.question?.id ?? 0}`)}
               studentName={name}
               projectTests={projectTests}
               onOpenPreview={() => setPane("preview")}

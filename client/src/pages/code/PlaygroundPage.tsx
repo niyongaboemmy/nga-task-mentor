@@ -10,6 +10,7 @@ import { languageLabel } from "../../components/code/languages";
 import { saveProjectFiles, type CodeFile } from "../../services/codeApi";
 import { catalogApi, PURPOSE_LABEL, type StarterSummary } from "../../services/catalogApi";
 import { apiErrorMessage, projectsApi } from "../../services/projectsApi";
+import { storageKey } from "../../tenancy/storageKey";
 
 /**
  * Playground (CODE_RUNNER_PLAN.md §7.7): practise any language the runner
@@ -30,7 +31,8 @@ const PURPOSE_ORDER = ["hello", "io-exercise", "algorithms", "project", "api", "
 
 const builtinOption = (b: { id: string; title: string }): Option => ({ id: b.id, title: b.title, purpose: b.id.endsWith("-io") ? "io-exercise" : "hello" });
 
-const draftKey = (lang: string) => `tm.playground.${lang}`;
+// Keyed by (school, person): a draft is someone's work (TM-ISO-6).
+const draftKey = (lang: string) => storageKey(`tm.playground.${lang}`);
 const readDraft = (lang: string): CodeFile[] | null => {
   try {
     const raw = localStorage.getItem(draftKey(lang));
