@@ -19,6 +19,14 @@ import jwt from "jsonwebtoken";
  *   which `protect` accepted as a full session of school 1 (TM-ISO-1). Signed
  *   with another key it can't verify as a session anywhere; the typed checks
  *   below are the second wall.
+ *
+ * TMCode web preview token -- the key in /api/tmcode/preview/<token>/ (an
+ *   iframe sends no Authorization header):
+ *   HS256 with another key DERIVED from JWT_SECRET, `typ: "tmcode-preview"`,
+ *   `aud: "task-mentor:tmcode-preview"`, the project + revision and the school
+ *   (`tid`) it was made in, 30 minutes. It used to be an HMAC of {p, r, e} with
+ *   JWT_SECRET itself and no school, so the unauthenticated preview route read
+ *   the revision from whichever database it fell back to (school 1).
  */
 
 export const SESSION_TYP = "session";
@@ -26,6 +34,9 @@ export const SESSION_AUDIENCE = "task-mentor";
 export const DB_STEP_UP_TYP = "db-step-up";
 export const DB_STEP_UP_AUDIENCE = "task-mentor:db-console";
 export const DB_STEP_UP_TTL_SECONDS = 1200;
+export const PREVIEW_TYP = "tmcode-preview";
+export const PREVIEW_AUDIENCE = "task-mentor:tmcode-preview";
+export const PREVIEW_TTL_SECONDS = 30 * 60;
 
 /** Claims that mark a token as something other than a session. */
 const TYPED_MARKERS = ["dbAccess", "typ", "purpose"] as const;
@@ -56,6 +67,7 @@ const sessionSecret = (secret?: string) => {
 };
 
 export const dbStepUpSecret = (secret?: string) => `${sessionSecret(secret)}:db-step-up`;
+export const previewSecret = (secret?: string) => `${sessionSecret(secret)}:tmcode-preview`;
 
 const sessionExpiry = () =>
   process.env.JWT_EXPIRE ? Number(process.env.JWT_EXPIRE) || process.env.JWT_EXPIRE : "30d";
@@ -118,4 +130,49 @@ export function verifyDbStepUpToken(token: string, expect: { id: number; tid: nu
   if (p?.typ !== DB_STEP_UP_TYP) throw new SessionTokenError("not a step-up token");
   if (!expect.tid || Number(p.tid) !== Number(expect.tid)) throw new SessionTokenError("step-up token is for another school");
   if (Number(p.id) !== Number(expect.id)) throw new SessionTokenError("step-up token is for another user");
+}
+
+export interface PreviewClaims {
+  /** Project id. */
+  p: number;
+  /** Revision id. */
+  r: number;
+  /** The school the preview was made in; the revision is read there only. */
+  tid: number;
+}
+
+const positiveInt = (v: unknown) => {
+  const n = Number(v);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+};
+
+/** A TMCode web preview of project `p` at revision `r`, in school `tid`. */
+export function signPreviewToken(claims: PreviewClaims, now = Date.now()): string {
+  const p = positiveInt(claims.p);
+  const r = positiveInt(claims.r);
+  const tid = positiveInt(claims.tid);
+  if (!p || !r || !tid) throw new SessionTokenError("a preview needs a project, a revision and a school");
+  return jwt.sign({ p, r, tid, typ: PREVIEW_TYP, iat: Math.floor(now / 1000) }, previewSecret(), {
+    expiresIn: PREVIEW_TTL_SECONDS,
+    audience: PREVIEW_AUDIENCE,
+    algorithm: "HS256",
+  });
+}
+
+/** The preview a token opens, or null (bad signature, expired, wrong kind, no school). */
+export function verifyPreviewToken(token: string, now = Date.now()): PreviewClaims | null {
+  try {
+    const c = jwt.verify(String(token), previewSecret(), {
+      algorithms: ["HS256"],
+      audience: PREVIEW_AUDIENCE,
+      clockTimestamp: Math.floor(now / 1000),
+    }) as Record<string, unknown>;
+    if (!c || c.typ !== PREVIEW_TYP) return null;
+    const p = positiveInt(c.p);
+    const r = positiveInt(c.r);
+    const tid = positiveInt(c.tid);
+    return p && r && tid ? { p, r, tid } : null;
+  } catch {
+    return null;
+  }
 }
