@@ -185,7 +185,7 @@ export default function CourseReportsPage() {
       .filter((s) => {
         if (activeBand && (s.markedCount === 0 || s.band !== activeBand)) return false;
         if (!q) return true;
-        return s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q);
+        return s.name.toLowerCase().includes(q) || (s.email ?? "").toLowerCase().includes(q);
       })
       .sort((a, b) => b.overallPct - a.overallPct);
   }, [report, search, activeBand]);

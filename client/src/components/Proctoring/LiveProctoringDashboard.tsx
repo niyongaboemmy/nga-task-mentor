@@ -882,7 +882,7 @@ const LiveProctoringDashboard: React.FC = () => {
         (stream) =>
           stream.student.first_name.toLowerCase().includes(query) ||
           stream.student.last_name.toLowerCase().includes(query) ||
-          stream.student.email.toLowerCase().includes(query) ||
+          (stream.student.email ?? "").toLowerCase().includes(query) ||
           stream.quiz.title.toLowerCase().includes(query),
       );
     }
