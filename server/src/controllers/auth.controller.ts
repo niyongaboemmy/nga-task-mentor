@@ -13,7 +13,7 @@ import { Role } from "../models/Role.model";
 import { Permission } from "../models/Permission.model";
 import { applyMisAvatar, misAvatarFrom, misCoverFrom } from "../services/misAvatar";
 import { upsertMisUser } from "../services/misUserSync";
-import { enterTenant, resolveTenant, sendTenantGate, tidFromMisAuth, tidOfClaims } from "../tenancy/request";
+import { enterTenant, misAuthTenantConflict, resolveTenant, sendTenantGate, sendTenantMismatch, tidFromMisAuth, tidOfClaims } from "../tenancy/request";
 
 // User login - forwards to NGA Central MIS
 // Security: Protected by rate limiter and input validation at route level (see routes/auth.routes.ts)
@@ -251,6 +251,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
     }
 
     // Tenancy: the account lives in the school the MIS token names.
+    if (misAuthTenantConflict(token, data, misResponse.data)) return sendTenantMismatch(res);
     const gate = await resolveTenant(tidFromMisAuth(token, data, misResponse.data));
     if (!gate.ok) return sendTenantGate(res, gate);
     return await enterTenant(req, gate.tenant, async () => {
@@ -505,6 +506,7 @@ export const ssoCallback = async (req: Request, res: Response) => {
 
     // Tenancy: the account lives in the school the MIS token names
     // (CONTRACT.md §2: /sso/token returns `tenant`; the token carries `tid`).
+    if (misAuthTenantConflict(misToken, misResponse.data.data, misResponse.data)) return sendTenantMismatch(res);
     const gate = await resolveTenant(tidFromMisAuth(misToken, misResponse.data.data, misResponse.data));
     if (!gate.ok) return sendTenantGate(res, gate);
     return await enterTenant(req, gate.tenant, async () => {

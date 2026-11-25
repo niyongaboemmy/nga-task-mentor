@@ -7,7 +7,7 @@ import "../expressContext";
 import { currentTenantOrNull, primaryTenantCtx, runWithTenant, TenantCtx } from "../../vendor/nga-tenancy";
 import { dbNameFor, legacyDefaultTid, tenancyMode } from "../config";
 import { tenantTableDdl } from "../provision";
-import { misTokenTid, tidFromMisAuth } from "../request";
+import { misAuthTenantConflict, misTokenTid, tidFromMisAuth } from "../request";
 import { staticTenants } from "../registry";
 import jwt from "jsonwebtoken";
 
@@ -52,10 +52,20 @@ describe("tenancy config", () => {
 
   it("finds the tenant of an MIS sign-in: response tenant, else token tid, else legacy default", () => {
     const tok = jwt.sign({ sub: "1", tid: 4 }, "k");
-    expect(tidFromMisAuth(tok, { tenant: { tid: 6 } })).toBe(6);
+    expect(tidFromMisAuth(tok, { tenant: { tid: 4 } })).toBe(4);
+    expect(tidFromMisAuth(jwt.sign({ sub: "1" }, "k"), { tenant: { tid: 6 } })).toBe(6);
     expect(tidFromMisAuth(tok, {})).toBe(4);
     expect(tidFromMisAuth(jwt.sign({ sub: "1" }, "k"), null)).toBe(1);
     expect(misTokenTid("not-a-jwt")).toBeNull();
+  });
+
+  it("refuses an MIS sign-in whose response names another school than its token (TENANT_SWITCHING_PLAN G2)", () => {
+    const tok = jwt.sign({ sub: "1", tid: 4 }, "k");
+    expect(misAuthTenantConflict(tok, { tenant: { tid: 6 } })).toBe(true);
+    expect(tidFromMisAuth(tok, { tenant: { tid: 6 } })).toBeNull();
+    expect(misAuthTenantConflict(tok, { tenant: { tid: 4 } })).toBe(false);
+    expect(misAuthTenantConflict(tok, {})).toBe(false);
+    expect(misAuthTenantConflict(jwt.sign({ sub: "1" }, "k"), { tenant: { tid: 6 } })).toBe(false);
   });
 
   it("tenant DDL is CREATE TABLE IF NOT EXISTS without the AUTO_INCREMENT counter", () => {

@@ -115,16 +115,35 @@ export async function tenantFromCallerHint(req: Request, res: Response, next: Ne
   return enterTenant(req, gate.tenant, () => next());
 }
 
-/**
- * The tenant an MIS user-token sign-in belongs to: the `tenant` MIS returns
- * from /auth/verify, /users/me or /sso/token (contract v1), else the token's
- * own `tid` claim, else -- an MIS that predates tenancy -- the legacy default.
- */
-export function tidFromMisAuth(misToken: string | null | undefined, ...payloads: unknown[]): number | null {
+/** The `tenant` an MIS response names (contract v1), first one wins. */
+function payloadTid(payloads: unknown[]): number | null {
   for (const p of payloads) {
     const tenant = (p as { tenant?: { tid?: unknown; tenant_id?: unknown } } | null)?.tenant;
     const tid = parseTid(tenant?.tid ?? tenant?.tenant_id);
     if (tid) return tid;
   }
-  return misTokenTid(misToken) ?? legacyDefaultTid();
+  return null;
+}
+
+/**
+ * True when the MIS response names one school and the MIS token's own `tid`
+ * another. Never true for an honest MIS: the session would be written into the
+ * response's school while every later request (TENANT_MISMATCH check on the
+ * nested misToken) runs in the token's -- so the sign-in is refused instead.
+ */
+export function misAuthTenantConflict(misToken: string | null | undefined, ...payloads: unknown[]): boolean {
+  const fromPayload = payloadTid(payloads);
+  const fromToken = misTokenTid(misToken);
+  return fromPayload !== null && fromToken !== null && fromPayload !== fromToken;
+}
+
+/**
+ * The tenant an MIS user-token sign-in belongs to: the `tenant` MIS returns
+ * from /auth/verify, /users/me or /sso/token (contract v1), else the token's
+ * own `tid` claim, else -- an MIS that predates tenancy -- the legacy default.
+ * null (-> TENANT_REQUIRED) when the response and the token disagree.
+ */
+export function tidFromMisAuth(misToken: string | null | undefined, ...payloads: unknown[]): number | null {
+  if (misAuthTenantConflict(misToken, ...payloads)) return null;
+  return payloadTid(payloads) ?? misTokenTid(misToken) ?? legacyDefaultTid();
 }
