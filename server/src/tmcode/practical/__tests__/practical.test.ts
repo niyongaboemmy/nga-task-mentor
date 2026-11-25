@@ -49,13 +49,14 @@ describe("preview", () => {
     expect(previewEntry(["main.py"])).toBeNull();
   });
 
-  it("signs short-lived tokens and refuses tampered or expired ones", () => {
-    const t = previewToken(5, 99, 1_000);
-    expect(readPreviewToken(t, 2_000)).toEqual({ p: 5, r: 99 });
-    expect(readPreviewToken(t, 1_000 + 31 * 60 * 1000)).toBeNull();
-    const [payload] = t.split(".");
-    const forged = `${Buffer.from(JSON.stringify({ p: 6, r: 99, e: 9e15 })).toString("base64url")}.${t.split(".")[1]}`;
-    expect(readPreviewToken(forged, 2_000)).toBeNull();
-    expect(readPreviewToken(`${payload}.nope`, 2_000)).toBeNull();
+  it("signs short-lived tokens for one school and refuses tampered or expired ones", () => {
+    process.env.JWT_SECRET = process.env.JWT_SECRET || "test-secret-for-preview-tokens";
+    const t = previewToken(5, 99, 2, 1_000_000);
+    expect(readPreviewToken(t, 1_002_000)).toEqual({ p: 5, r: 99, tid: 2 });
+    expect(readPreviewToken(t, 1_000_000 + 31 * 60 * 1000)).toBeNull();
+    const [head, , sig] = t.split(".");
+    const forgedBody = Buffer.from(JSON.stringify({ p: 6, r: 99, tid: 1, typ: "tmcode-preview", aud: "task-mentor:tmcode-preview", iat: 1000, exp: 9e9 })).toString("base64url");
+    expect(readPreviewToken(`${head}.${forgedBody}.${sig}`, 1_002_000)).toBeNull();
+    expect(readPreviewToken(`${head}.${t.split(".")[1]}.nope`, 1_002_000)).toBeNull();
   });
 });

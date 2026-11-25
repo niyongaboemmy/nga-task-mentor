@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import { assignmentMaxPoints } from "../tmcode/practical/maxPoints";
 import zlib from "zlib";
 import path from "path";
@@ -36,6 +35,9 @@ import { userBrief, usersById } from "../tmcode/projects/serialize";
 import { syncProjectStatus } from "../tmcode/projects/status";
 import { parsePracticalData, PRACTICAL_TYPE, PracticalCriterion } from "../tmcode/practical/question";
 import { rebasePreviewRoots } from "../tmcode/practical/preview";
+import { PREVIEW_TTL_SECONDS, PreviewClaims, signPreviewToken, verifyPreviewToken } from "../utils/sessionToken";
+import { enterTenant, headerTid, resolveTenant } from "../tenancy/request";
+import { currentTenantOrNull, parseTid } from "../vendor/nga-tenancy";
 import { canGradeAssignment, canGradeQuiz } from "../utils/gradingAccess";
 import { isPassed } from "../utils/quizStudentView";
 import { getScopedSubjects } from "../utils/scopedSubjects";
@@ -641,28 +643,16 @@ export async function recomputeQuizSubmission(submissionId: number, graderId: nu
 
 // ─── Web preview ─────────────────────────────────────────────────────────────
 
-const PREVIEW_TTL_MS = 30 * 60 * 1000;
-const secret = () => process.env.JWT_SECRET || "tmcode-preview";
-const b64url = (b: Buffer | string) => Buffer.from(b).toString("base64url");
-const sign = (payload: string) => crypto.createHmac("sha256", secret()).update(payload).digest("base64url");
+const PREVIEW_TTL_MS = PREVIEW_TTL_SECONDS * 1000;
 
-export function previewToken(projectId: number, revisionId: number, now = Date.now()): string {
-  const payload = b64url(JSON.stringify({ p: projectId, r: revisionId, e: now + PREVIEW_TTL_MS }));
-  return `${payload}.${sign(payload)}`;
+/** The signed key of a preview of `projectId` at `revisionId`, made in school `tid`. */
+export function previewToken(projectId: number, revisionId: number, tid: number, now = Date.now()): string {
+  return signPreviewToken({ p: projectId, r: revisionId, tid }, now);
 }
 
-export function readPreviewToken(token: string, now = Date.now()): { p: number; r: number } | null {
-  const [payload, sig] = String(token).split(".");
-  if (!payload || !sig) return null;
-  const expected = sign(payload);
-  if (expected.length !== sig.length || !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(sig))) return null;
-  try {
-    const d = JSON.parse(Buffer.from(payload, "base64url").toString());
-    if (!(d.e > now)) return null;
-    return { p: Number(d.p), r: Number(d.r) };
-  } catch {
-    return null;
-  }
+/** What a preview token opens (project, revision, school), or null. */
+export function readPreviewToken(token: string, now = Date.now()): PreviewClaims | null {
+  return verifyPreviewToken(token, now);
 }
 
 const MIME: Record<string, string> = {
@@ -742,7 +732,10 @@ export const createPreview = async (req: Request, res: Response) => {
   const php = files.some((f) => /\.php$/i.test(f.path)) ? phpSiteEntry(await projectTexts(files)) : null;
   const entry = php ?? previewEntry(files.map((f) => f.path));
   if (!entry) return tmcodeError(res, 422, "NO_HTML", "There's no HTML or PHP page to preview in this revision.");
-  const token = previewToken(access.project.id, rev.id);
+  // The preview route has no session: the token names the school it reads from.
+  const tid = req.tenant?.tid ?? currentTenantOrNull()?.tid;
+  if (!tid) return tmcodeError(res, 401, "TENANT_REQUIRED", "This sign-in does not name a school. Please sign in again.");
+  const token = previewToken(access.project.id, rev.id, tid);
   const base = `${req.protocol}://${req.get("host")}/api/tmcode/preview/${token}/`;
   return res.status(200).json({
     url: `${base}${entry.split("/").map(encodeURIComponent).join("/")}`,
@@ -760,6 +753,17 @@ export const createPreview = async (req: Request, res: Response) => {
 export const servePreview = async (req: Request, res: Response) => {
   const t = readPreviewToken(req.params.token);
   if (!t) return res.status(410).type("text/plain").send("This preview link has expired. Open the preview again.");
+  // The revision lives in the school the token was made in, and nowhere else:
+  // a request that already names another school (context, X-NGA-Tenant, ?tid)
+  // is refused rather than served across schools.
+  const named = req.tenant?.tid ?? currentTenantOrNull()?.tid ?? headerTid(req) ?? parseTid((req.query as Record<string, unknown>)?.tid);
+  if (named && named !== t.tid) return res.status(404).type("text/plain").send("Not found");
+  const gate = await resolveTenant(t.tid);
+  if (!gate.ok) return res.status(gate.status).type("text/plain").send(gate.message);
+  return enterTenant(req, gate.tenant, () => servePreviewFile(req, res, t));
+};
+
+async function servePreviewFile(req: Request, res: Response, t: PreviewClaims) {
   const rev = await ProjectRevision.findByPk(t.r);
   if (!rev || rev.project_id !== t.p) return res.status(404).type("text/plain").send("Not found");
   const files = readManifest(rev);
@@ -787,7 +791,7 @@ export const servePreview = async (req: Request, res: Response) => {
   // Keep root-relative links ("/style.css", "/src/main.tsx") inside the preview.
   const base = `${req.baseUrl}/preview/${encodeURIComponent(req.params.token)}/`;
   return res.status(200).send(rebasePreviewRoots(body.toString("utf8"), base, kind));
-};
+}
 
 // ─── Running a non-web project ───────────────────────────────────────────────
 
