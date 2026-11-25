@@ -71,6 +71,7 @@ export const misBearerAuth = async (req: Request, res: Response, next: NextFunct
 
   const key = tokenKey(token);
   let misUserId: number | null = null;
+  let freshHints: any = null;
   let tid: number | null = null;
   const cached = verified.get(key);
   if (cached && Date.now() - cached.at < VERIFY_TTL_MS) {
@@ -89,12 +90,7 @@ export const misBearerAuth = async (req: Request, res: Response, next: NextFunct
       misUserId = id;
       tid = tidFromMisAuth(token, data, response.data);
       remember(key, id, tid);
-      // A changed access_version invalidates the cached access snapshot.
-      noteAccessVersion(id, data.access_version);
-      // A changed ai_policy_v means the super admin changed the AI policy.
-      noteAiPolicyVersion(data.ai_policy_v);
-      // My AI: a new ai_routes_v or ai_policy_v drops this person's cached routes.
-      noteMyAiVersions(id, data);
+      freshHints = data;
     } catch (error: any) {
       const status = error?.response?.status;
       if (status === 401 || status === 403) return invalid(res);
@@ -108,7 +104,21 @@ export const misBearerAuth = async (req: Request, res: Response, next: NextFunct
   if (!gate.ok) return sendTenantGate(res, gate);
   const claimed = headerTid(req);
   if (claimed !== null && claimed !== gate.tenant.tid) return sendTenantMismatch(res);
-  return enterTenant(req, gate.tenant, () => provisionedUser(req, res, next, misUserId!, token));
+  return enterTenant(req, gate.tenant, () => {
+    // Version hints from a fresh MIS verify, applied INSIDE the person's school:
+    // the caches they touch are keyed by tk(), and outside a context that is
+    // school 1's key -- another school's person with the same MIS id would mark
+    // NGA's snapshot stale and leave their own stale (counted as no_context).
+    if (freshHints) {
+      // A changed access_version invalidates the cached access snapshot.
+      noteAccessVersion(misUserId!, freshHints.access_version);
+      // A changed ai_policy_v means the super admin changed the AI policy.
+      noteAiPolicyVersion(freshHints.ai_policy_v);
+      // My AI: a new ai_routes_v or ai_policy_v drops this person's cached routes.
+      noteMyAiVersions(misUserId!, freshHints);
+    }
+    return provisionedUser(req, res, next, misUserId!, token);
+  });
 };
 
 async function provisionedUser(req: Request, res: Response, next: NextFunction, misUserId: number, token: string) {
