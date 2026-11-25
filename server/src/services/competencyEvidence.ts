@@ -7,6 +7,7 @@ import { clientBasicAuth } from "../access/misClient";
 import { isMisTransportInjected, misBase, misServiceCall } from "./reminderSync";
 import { gradePercentage } from "../utils/studentStanding";
 import { QuizSubmission, Submission } from "../models";
+import { countFallback } from "../tenancy/fallbacks";
 
 /**
  * Learning outcomes on quizzes and assignments, and the evidence they feed
@@ -238,7 +239,11 @@ interface TenantQueue {
 const queues = new Map<number, TenantQueue>();
 
 function queueOf(): TenantQueue {
-  const tenant = currentTenantOrNull() ?? primaryTenantCtx();
+  let tenant = currentTenantOrNull();
+  if (!tenant) {
+    countFallback("no_context", "competencyEvidence");
+    tenant = primaryTenantCtx();
+  }
   let q = queues.get(tenant.tid);
   if (!q) queues.set(tenant.tid, (q = { tenant, pending: new Map(), timer: null }));
   return q;

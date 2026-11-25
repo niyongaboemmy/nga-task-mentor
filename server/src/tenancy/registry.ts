@@ -6,6 +6,7 @@ import {
   TenantCtx,
   TenantRegistry,
 } from "../vendor/nga-tenancy";
+import { applyRegistryStrict } from "./strict";
 
 /**
  * The spoke's cached view of the MIS control plane (CONTRACT.md §4):
@@ -22,14 +23,15 @@ import {
 const FAILURE_BACKOFF_MS = 30_000;
 let lastFailureAt = 0;
 
-function basicAuth(env: NodeJS.ProcessEnv = process.env): string | null {
+/** The service credentials every MIS control-plane call uses (registry, fallback reports). */
+export function basicAuth(env: NodeJS.ProcessEnv = process.env): string | null {
   const id = env.SSO_CLIENT_ID;
   const secret = env.SSO_CLIENT_SECRET;
   if (!id || !secret) return null;
   return `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`;
 }
 
-function registrySource(env: NodeJS.ProcessEnv = process.env): "mis" | "static" {
+export function registrySource(env: NodeJS.ProcessEnv = process.env): "mis" | "static" {
   const raw = String(env.TENANCY_REGISTRY || "").trim().toLowerCase();
   if (raw === "static") return "static";
   if (raw === "mis") return "mis";
@@ -67,6 +69,8 @@ export async function loadTenantsFromMis(env: NodeJS.ProcessEnv = process.env): 
       timeout: Number(env.TENANCY_REGISTRY_TIMEOUT_MS) || 3000,
     });
     const body = res?.data ?? {};
+    // Appendix A.6: the same response says whether MIS wants strict mode.
+    applyRegistryStrict(body);
     const raw: unknown = body.tenants ?? body.data?.tenants ?? body.data;
     if (!Array.isArray(raw)) throw new Error("MIS returned no tenant list");
     const tenants = raw.map((r) => normalizeTenant(r as Record<string, unknown>)).filter((t): t is TenantCtx => !!t);

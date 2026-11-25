@@ -18,6 +18,7 @@ import {
   type PerformanceStatus,
   type StudentRankingSummary,
 } from "../../services/rankingApi";
+import { storageKey } from "../../tenancy/storageKey";
 
 /**
  * Top-bar standing for a signed-in student: overall position across every
@@ -46,14 +47,14 @@ const ackSignature = (s: StudentRankingSummary) =>
 
 const readAck = () => {
   try {
-    return localStorage.getItem(ACK_KEY);
+    return localStorage.getItem(storageKey(ACK_KEY));
   } catch {
     return null;
   }
 };
 const writeAck = (sig: string) => {
   try {
-    localStorage.setItem(ACK_KEY, sig);
+    localStorage.setItem(storageKey(ACK_KEY), sig);
   } catch {
     /* storage unavailable: the pulse just returns on the next page view */
   }

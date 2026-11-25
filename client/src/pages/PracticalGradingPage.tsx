@@ -52,6 +52,7 @@ import AssessGuide from "../components/Projects/grading/AssessGuide";
 import { profileProject, type CheckAction, type ProjectProfile } from "../components/Projects/grading/projectProfile";
 import { loadProjectFiles } from "../services/codeApi";
 import { readIoTests, type IoTest } from "../components/code/tests";
+import { storageKey } from "../tenancy/storageKey";
 
 /**
  * Grading workspace for TMCode practicals (an assignment, or a quiz's
@@ -94,12 +95,12 @@ const isTyping = (t: EventTarget | null) => {
   return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
 };
 
-// ─── Small local stores (per browser) ───────────────────────────────────────
+// ─── Small local stores (per browser, keyed by school + person) ───────────────────────────────────────
 
 const store = {
   get<T>(key: string, fallback: T): T {
     try {
-      const raw = localStorage.getItem(key);
+      const raw = localStorage.getItem(storageKey(key));
       return raw ? (JSON.parse(raw) as T) : fallback;
     } catch {
       return fallback;
@@ -107,8 +108,8 @@ const store = {
   },
   set(key: string, value: unknown) {
     try {
-      if (value === null) localStorage.removeItem(key);
-      else localStorage.setItem(key, JSON.stringify(value));
+      if (value === null) localStorage.removeItem(storageKey(key));
+      else localStorage.setItem(storageKey(key), JSON.stringify(value));
     } catch {
       // storage full or blocked: drafts are a convenience
     }

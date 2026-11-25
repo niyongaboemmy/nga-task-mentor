@@ -30,6 +30,7 @@ import {
 } from "../middleware/rateLimiter.middleware";
 import { protect, authorizePermission } from "../middleware/auth";
 import { backchannelLogout } from "../controllers/backchannelLogout.controller";
+import { getSchoolInfo } from "../services/schoolSwitch";
 
 const router = Router();
 
@@ -42,6 +43,8 @@ router.post("/logout", logout);
 // Single sign-out: NGA MIS calls this when a user signs out there.
 router.post("/backchannel-logout", backchannelLogout);
 router.get("/verify-mis", protect, verifyMisSession);
+// Header school name/logo + the account menu's "Switch school" (plan Appendix A.5).
+router.get("/school", protect, getSchoolInfo);
 router.post("/sso/callback", ssoCallback);
 router.get("/sso/authorize", protect, proxySsoAuthorize);
 router.patch("/theme", protect, updateTheme);

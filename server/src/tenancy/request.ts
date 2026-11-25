@@ -11,6 +11,13 @@ import {
 } from "../vendor/nga-tenancy";
 import { legacyDefaultTid } from "./config";
 import { getTenantRegistry } from "./registry";
+import { countFallback } from "./fallbacks";
+
+/** The legacy default tid, counted as a `legacy_tid` fallback (plan Appendix A.6). */
+export function legacyTid(site: string): number | null {
+  countFallback("legacy_tid", site);
+  return legacyDefaultTid();
+}
 
 /**
  * Request-side tenancy (CONTRACT.md §6): the tenant a request speaks for,
@@ -32,7 +39,7 @@ export type TenantGate =
 
 /** The tenant id of a token's claims (legacy tokens -> TENANCY_LEGACY_DEFAULT_TID). */
 export function tidOfClaims(claims: TenantClaims | null | undefined): number | null {
-  return tidFromClaims(claims, legacyDefaultTid());
+  return tidFromClaims(claims, null) ?? legacyTid("session-token");
 }
 
 /** Registry lookup + status gates for a tenant id. */
@@ -62,6 +69,21 @@ export function misTokenTid(misToken: string | null | undefined): number | null 
     const claims = jwt.decode(String(misToken).replace(/^Bearer /i, "")) as TenantClaims | null;
     if (!claims || typeof claims !== "object") return null;
     return parseTid(claims.tid);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The `sid` (MIS browser session id, plan Appendix A.2) an unverified MIS
+ * token carries, or null for older sessions without one.
+ */
+export function misTokenSid(misToken: string | null | undefined): string | null {
+  if (!misToken) return null;
+  try {
+    const claims = jwt.decode(String(misToken).replace(/^Bearer /i, "")) as { sid?: unknown } | null;
+    const sid = claims && typeof claims === "object" ? claims.sid : null;
+    return typeof sid === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(sid) ? sid : null;
   } catch {
     return null;
   }
@@ -110,7 +132,9 @@ export function headerTid(req: Request): number | null {
 export async function tenantFromCallerHint(req: Request, res: Response, next: NextFunction) {
   if (req.tenant || currentTenantOrNull()) return next();
   const q = parseTid((req.query as Record<string, unknown>)?.tid);
-  const gate = await resolveTenant(headerTid(req) ?? q ?? legacyDefaultTid());
+  const hinted = headerTid(req) ?? q;
+  if (!hinted) countFallback("no_context", "callerHint");
+  const gate = await resolveTenant(hinted ?? legacyDefaultTid());
   if (!gate.ok) return sendTenantGate(res, gate);
   return enterTenant(req, gate.tenant, () => next());
 }
@@ -145,5 +169,5 @@ export function misAuthTenantConflict(misToken: string | null | undefined, ...pa
  */
 export function tidFromMisAuth(misToken: string | null | undefined, ...payloads: unknown[]): number | null {
   if (misAuthTenantConflict(misToken, ...payloads)) return null;
-  return payloadTid(payloads) ?? misTokenTid(misToken) ?? legacyDefaultTid();
+  return payloadTid(payloads) ?? misTokenTid(misToken) ?? legacyTid("mis-auth");
 }

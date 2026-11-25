@@ -1,7 +1,6 @@
 import crypto from "crypto";
-import { legacyDefaultTid } from "../tenancy/config";
 import { enterTenant, resolveTenant } from "../tenancy/request";
-import { parseTid, PRIMARY_TENANT_ID } from "../vendor/nga-tenancy";
+import { parseTid } from "../vendor/nga-tenancy";
 import zlib from "zlib";
 import { Request, Response } from "express";
 import { z } from "zod";
@@ -46,6 +45,8 @@ import { getCodeRunner } from "../services/coderunner";
 import { JudgeUnavailableError, QuotaExceededError, RunnerRejectedError, UnsupportedLanguageError } from "../services/Judge0Service";
 import { enqueueGrading, hasPendingRuns } from "../services/tmcodeGrading.service";
 import { getQuestionBankInclude } from "../utils/quizUtils";
+import { legacyTid } from "../tenancy/request";
+import { tidOrPrimary } from "../tenancy/keys";
 
 /**
  * TMCode ↔ Task Mentor (nga-tmcode/docs/PROTOCOL.md v1). Errors use the
@@ -118,7 +119,7 @@ export const launch = async (req: Request, res: Response) => {
 
     // The ticket names its school (`t<tid>.` prefix) so the unauthenticated
     // redeem below can open the right tenant database.
-    const ticket = `t${req.tenant?.tid ?? PRIMARY_TENANT_ID}.${crypto.randomBytes(32).toString("base64url")}`;
+    const ticket = `t${req.tenant?.tid ?? tidOrPrimary("tmcode.ticket")}.${crypto.randomBytes(32).toString("base64url")}`;
     const expiresAt = new Date(Date.now() + TICKET_TTL_MS);
     await TmcodeLaunchTicket.create(
       {
@@ -169,7 +170,7 @@ export const redeemTicket = async (req: Request, res: Response) => {
   const { ticket } = parsed.data;
   // Tickets minted before tenancy carry no prefix (legacy default tenant).
   const tagged = /^t(\d+)\./.exec(ticket);
-  const gate = await resolveTenant(tagged ? parseTid(tagged[1]) : legacyDefaultTid());
+  const gate = await resolveTenant(tagged ? parseTid(tagged[1]) : legacyTid("tmcode-ticket"));
   if (!gate.ok) return tmcodeError(res, gate.status, gate.code, gate.message);
   return enterTenant(req, gate.tenant, () => redeemInTenant(req, res, parsed.data));
 };

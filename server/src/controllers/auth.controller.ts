@@ -13,7 +13,8 @@ import { Role } from "../models/Role.model";
 import { Permission } from "../models/Permission.model";
 import { applyMisAvatar, misAvatarFrom, misCoverFrom } from "../services/misAvatar";
 import { upsertMisUser } from "../services/misUserSync";
-import { enterTenant, misAuthTenantConflict, resolveTenant, sendTenantGate, sendTenantMismatch, tidFromMisAuth, tidOfClaims } from "../tenancy/request";
+import { parseTid } from "../vendor/nga-tenancy";
+import { enterTenant, misAuthTenantConflict, misTokenSid, resolveTenant, sendTenantGate, sendTenantMismatch, tidFromMisAuth, tidOfClaims } from "../tenancy/request";
 
 // User login - forwards to NGA Central MIS
 // Security: Protected by rate limiter and input validation at route level (see routes/auth.routes.ts)
@@ -287,7 +288,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
     // Generate local JWT token
     console.log("🎟️ Generating token with Active Term ID:", activeTermId);
-    const localToken = localUser.getSignedJwtToken(activeTermId, activeYearId);
+    const localToken = localUser.getSignedJwtToken(activeTermId, activeYearId, misTokenSid(token));
 
     // Set cookies
     const cookieOptions = {
@@ -552,7 +553,7 @@ export const ssoCallback = async (req: Request, res: Response) => {
       currentAcademicYear?.academic_year_id;
 
     // Generate local JWT token
-    const token = localUser.getSignedJwtToken(activeTermId, activeYearId);
+    const token = localUser.getSignedJwtToken(activeTermId, activeYearId, misTokenSid(misToken));
 
     // Set cookies
     const cookieOptions = {
@@ -650,6 +651,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       tid?: number;
       termId?: number;
       academicYearId?: number;
+      sid?: string;
     };
     // The refreshed token stays in the tenant the old one named.
     const gate = await resolveTenant(tidOfClaims(decoded));
@@ -660,7 +662,7 @@ export const refreshToken = async (req: Request, res: Response) => {
 
     // Preserve termId/academicYearId from previous token
     console.log("🔄 Refreshing token, preserving Term ID:", decoded.termId);
-    const newToken = user.getSignedJwtToken(decoded.termId, decoded.academicYearId);
+    const newToken = user.getSignedJwtToken(decoded.termId, decoded.academicYearId, decoded.sid);
 
     const cookieOptions = {
       expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
@@ -737,7 +739,7 @@ export const switchAcademicPeriod = async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, message: "Invalid token" });
     }
 
-    const newToken = localUser.getSignedJwtToken(termId, yearId);
+    const newToken = localUser.getSignedJwtToken(termId, yearId, (req as any).user?.sid ?? misTokenSid(misToken));
 
     const cookieOptions = {
       expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -781,6 +783,17 @@ export const verifyMisSession = async (req: Request, res: Response) => {
     const response = await axios.get(`${process.env.NGA_MIS_BASE_URL}/auth/verify`, {
       headers: { Authorization: `Bearer ${misToken}` },
     });
+    // School switch backstop (TENANT_SWITCHING_PLAN.md §4.2): an MIS that
+    // reports the browser session's current school answers 409 when it is no
+    // longer this session's -- the client signs in again into that school.
+    const currentTid = parseTid(response.data?.data?.currentTid ?? response.data?.currentTid);
+    if (currentTid && req.tenant && currentTid !== req.tenant.tid) {
+      return res.status(409).json({
+        success: false,
+        code: "SCHOOL_CHANGED",
+        message: "You switched school in NGA. Signing you in to that school.",
+      });
+    }
     // Access control v2: a changed access_version invalidates the cached
     // access snapshot, so the next request re-fetches GET /access/me.
     noteAccessVersion(req.user?.mis_user_id, response.data?.data?.access_version);
@@ -1165,6 +1178,7 @@ export const updatePassword = async (req: Request, res: Response) => {
     const token = user.getSignedJwtToken(
       (req as any).user.termId,
       (req as any).user.academicYearId,
+      (req as any).user.sid,
     );
 
     // Update Cookies

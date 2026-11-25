@@ -1,11 +1,11 @@
 import { mediaKeyQuery } from "../routes/uploads";
-import { currentTenantOrNull, PRIMARY_TENANT_ID } from "../vendor/nga-tenancy";
 import http from "http";
 import https from "https";
 import dns from "dns";
 import net from "net";
 import fileServer from "../utils/fileServer";
 import { generateUniqueFilename } from "../utils/uploadFilename";
+import { tidOrPrimary } from "../tenancy/keys";
 
 /**
  * Images that live inside rich-text content (assignment descriptions, quiz
@@ -67,7 +67,7 @@ export async function storeEditorImage(buffer: Buffer, originalName = "image"): 
   // The media key lets <img> load it anywhere (desktop app, no cookie) while
   // staying bound to this school and this path (routes/uploads.ts).
   const subpath = `editor-images/${filename}`;
-  const tid = currentTenantOrNull()?.tid ?? PRIMARY_TENANT_ID;
+  const tid = tidOrPrimary("editorImages");
   return { url: `/uploads/${subpath}?${mediaKeyQuery(tid, subpath)}`, type: kind.mime, size: buffer.length };
 }
 

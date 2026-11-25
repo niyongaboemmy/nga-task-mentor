@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import HomeNavbar from "../HomeNavbar";
 import { useAuth } from "../../contexts/AuthContext";
 import { beginSsoLogin, getSsoConfig } from "../../utils/ssoState";
+import { SSO_ENTRY_PARAM } from "../../tenancy/schoolGuard";
 
 const Login: React.FC = () => {
   const { loginUrl: MIS_LOGIN_URL } = getSsoConfig();
@@ -19,6 +20,21 @@ const Login: React.FC = () => {
   const handleSSOLogin = () => {
     beginSsoLogin();
   };
+
+  // SSO entry URL (/login?sso=1): MIS sends people here after a school
+  // switch (TENANT_SWITCHING_PLAN.md Appendix A.4), so start the MIS sign-in
+  // right away; it lands in the school MIS now has.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get(SSO_ENTRY_PARAM) === "1") {
+      try {
+        localStorage.removeItem("tm_auth_token");
+        localStorage.removeItem("misToken");
+      } catch {
+        /* ignore */
+      }
+      beginSsoLogin();
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-white dark:from-gray-950 dark:via-gray-950 dark:to-gray-950 flex flex-col">

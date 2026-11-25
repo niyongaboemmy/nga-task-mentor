@@ -1,4 +1,5 @@
 import { PRIMARY_TENANT_ID } from "../vendor/nga-tenancy";
+import { strictActive } from "./strict";
 
 /**
  * Task Mentor tenancy settings (MULTI_TENANCY_GAP_FIX_PLAN.md Phase 4,
@@ -11,16 +12,22 @@ import { PRIMARY_TENANT_ID } from "../vendor/nga-tenancy";
  *                              "none" rejects them (401 TENANT_REQUIRED).
  *  TENANT_DB_PREFIX            database name prefix for tenant N > 1
  *                              (default `${DB_NAME}_t`); tenant 1 is DB_NAME.
+ *  TENANCY_STRICT              "off" vetoes MIS's automatic strict mode
+ *                              (strict.ts, plan Appendix A.6). While MIS has
+ *                              it on, the two settings above act as
+ *                              enforce + none.
  */
 
 export type TenancyMode = "shadow" | "enforce";
 
 export function tenancyMode(env: NodeJS.ProcessEnv = process.env): TenancyMode {
+  if (strictActive(env)) return "enforce";
   return String(env.TENANCY_MODE || "").trim().toLowerCase() === "enforce" ? "enforce" : "shadow";
 }
 
 /** null = legacy (tid-less) tokens are refused. */
 export function legacyDefaultTid(env: NodeJS.ProcessEnv = process.env): number | null {
+  if (strictActive(env)) return null;
   const raw = String(env.TENANCY_LEGACY_DEFAULT_TID ?? "").trim().toLowerCase();
   if (raw === "none" || raw === "off" || raw === "false") return null;
   const n = Number(raw);

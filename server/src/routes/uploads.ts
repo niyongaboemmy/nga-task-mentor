@@ -9,6 +9,7 @@ import fileServer from "../utils/fileServer";
 import { getScopedSubjects } from "../utils/scopedSubjects";
 import { enterTenant, resolveTenant, sendTenantGate } from "../tenancy/request";
 import { parseTid, PRIMARY_TENANT_ID } from "../vendor/nga-tenancy";
+import { tidOrPrimary } from "../tenancy/keys";
 
 /**
  * GET /uploads/<subpath> -- stored files, authorised (TM-8, Phase 0 #1).
@@ -165,7 +166,7 @@ async function stream(subpath: string, res: Response, opts: { legacyOnly?: boole
   }
   // Files that predate the file-server: the old local uploads/ dir, which
   // only ever held the primary tenant's files.
-  const tid = res.req.tenant?.tid ?? PRIMARY_TENANT_ID;
+  const tid = res.req.tenant?.tid ?? tidOrPrimary("uploads.serve");
   if (tid === PRIMARY_TENANT_ID) {
     const legacyPath = path.join(LEGACY_DIR, subpath);
     if (legacyPath.startsWith(LEGACY_DIR) && fs.existsSync(legacyPath) && fs.statSync(legacyPath).isFile()) {
@@ -223,7 +224,7 @@ export async function signedUploadUrl(req: Request, res: Response) {
   if (!(await authorizeUpload(req, subpath))) {
     return res.status(403).json({ success: false, message: "You can't open this file" });
   }
-  const tid = req.tenant?.tid ?? PRIMARY_TENANT_ID;
+  const tid = req.tenant?.tid ?? tidOrPrimary("uploads.store");
   const query = signUploadQuery(tid, subpath);
   return res.status(200).json({ success: true, url: `/uploads/${subpath}?${query}`, expiresIn: SIGNED_URL_TTL_S() });
 }

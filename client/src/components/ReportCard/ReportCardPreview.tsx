@@ -3,6 +3,7 @@ import { useInRouterContext, useNavigate } from "react-router-dom";
 import { ReportCardDocumentView } from "./ReportCardDocumentView";
 import ngaLogo from "../../assets/branding/nga-logo-horizontal.png";
 import { statusMeta } from "../../services/reportCardApi";
+import { useSchoolInfo } from "../../tenancy/useSchool";
 import { QRCodeSVG } from "qrcode.react";
 import { X, Download, Printer, Loader2, AlertCircle, RefreshCw, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,8 +29,9 @@ const CATEGORY_LABELS: Record<string, { short: string; weight: number }> = {
 
 const CATEGORY_ORDER = ["CW", "HW", "MD", "EOT"] as const;
 
-// The provisional preview's header; issued cards use the school's branding
-// from the document (ReportCardDocumentView).
+// The provisional preview's header names the signed-in school (MIS branding,
+// plan Appendix A.5); these are the fallback when it can't be read. Issued
+// cards use the school's branding from the document (ReportCardDocumentView).
 const SCHOOL_NAME = "New Generation Coding Academy";
 const SCHOOL_MOTTO = "Rwanda's Tech Talent Engine";
 
@@ -377,6 +379,11 @@ function ReportCardDocument({
 }) {
   const rc = data.report_card;
   const att = rc.attendance;
+  const { school } = useSchoolInfo();
+  const schoolName = school?.name || SCHOOL_NAME;
+  // The motto and bundled logo belong to the default school only.
+  const isDefaultSchool = schoolName === SCHOOL_NAME;
+  const schoolLogo = school?.logoUrl || (isDefaultSchool ? ngaLogo : null);
 
   const averageScore =
     data.grades.length > 0
@@ -412,17 +419,23 @@ function ReportCardDocument({
           marginBottom: 20,
         }}
       >
-        <img src={ngaLogo} alt={SCHOOL_NAME} style={{ height: 64, width: "auto", flexShrink: 0 }} />
+        {schoolLogo ? (
+          <img src={schoolLogo} alt={schoolName} style={{ height: 64, width: "auto", flexShrink: 0 }} />
+        ) : (
+          <div style={{ width: 64, flexShrink: 0 }} />
+        )}
 
         <div style={{ flex: 1, textAlign: "center", padding: "0 16px" }}>
           <div
             style={{ fontSize: 22, fontWeight: 900, color: "#1e3a5f", letterSpacing: "0.02em" }}
           >
-            {SCHOOL_NAME}
+            {schoolName}
           </div>
-          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2, letterSpacing: "0.04em" }}>
-            {SCHOOL_MOTTO}
-          </div>
+          {isDefaultSchool && (
+            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2, letterSpacing: "0.04em" }}>
+              {SCHOOL_MOTTO}
+            </div>
+          )}
           <div
             style={{
               marginTop: 6,

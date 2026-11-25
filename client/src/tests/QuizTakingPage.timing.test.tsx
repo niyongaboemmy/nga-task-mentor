@@ -83,6 +83,7 @@ vi.stubGlobal("localStorage", new MemoryStorage());
 
 import QuizTakingPage from "../pages/QuizTakingPage";
 import { ProctoringApiService } from "../services/proctoringApi";
+import { storageKey } from "../tenancy/storageKey";
 
 const QUIZ_ID = 5;
 const SUBMISSION_ID = 77;
@@ -273,7 +274,7 @@ describe("QuizTakingPage — overall quiz duration", () => {
       [102, "B"],
     ]);
     expect(screen.getByText(`results-page ${SUBMISSION_ID}`)).toBeInTheDocument();
-    expect(localStorage.getItem(`quiz_${QUIZ_ID}_answers`)).toBeNull();
+    expect(localStorage.getItem(storageKey(`quiz_${QUIZ_ID}_answers`))).toBeNull();
     // The proctoring camera/mic is switched off once the quiz is submitted.
     expect(cameraTrack.stop).toHaveBeenCalled();
     expect((window as any).proctoringStream).toBeNull();
@@ -294,7 +295,7 @@ describe("QuizTakingPage — overall quiz duration", () => {
 
     expect(screen.getByText("Time's up!")).toBeInTheDocument();
     expect(screen.getByText(/answer is\s+kept on this device/i)).toBeInTheDocument();
-    expect(JSON.parse(localStorage.getItem(`quiz_${QUIZ_ID}_answers`)!)).toEqual([
+    expect(JSON.parse(localStorage.getItem(storageKey(`quiz_${QUIZ_ID}_answers`))!)).toEqual([
       expect.objectContaining({ question_id: 101, answer: "A" }),
     ]);
     expect(screen.getByLabelText("answer-101")).toBeDisabled();
@@ -618,7 +619,7 @@ describe("QuizTakingPage — code answers are autosaved (TM-FIX-8)", () => {
       { saveOnly: true },
     );
     // The crash backup in this browser has the latest code too.
-    expect(localStorage.getItem(`quiz_${QUIZ_ID}_answers`)).toContain("print(12)");
+    expect(localStorage.getItem(storageKey(`quiz_${QUIZ_ID}_answers`))).toContain("print(12)");
   });
 
   it("saves right away when the window loses focus", async () => {
