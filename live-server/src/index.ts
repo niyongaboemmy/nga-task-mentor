@@ -90,7 +90,9 @@ const CF_TURN_TOKEN_ID = process.env.CLOUDFLARE_TURN_TOKEN_ID;
 const CF_TURN_API_TOKEN = process.env.CLOUDFLARE_TURN_API_TOKEN;
 
 const app = express();
-const httpServer = createServer(app);
+// Same header headroom as the API server: the browser sends the ~8 KB MIS
+// token cookies here too (see server/src/index.ts).
+const httpServer = createServer({ maxHeaderSize: 64 * 1024 }, app);
 const io = new Server(httpServer, {
   cors: {
     origin: CORS_ORIGIN,
