@@ -153,7 +153,7 @@ export default function SubjectAssessmentReportPage() {
     const rows = report.students.filter((s) => {
       if (activeBand && (s.markedCount === 0 || s.band !== activeBand)) return false;
       if (!q) return true;
-      return s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q);
+      return s.name.toLowerCase().includes(q) || (s.email ?? "").toLowerCase().includes(q);
     });
     return rows.sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
