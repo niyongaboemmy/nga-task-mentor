@@ -3,13 +3,17 @@ import { motion } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
+import { useLetterheadPreload } from "../../tenancy/letterhead";
+import { currentIdentity } from "../../tenancy/storageKey";
 
 const Layout: React.FC<{
   children: React.ReactNode;
   fullWidth?: boolean;
   noPadding?: boolean;
 }> = ({ children, fullWidth = false, noPadding = false }) => {
-  const { academicPeriodVersion } = useAuth();
+  const { academicPeriodVersion, user } = useAuth();
+  // The school's document letterhead, ready before anything is printed; forgotten on sign-out or another school.
+  useLetterheadPreload(user ? `${currentIdentity()?.tid ?? ""}:${user.id}` : null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (

@@ -13,6 +13,7 @@ import QRCode from "qrcode";
 import fileServer from "../utils/fileServer";
 import type { SubjectGrade, AnnualSubjectGrade } from "./reportCardGrader.service";
 import { scoreToLetterGrade } from "./reportCardGrader.service";
+import { MM, hasFooter, letterheadFrame, stampLetterhead, type Letterhead, type LetterheadOptions } from "./documentLetterhead";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -447,6 +448,8 @@ export interface AnnualReportCardPdfData {
     attributes: Array<{ attribute_name: string; rating: string }>;
   }>;
   missing_terms: string[];
+  /** The school's document letterhead: its footer is printed under the summary (the band above is the masthead). */
+  letterhead?: Letterhead | null;
 }
 
 /**
@@ -460,10 +463,12 @@ export async function generateAnnualReportCardPdf(
 ): Promise<Buffer> {
   const brand = await getBranding();
   await getGradingBands();
+  const lh = hasFooter(data.letterhead) ? data.letterhead! : null;
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: "A4",
       margin: 40,
+      bufferPages: !!lh,
       info: {
         Title: `Annual Report Card - ${data.student_name} - ${data.academic_year}`,
         Author: "NGA Task Mentor",
@@ -602,13 +607,16 @@ export async function generateAnnualReportCardPdf(
 
     // ── Footer (no QR — this is a computed summary, not a stored/verifiable
     //    document; the individual term report cards carry verification) ────
-    const footerY = doc.page.height - margin - 30;
+    //    With a school footer, this line moves up to sit just above it.
+    const frame: LetterheadOptions = { header: false, sideMm: margin / MM };
+    const footerY = (lh ? letterheadFrame(doc, lh, frame).pageBottom + 4 : doc.page.height - margin) - 30;
     doc.moveTo(margin, footerY).lineTo(margin + contentWidth, footerY).lineWidth(0.5).stroke(COLORS.border);
     doc.font(FONTS.normal).fontSize(7).fillColor(COLORS.muted)
       .text(
         `Generated: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}   |   Computed summary of ${terms.length} term report card(s) — see individual term documents for verified originals.`,
         margin, footerY + 8, { width: contentWidth },
       );
+    if (lh) stampLetterhead(doc, lh, { ...frame, note: `${data.student_name} · Annual summary ${data.academic_year}` });
 
     doc.end();
   });

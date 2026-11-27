@@ -9,12 +9,16 @@ import { C, F, exact, pct, type CardArt } from "./reportCardPdfCommon";
  * QR verification of this exact version.
  */
 
-export function drawNormalCard(pdf: PDFKit.PDFDocument, doc: ReportCardDocument, art: CardArt): void {
+/** Page margin of the Normal card (points). */
+export const NORMAL_MARGIN = 30;
+
+/** Draws the card from the top of the current page; returns the y where it ends. */
+export function drawNormalCard(pdf: PDFKit.PDFDocument, doc: ReportCardDocument, art: CardArt): number {
   const { watermark, url, qr, logo } = art;
 
-  const M = 30;
+  const M = NORMAL_MARGIN;
   const W = pdf.page.width - M * 2;
-  const bottom = pdf.page.height - M;
+  const bottom = art.bottom ?? pdf.page.height - M;
   let y = M;
 
   const drawWatermark = () => {
@@ -398,5 +402,5 @@ export function drawNormalCard(pdf: PDFKit.PDFDocument, doc: ReportCardDocument,
     });
   }
   y = bandTop + bandH - 8;
-
+  return y;
 }

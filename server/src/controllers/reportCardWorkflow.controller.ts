@@ -38,6 +38,7 @@ import {
 } from "../services/reportCardDocument";
 import { activeSnapshot, frozenDocument, supersedeSnapshots, verificationBase, writeSnapshot } from "../services/reportCardSnapshot.service";
 import { renderClassReportCardsPdf } from "../services/reportCardDocumentPdf";
+import { loadLetterhead } from "../services/documentLetterhead";
 import { loadSchoolDirectory, type SchoolDirectory } from "../services/schoolDirectory";
 import { getReportCardScheme, setReportCardScheme, getGradingBands } from "../services/tenantSettings";
 import { builderStructure, gradingOf } from "../services/reportCardBuilders";
@@ -277,7 +278,7 @@ export async function runTransition(req: Request, body: TransitionPayload): Prom
           doc.card.version = version;
           doc.card.status = "approved";
           doc.card.approved_at = approvedAt.toISOString();
-          await writeSnapshot(card, doc, { actorId });
+          await writeSnapshot(card, doc, { actorId, req });
         } else if (action === "publish") {
           if (scheduled) {
             await card.update({ publish_at: scheduleAt });
@@ -1263,7 +1264,7 @@ export const getClassPdf = async (req: Request, res: Response) => {
       if (d) docs.push(d);
     }
     const className = group?.name ?? cards.find((c) => c.class_name)?.class_name ?? `Class #${classGroupId}`;
-    const pdf = await renderClassReportCardsPdf(docs, { class_name: className, term, academic_year: year }, { verificationBaseUrl: verificationBase() });
+    const pdf = await renderClassReportCardsPdf(docs, { class_name: className, term, academic_year: year }, { verificationBaseUrl: verificationBase(), letterhead: await loadLetterhead(req, { header: false }) });
     const safe = (v: string) => v.replace(/[^\p{L}\p{N}]+/gu, "_").replace(/^_+|_+$/g, "") || "class";
     res.set({
       "Content-Type": "application/pdf",

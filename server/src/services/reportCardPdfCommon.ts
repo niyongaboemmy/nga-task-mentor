@@ -3,6 +3,7 @@ import path from "path";
 import QRCode from "qrcode";
 import type { ReportCardDocument } from "./reportCardDocument";
 import { currentTenantOrNull } from "../vendor/nga-tenancy";
+import type { Letterhead } from "./documentLetterhead";
 
 /**
  * What every report card PDF template shares: the palette, fonts, the
@@ -43,6 +44,11 @@ export interface PdfOptions {
   verificationBaseUrl: string;
   /** Overrides the default (PROVISIONAL for anything not approved/published). */
   watermark?: string | null;
+  /**
+   * The school's document letterhead (documentLetterhead.loadLetterhead(req, { header: false })).
+   * A card has its own masthead, so only the footer is printed, under the card.
+   */
+  letterhead?: Letterhead | null;
 }
 
 export const isIssued = (doc: ReportCardDocument) => doc.card.status === "approved" || doc.card.status === "published";
@@ -60,6 +66,8 @@ export interface CardArt {
   url: string;
   qr: Buffer | null;
   logo: string | null;
+  /** Last y the card may draw at before it starts a new page (default: the page height less the card's margin). */
+  bottom?: number;
 }
 
 export async function cardArt(doc: ReportCardDocument, opts: PdfOptions): Promise<CardArt> {

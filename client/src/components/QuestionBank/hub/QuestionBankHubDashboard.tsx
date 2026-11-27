@@ -26,6 +26,7 @@ import type {
 import type { QuestionType } from "../../../types/quiz.types";
 import { getQuestionTypeIcon } from "../questionTypeIcons";
 import { formatDateTimeLocal } from "../../../utils/dateUtils";
+import PrintLetterhead from "../../ui/PrintLetterhead";
 
 /**
  * Question Bank hub -- the "Dashboard" tab. Pure presentation over the
@@ -239,6 +240,7 @@ const QuestionBankHubDashboard: React.FC<Props> = ({ data, refreshing, onRefresh
 
   return (
     <div className="space-y-5 print:space-y-3">
+      <PrintLetterhead note="Question bank report" />
       {/* Toolbar: freshness + report actions (both views) */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className={`text-xs ${SECONDARY}`}>

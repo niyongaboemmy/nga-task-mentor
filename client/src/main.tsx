@@ -10,9 +10,13 @@ import App from "./App.tsx";
 import { initNgaInstall, NgaInstallPrompt } from "./pwa/ngaInstall";
 import { startActivity } from "./activity";
 import { HideInFocusMode } from "./utils/focusMode";
+import { wireLetterhead } from "./tenancy/letterhead";
 
 // Installable app + "install this too" when opened from the installed NGA app.
 initNgaInstall();
+
+// The school's header and footer on every printed page (tenancy/letterhead.ts).
+wireLetterhead();
 
 // Platform usage analytics (page views, engagement, live presence) via /api/activity.
 startActivity();

@@ -199,6 +199,25 @@ describe("SchoolReportsPage", () => {
     expect(screen.queryByText("Provisional — includes draft cards.")).not.toBeInTheDocument();
   });
 
+  it("prints with the school's letterhead in the paper's margins (landscape), after its own @page rule", async () => {
+    const ua = navigator.userAgent;
+    Object.defineProperty(navigator, "userAgent", { value: "Mozilla/5.0 Chrome/140.0.0.0 Safari/537.36", configurable: true });
+    try {
+      const { container } = renderPage();
+      await screen.findByRole("row", { name: /Aline Uwase/ });
+      const styles = Array.from(container.querySelectorAll("style"));
+      const own = styles.findIndex((el) => el.textContent?.includes("size: landscape"));
+      const letterhead = styles.findIndex((el) => el.hasAttribute("data-print-letterhead"));
+      expect(own).toBeGreaterThanOrEqual(0);
+      expect(letterhead).toBeGreaterThan(own);
+      // Nothing set for the school in a test: the page line alone, with its room reserved.
+      expect(styles[letterhead].textContent).toContain("margin-bottom: 14mm");
+      expect(styles[letterhead].textContent).toContain('"School reports · Page " counter(page) " of " counter(pages)');
+    } finally {
+      Object.defineProperty(navigator, "userAgent", { value: ua, configurable: true });
+    }
+  });
+
   it("renders all five tabs", async () => {
     renderPage();
     await screen.findByRole("row", { name: /Aline Uwase/ });

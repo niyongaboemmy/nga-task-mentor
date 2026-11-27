@@ -21,6 +21,8 @@ export interface SchoolInfo {
   tid: number;
   name: string | null;
   logoUrl: string | null;
+  /** The school's document letterhead (see tenancy/letterhead.ts); absent on an older server. */
+  letterhead?: { headerUrl: string | null; fallbackLogoUrl: string | null; footerUrl: string | null; footerText: string | null } | null;
   schools: MySchool[];
   canSwitch: boolean;
 }

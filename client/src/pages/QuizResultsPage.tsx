@@ -24,6 +24,7 @@ import PracticalGradeSummary from "../components/Quizzes/PracticalGradeSummary";
 import RichTextDisplay from "../components/Common/RichTextDisplay";
 import type { StudentQuizState } from "../types/quiz.types";
 import { describeRetake } from "../utils/retakeState";
+import PrintLetterhead from "../components/ui/PrintLetterhead";
 
 interface Quiz {
   id: number;
@@ -659,6 +660,7 @@ const QuizResultsPage: React.FC = () => {
 
   return (
     <div className="">
+      <PrintLetterhead note="Quiz results" />
       {/* Animated Background */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-20 left-10 w-4 h-4 bg-blue-200 dark:bg-blue-800/30 rounded-full animate-fading delay-100"></div>

@@ -1,8 +1,9 @@
 import PDFDocument from "pdfkit";
 import type { ReportCardDocument } from "./reportCardDocument";
-import { C, F, cardArt, collect, exact, logoPath, type CardArt, type PdfOptions } from "./reportCardPdfCommon";
-import { drawNormalCard } from "./reportCardPdfNormal";
-import { drawTvetCard } from "./reportCardPdfTvet";
+import { C, F, cardArt, collect, drawWatermark, exact, logoPath, type CardArt, type PdfOptions } from "./reportCardPdfCommon";
+import { NORMAL_MARGIN, drawNormalCard } from "./reportCardPdfNormal";
+import { TVET_MARGIN, drawTvetCard } from "./reportCardPdfTvet";
+import { EMPTY_LETTERHEAD, MM, hasFooter, letterheadFrame, stampLetterhead, type LetterheadOptions } from "./documentLetterhead";
 
 export { exact, isIssued, logoPath, verificationUrl, type PdfOptions } from "./reportCardPdfCommon";
 
@@ -13,26 +14,66 @@ export { exact, isIssued, logoPath, verificationUrl, type PdfOptions } from "./r
  * CAMIS (reportCardPdfTvet.ts). A snapshot without a builder is Normal.
  *
  * Unapproved cards carry a "PROVISIONAL" watermark and no QR.
+ *
+ * A school with a document footer (documentLetterhead.ts) gets it under every
+ * card. The card keeps its own masthead, so the letterhead's header is left
+ * out; a card that filled one page still does (see drawCard).
  */
 
-/** Draws one card, in its builder's template, from the top of the current page. */
-export function drawCard(pdf: PDFKit.PDFDocument, doc: ReportCardDocument, art: CardArt): void {
-  if (doc.builder === "tvet" && doc.tvet) drawTvetCard(pdf, doc, art);
-  else drawNormalCard(pdf, doc, art);
+const isTvet = (doc: ReportCardDocument) => doc.builder === "tvet" && !!doc.tvet;
+
+/**
+ * Draws one card, in its builder's template, from the top of the current page.
+ *
+ * `reserve` is the room (points) the letterhead footer needs at the bottom of
+ * the page. A card that fits above it is drawn as it is. A card that fitted
+ * the page without the footer but not with it is drawn slightly smaller
+ * (about 10% at most), so it stays the one page it was designed as. A card
+ * that was longer than a page anyway breaks above the footer.
+ */
+export function drawCard(pdf: PDFKit.PDFDocument, doc: ReportCardDocument, art: CardArt, reserve = 0): void {
+  const draw = isTvet(doc) ? drawTvetCard : drawNormalCard;
+  const margin = isTvet(doc) ? TVET_MARGIN : NORMAL_MARGIN;
+  if (reserve <= margin) {
+    draw(pdf, doc, art);
+    return;
+  }
+  const limit = pdf.page.height - reserve;
+  // The card's own height, measured on a page that never ends.
+  const scratch = new PDFDocument({ size: [pdf.page.width, 20 * pdf.page.height], margin: 30 });
+  const natural = draw(scratch, doc, { ...art, watermark: null, bottom: Number.POSITIVE_INFINITY });
+  if (natural <= limit || natural > pdf.page.height - margin) {
+    draw(pdf, doc, { ...art, bottom: limit });
+    return;
+  }
+  const k = limit / natural;
+  drawWatermark(pdf, art.watermark);
+  pdf.save();
+  pdf.translate((pdf.page.width * (1 - k)) / 2, 0).scale(k);
+  draw(pdf, doc, { ...art, watermark: null, bottom: Number.POSITIVE_INFINITY });
+  pdf.restore();
 }
 
 export async function renderReportCardPdf(doc: ReportCardDocument, opts: PdfOptions): Promise<Buffer> {
   const art = await cardArt(doc, opts);
+  // No footer set: the card is exactly what it was.
+  const lh = hasFooter(opts.letterhead) ? opts.letterhead! : null;
   const pdf = new PDFDocument({
     size: "A4",
     margin: 30,
+    bufferPages: !!lh,
     info: {
       Title: `Report Card - ${doc.student.name} - ${doc.card.term} ${doc.card.academic_year}`,
       Author: doc.school.name,
       Subject: doc.builder === "tvet" ? "Learner's Assessment Report" : "Student Academic Report Card",
     },
   });
-  return collect(pdf, () => drawCard(pdf, doc, art));
+  return collect(pdf, () => {
+    if (!lh) return drawCard(pdf, doc, art);
+    const frame: LetterheadOptions = { header: false, sideMm: (isTvet(doc) ? TVET_MARGIN : NORMAL_MARGIN) / MM };
+    drawCard(pdf, doc, art, letterheadFrame(pdf, lh, frame).bottom);
+    stampLetterhead(pdf, lh, { ...frame, note: `${doc.student.name} · ${doc.card.term} ${doc.card.academic_year}` });
+  });
 }
 
 
@@ -63,9 +104,9 @@ const COVER_NEXT_TOP = 70;
 const COVER_BOTTOM = 52; // room for the note and the page footer
 
 /** Rows per cover page; the cover's page count decides each card's page number. */
-function coverPages(n: number, pageH: number): number {
-  const first = Math.floor((pageH - COVER_BOTTOM - COVER_FIRST_TOP - COVER_HEAD) / COVER_ROW);
-  const next = Math.floor((pageH - COVER_BOTTOM - COVER_NEXT_TOP - COVER_HEAD) / COVER_ROW);
+function coverPages(n: number, pageH: number, coverBottom = COVER_BOTTOM): number {
+  const first = Math.floor((pageH - coverBottom - COVER_FIRST_TOP - COVER_HEAD) / COVER_ROW);
+  const next = Math.floor((pageH - coverBottom - COVER_NEXT_TOP - COVER_HEAD) / COVER_ROW);
   return n <= first ? 1 : 1 + Math.ceil((n - first) / next);
 }
 
@@ -81,6 +122,7 @@ export async function renderClassReportCardsPdf(docsIn: ReportCardDocument[], me
     size: "A4",
     margin: 30,
     autoFirstPage: true,
+    bufferPages: true, // the letterhead is stamped on every page at the end
     info: {
       Title: `Report Cards - ${meta.class_name} - ${meta.term} ${meta.academic_year}`,
       Author: docs[0]?.school.name ?? "",
@@ -93,15 +135,21 @@ export async function renderClassReportCardsPdf(docsIn: ReportCardDocument[], me
     const pageH = pdf.page.height;
     const school = docs[0]?.school;
     const logo = logoPath(school?.logo);
-    const nCover = coverPages(docs.length, pageH);
+    // The school's footer under every page (the cover and the cards have their own masthead);
+    // without one, only the page line is printed, where it always was.
+    const lh = opts.letterhead ?? EMPTY_LETTERHEAD;
+    const frame: LetterheadOptions = { header: false, sideMm: M / MM };
+    const reserve = hasFooter(lh) ? letterheadFrame(pdf, lh, frame).bottom : 0;
+    const coverBottom = Math.max(COVER_BOTTOM, reserve + 24);
+    const nCover = coverPages(docs.length, pageH, coverBottom);
     const pageOf = (i: number) => nCover + i + 1;
     const tvet = docs.some((d) => d.builder === "tvet" && d.tvet);
 
-    const footer = (text: string) => {
-      const keep = pdf.page.margins.bottom;
-      pdf.page.margins.bottom = 0;
-      pdf.font(F.normal).fontSize(6.5).fillColor(C.muted).text(text, M, pageH - 18, { width: W, align: "center", lineBreak: false });
-      pdf.page.margins.bottom = keep;
+    /** The note on the page line of every page from `from` (0-based) to the current one. */
+    const notes: string[] = [];
+    const pageIndex = () => pdf.bufferedPageRange().count - 1;
+    const footer = (text: string, from = pageIndex()) => {
+      for (let p = from; p <= pageIndex(); p++) notes[p] = text;
     };
     /** One line that shrinks a little, then ends in "…", to fit. */
     const fitText = (text: string, x: number, y: number, w: number, size: number, font: string, color: string, align: "left" | "center" | "right" = "left", shrink = true) => {
@@ -201,12 +249,10 @@ export async function renderClassReportCardsPdf(docsIn: ReportCardDocument[], me
     pdf.font(F.bold).fontSize(8).fillColor(C.navy).text("RANKING", M, y, { lineBreak: false, characterSpacing: 0.8 });
     y += 13;
     head();
-    let coverPage = 1;
     docs.forEach((d, i) => {
-      if (y + COVER_ROW > pageH - COVER_BOTTOM) {
-        footer(`${meta.class_name} · ${meta.term} ${meta.academic_year} · page ${coverPage}`);
+      if (y + COVER_ROW > pageH - coverBottom) {
+        footer(`${meta.class_name} · ${meta.term} ${meta.academic_year}`);
         pdf.addPage();
-        coverPage++;
         y = COVER_NEXT_TOP - COVER_HEAD - 8;
         head();
       }
@@ -276,17 +322,20 @@ export async function renderClassReportCardsPdf(docsIn: ReportCardDocument[], me
         : "Positions are by the average of the subjects assessed so far.") +
       (drafts ? ` ${drafts} card${drafts === 1 ? " isn't" : "s aren't"} approved yet and ${drafts === 1 ? "is" : "are"} marked PROVISIONAL.` : "") +
       " Click a row to open that card.";
-    pdf.font(F.normal).fontSize(6.8).fillColor(C.muted).text(note, M, Math.min(y + 10, pageH - COVER_BOTTOM + 8), { width: W, lineBreak: true });
-    footer(`${meta.class_name} · ${meta.term} ${meta.academic_year} · page ${coverPage}`);
+    pdf.font(F.normal).fontSize(6.8).fillColor(C.muted).text(note, M, Math.min(y + 10, pageH - coverBottom + 8), { width: W, lineBreak: true });
+    footer(`${meta.class_name} · ${meta.term} ${meta.academic_year}`);
 
     // ── One card per page ──────────────────────────────────────────────
     docs.forEach((d, i) => {
       pdf.addPage();
+      const first = pageIndex();
       pdf.addNamedDestination(`card-${i + 1}`);
-      drawCard(pdf, d, arts[i]);
+      drawCard(pdf, d, arts[i], reserve);
       footer(
-        `${meta.class_name} · ${meta.term} ${meta.academic_year} · ${d.summary.position != null ? `Position ${d.summary.position} of ${d.summary.position_of ?? docs.length}` : "Not ranked"} · page ${pageOf(i)}`,
+        `${meta.class_name} · ${meta.term} ${meta.academic_year} · ${d.summary.position != null ? `Position ${d.summary.position} of ${d.summary.position_of ?? docs.length}` : "Not ranked"}`,
+        first,
       );
     });
+    stampLetterhead(pdf, lh, { ...frame, note: (page) => notes[page - 1] });
   });
 }
