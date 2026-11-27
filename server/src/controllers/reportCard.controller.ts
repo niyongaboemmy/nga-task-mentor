@@ -30,6 +30,7 @@ import {
   type ReportCardDocument,
 } from "../services/reportCardDocument";
 import { renderReportCardPdf } from "../services/reportCardDocumentPdf";
+import { loadLetterhead } from "../services/documentLetterhead";
 import {
   activeSnapshot,
   cardPdf,
@@ -982,7 +983,9 @@ export const generatePdf = async (req: Request, res: Response) => {
 
     const doc = await documentFor(req, reportCard, { staff: access.canViewAll });
     const snap = isFrozen(reportCard.status) ? await activeSnapshot(reportCard.id!) : null;
-    const pdfBuffer = snap ? await cardPdf(doc, snap) : await renderReportCardPdf(doc, { verificationBaseUrl: verificationBase() });
+    const pdfBuffer = snap
+      ? await cardPdf(doc, snap, req)
+      : await renderReportCardPdf(doc, { verificationBaseUrl: verificationBase(), letterhead: await loadLetterhead(req, { header: false }) });
     const filename = `ReportCard-${safeName(doc.student.name)}-${safeName(reportCard.term)}-${safeName(reportCard.academic_year)}${
       snap ? `-v${snap.version}` : "-PROVISIONAL"
     }.pdf`;
@@ -1031,6 +1034,7 @@ export const generateAnnualPdf = async (req: Request, res: Response) => {
       subject_names: d.subjectNames,
       per_term: d.perTerm.map((t) => ({ term: t.term, attendance: t.attendance, attributes: t.attributes })),
       missing_terms: d.missingTerms,
+      letterhead: await loadLetterhead(req, { header: false }),
     });
     const filename = `AnnualReport-${safeName(studentName)}-${safeName(academic_year)}.pdf`;
     res.set({

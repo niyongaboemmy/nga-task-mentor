@@ -60,12 +60,16 @@ export const TVET_ABBREVIATIONS: Array<[string, string]> = [
 const termLabel = (t: string) => t.toUpperCase();
 const of = (p: number | null, n: number | null) => (p != null && n != null ? `${p} out of ${n}` : "–");
 
-export function drawTvetCard(pdf: PDFKit.PDFDocument, doc: Doc, art: CardArt): void {
+/** Page margin of the TVET card (points). */
+export const TVET_MARGIN = 22;
+
+/** Draws the card from the top of the current page; returns the y where it ends. */
+export function drawTvetCard(pdf: PDFKit.PDFDocument, doc: Doc, art: CardArt): number {
   const tv = doc.tvet!;
   const { watermark, url, qr, logo } = art;
-  const M = 22;
+  const M = TVET_MARGIN;
   const W = pdf.page.width - M * 2;
-  const bottom = pdf.page.height - M;
+  const bottom = art.bottom ?? pdf.page.height - M;
   let y = M;
   const final = tv.final;
   const nTerms = tv.terms.length;
@@ -367,5 +371,7 @@ export function drawTvetCard(pdf: PDFKit.PDFDocument, doc: Doc, art: CardArt): v
   }
   if (qr) bits.push(`Verify: scan the code or open ${url} (version ${doc.card.version}).`);
   else bits.push("Provisional: not yet approved, so this report can't be verified.");
-  pdf.font(F.normal).fontSize(6).fillColor(qr ? C.muted : C.red).text(bits.join("  ·  "), M, Math.min(y, bottom - 8), { width: W, lineBreak: false, ellipsis: true });
+  const lastY = Math.min(y, bottom - 8);
+  pdf.font(F.normal).fontSize(6).fillColor(qr ? C.muted : C.red).text(bits.join("  ·  "), M, lastY, { width: W, lineBreak: false, ellipsis: true });
+  return lastY + 8;
 }

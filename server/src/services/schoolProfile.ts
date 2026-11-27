@@ -27,6 +27,11 @@ export interface SchoolProfile {
   qualification_title: string | null;
   head_teacher_name: string | null;
   logo_url: string | null;
+  /** The document letterhead (services/documentLetterhead.ts); null on an MIS that doesn't have it yet. */
+  documents_logo_url: string | null;
+  documents_footer_url: string | null;
+  /** Up to four lines, separated by line breaks. */
+  documents_footer_text: string | null;
 }
 
 export const SCHOOL_PROFILE_FIELDS = [
@@ -61,6 +66,9 @@ export function normalizeProfile(raw: any): SchoolProfile {
     qualification_title: text(raw?.qualification_title),
     head_teacher_name: text(raw?.head_teacher_name),
     logo_url: text(raw?.logo_url),
+    documents_logo_url: text(raw?.documents_logo_url),
+    documents_footer_url: text(raw?.documents_footer_url),
+    documents_footer_text: text(raw?.documents_footer_text),
   };
 }
 

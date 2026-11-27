@@ -19,6 +19,7 @@ import AtRiskTab from "../components/SchoolReports/AtRiskTab";
 import { atRiskRows, broadsheetRows, genderRows, performanceRows, trendsRows } from "../components/SchoolReports/csvRows";
 import { ReportsSkeleton } from "../components/SchoolReports/shared";
 import { secondaryBtn } from "../components/SchoolReports/format";
+import PrintLetterhead from "../components/ui/PrintLetterhead";
 
 // ─── /reports/school ──────────────────────────────────────────────────────────
 // The school's term reports from report-card data (GET /api/reports/school):
@@ -187,6 +188,8 @@ export default function SchoolReportsPage() {
   return (
     <div className="mx-auto max-w-[1400px] space-y-4 p-4 pb-16 sm:p-6">
       <style>{PRINT_CSS}</style>
+      {/* After the page's own @page rule: the letterhead only changes the top and bottom margins. */}
+      <PrintLetterhead note="School reports" pageWidthMm={297} sideMm={10} />
 
       <div className="print:hidden">
         <PageHeader

@@ -7,6 +7,7 @@ import fileServer from "../utils/fileServer";
 import { buildCardDocuments, loadCohort, type ReportCardDocument } from "./reportCardDocument";
 import { renderReportCardPdf } from "./reportCardDocumentPdf";
 import { isFrozen } from "./reportCardWorkflow";
+import { loadLetterhead } from "./documentLetterhead";
 
 /**
  * Approval freezes a card: the rendered document is stored with the PDF made
@@ -37,12 +38,13 @@ export async function snapshotOfVersion(cardId: number, version: number): Promis
 export async function writeSnapshot(
   card: ReportCard,
   doc: ReportCardDocument,
-  opts: { actorId: number | null; backfilled?: boolean },
+  opts: { actorId: number | null; backfilled?: boolean; req?: Request | null },
 ): Promise<ReportCardSnapshot> {
   let pdfPath: string | null = null;
   let sha: string | null = null;
   try {
-    const pdf = await renderReportCardPdf(doc, { verificationBaseUrl: verificationBase() });
+    // The school's footer as it is at approval: the stored PDF keeps it, like everything else on the card.
+    const pdf = await renderReportCardPdf(doc, { verificationBaseUrl: verificationBase(), letterhead: await loadLetterhead(opts.req ?? null, { header: false }) });
     sha = crypto.createHash("sha256").update(pdf).digest("hex");
     const path = snapshotPdfPath(card.uuid, doc.card.version);
     await fileServer.uploadFile(pdf, path);
@@ -82,7 +84,7 @@ export async function frozenDocument(req: Request, card: ReportCard): Promise<Re
   const doc = docs.get(card.id!)!;
   doc.card.version = card.version;
   doc.card.approved_at = (card.approved_at ?? card.updatedAt ?? new Date()).toISOString?.() ?? new Date().toISOString();
-  await writeSnapshot(card, doc, { actorId: card.approved_by ?? null, backfilled: true });
+  await writeSnapshot(card, doc, { actorId: card.approved_by ?? null, backfilled: true, req });
   return doc;
 }
 
@@ -94,7 +96,7 @@ export async function supersedeSnapshots(cardId: number, reason: string): Promis
 }
 
 /** The card's PDF: the stored file of its snapshot, else rendered from the document. */
-export async function cardPdf(doc: ReportCardDocument, snap: ReportCardSnapshot | null): Promise<Buffer> {
+export async function cardPdf(doc: ReportCardDocument, snap: ReportCardSnapshot | null, req: Request | null = null): Promise<Buffer> {
   if (snap?.pdf_path) {
     try {
       return await fileServer.downloadToBuffer(snap.pdf_path);
@@ -102,5 +104,5 @@ export async function cardPdf(doc: ReportCardDocument, snap: ReportCardSnapshot 
       console.warn(`reportCardSnapshot: stored PDF ${snap.pdf_path} unavailable, re-rendering:`, e?.message ?? e);
     }
   }
-  return renderReportCardPdf(doc, { verificationBaseUrl: verificationBase() });
+  return renderReportCardPdf(doc, { verificationBaseUrl: verificationBase(), letterhead: await loadLetterhead(req, { header: false }) });
 }

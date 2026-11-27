@@ -9,6 +9,9 @@ import { tk } from "../tenancy/keys";
  * the account menu's "Switch school" (TENANT_SWITCHING_PLAN.md Appendix A.4/A.5):
  *
  *  - name + logo: MIS public `GET /tenant/branding?tid=<tid>` -> data.school_name, data.logoUrl
+ *  - letterhead:  the same answer's data.logos.{primary, documents, footer} and
+ *                 data.documents_footer_text: what the browser prints on every page
+ *                 (client utils/documentLetterhead.ts). An MIS without them gives nulls.
  *  - schools:     MIS `GET /auth/my-schools` with the person's MIS token
  *                 -> data.schools[{ tid, slug, name, logoUrl, status, current, roles[] }]
  *
@@ -24,17 +27,39 @@ export interface MySchool {
   current: boolean;
 }
 
+/** The school's document letterhead as addresses (public images) and text. */
+export interface SchoolLetterhead {
+  headerUrl: string | null;
+  fallbackLogoUrl: string | null;
+  footerUrl: string | null;
+  footerText: string | null;
+}
+
+const NO_LETTERHEAD: SchoolLetterhead = { headerUrl: null, fallbackLogoUrl: null, footerUrl: null, footerText: null };
+
+/** The letterhead in MIS's /tenant/branding answer (older MIS: all null but the logo). */
+export function normalizeLetterhead(d: any): SchoolLetterhead {
+  const logos = d?.logos ?? {};
+  return {
+    headerUrl: text(logos.documents),
+    fallbackLogoUrl: text(logos.primary) ?? text(d?.logoUrl ?? d?.logo_url),
+    footerUrl: text(logos.footer),
+    footerText: text(d?.documents_footer_text),
+  };
+}
+
 export interface SchoolInfo {
   tid: number;
   name: string | null;
   logoUrl: string | null;
+  letterhead: SchoolLetterhead;
   schools: MySchool[];
   canSwitch: boolean;
 }
 
 const BRANDING_TTL_MS = 10 * 60 * 1000;
 const SCHOOLS_TTL_MS = 60 * 1000;
-const brandingCache = new Map<number, { at: number; name: string | null; logoUrl: string | null }>();
+const brandingCache = new Map<number, { at: number; name: string | null; logoUrl: string | null; letterhead: SchoolLetterhead }>();
 const schoolsCache = new Map<string, { at: number; schools: MySchool[] }>();
 
 const misBase = () => (process.env.NGA_MIS_BASE_URL || "").replace(/\/+$/, "");
@@ -60,20 +85,20 @@ export function normalizeMySchools(body: unknown, currentTid: number): MySchool[
   return out;
 }
 
-async function branding(tid: number): Promise<{ name: string | null; logoUrl: string | null }> {
+async function branding(tid: number): Promise<{ name: string | null; logoUrl: string | null; letterhead: SchoolLetterhead }> {
   const hit = brandingCache.get(tid);
   if (hit && Date.now() - hit.at < BRANDING_TTL_MS) return hit;
   const base = misBase();
-  if (!base) return { name: null, logoUrl: null };
+  if (!base) return { name: null, logoUrl: null, letterhead: NO_LETTERHEAD };
   try {
     const res = await axios.get(`${base}/tenant/branding`, { params: { tid }, timeout: 5000 });
     const d = res.data?.data ?? {};
-    const value = { name: text(d.school_name ?? d.name), logoUrl: text(d.logoUrl ?? d.logo_url) };
+    const value = { name: text(d.school_name ?? d.name), logoUrl: text(d.logoUrl ?? d.logo_url), letterhead: normalizeLetterhead(d) };
     brandingCache.set(tid, { at: Date.now(), ...value });
     return value;
   } catch {
     // Remember the miss briefly so every page view doesn't retry.
-    const value = { name: hit?.name ?? null, logoUrl: hit?.logoUrl ?? null };
+    const value = { name: hit?.name ?? null, logoUrl: hit?.logoUrl ?? null, letterhead: hit?.letterhead ?? NO_LETTERHEAD };
     brandingCache.set(tid, { at: Date.now() - BRANDING_TTL_MS + 60_000, ...value });
     return value;
   }
@@ -108,6 +133,7 @@ export async function schoolInfo(req: Request): Promise<SchoolInfo> {
     tid,
     name: brand.name ?? fromList?.name ?? req.tenant?.name ?? null,
     logoUrl: brand.logoUrl ?? fromList?.logoUrl ?? null,
+    letterhead: brand.letterhead,
     schools,
     canSwitch: schools.length >= 2,
   };
@@ -121,7 +147,7 @@ export async function getSchoolInfo(req: Request, res: Response) {
     console.error("getSchoolInfo failed:", err?.message ?? err);
     return res.status(200).json({
       success: true,
-      data: { tid: req.tenant?.tid ?? null, name: req.tenant?.name ?? null, logoUrl: null, schools: [], canSwitch: false },
+      data: { tid: req.tenant?.tid ?? null, name: req.tenant?.name ?? null, logoUrl: null, letterhead: NO_LETTERHEAD, schools: [], canSwitch: false },
     });
   }
 }
